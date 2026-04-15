@@ -1,0 +1,28 @@
+{
+  "name": "@howells/lint",
+  "version": "0.1.2",
+  "description": "Pinned Biome and Ultracite presets for Howells projects.",
+  "license": "MIT",
+  "files": [
+    "biome/*.json",
+    "bin/*.mjs",
+    "README.md",
+    "MIGRATIONS.md"
+  ],
+  "bin": {
+    "howells-biome": "bin/howells-biome.mjs",
+    "howells-lint": "bin/howells-lint.mjs",
+    "howells-format": "bin/howells-format.mjs",
+    "howells-ultracite": "bin/howells-ultracite.mjs"
+  },
+  "dependencies": {
+    "@biomejs/biome": "2.4.12",
+    "ultracite": "7.5.9"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    "./biome/core": "./biome/core.json",
+    "./biome/react": "./biome/react.json",
+    "./biome/next": "./biome/next.json"
+  }
+}
