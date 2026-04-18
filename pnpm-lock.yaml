@@ -12,8 +12,8 @@ importers:
         specifier: 2.4.12
         version: 2.4.12
       ultracite:
-        specifier: 7.5.9
-        version: 7.5.9
+        specifier: 7.6.0
+        version: 7.6.0
 
 packages:
 
@@ -161,8 +161,8 @@ packages:
     resolution: {integrity: sha512-u9r3uZC0bdpGOXtlxUIdwf9pkmvhqJdrVCH9fapQtgy/OeTTMZ1nqH7agtvEfmGui6e1XxjcdrlxvxJvc3sMqw==}
     engines: {node: '>=18'}
 
-  ultracite@7.5.9:
-    resolution: {integrity: sha512-6UBZNXqUm9tosAQ/nBQaWeCHWBcOVZmDl9Jfg33o9jSrUSTobpphI23Wh72tc8iYPTR3tXGHWhO+GvC7w/QyQQ==}
+  ultracite@7.6.0:
+    resolution: {integrity: sha512-i8Pmi7Tgtku00/4od12nLiLjgO92+DmuRWTIFApe4f6n8osYT98QLcEdsf7xpJiZflyc8gsONWbFw0RvhO9QzQ==}
     hasBin: true
     peerDependencies:
       oxfmt: '>=0.1.0'
@@ -306,7 +306,7 @@ snapshots:
 
   tinyexec@1.0.4: {}
 
-  ultracite@7.5.9:
+  ultracite@7.6.0:
     dependencies:
       '@clack/prompts': 1.2.0
       commander: 14.0.3
