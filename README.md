@@ -97,6 +97,38 @@ Prefer explicit script targets over config churn when the only difference is sco
 - If a repo needs framework-specific linting, choose the matching preset instead of layering rules manually.
 - Prefer inline `biome-ignore` comments for truly isolated exceptions over broad config overrides.
 
+## Claude Code Hooks
+
+Add this to `.claude/settings.json` so files are formatted on edit and linted on session end:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | { read file_path; case \"$file_path\" in *.js|*.ts|*.jsx|*.tsx|*.json|*.jsonc|*.css|*.graphql) howells-format \"$file_path\" 2>/dev/null || true ;; esac; }"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git diff --name-only --diff-filter=d HEAD | grep -E '\\.(js|ts|jsx|tsx|json|jsonc|css|graphql)$' | xargs howells-format 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
 ## Upstream
 
 This package wraps:
