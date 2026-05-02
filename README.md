@@ -10,36 +10,63 @@ The goal is not to invent a second lint philosophy. The goal is to:
 - give every consumer the same small preset matrix
 - discourage repo-local overrides unless the project has a genuinely unique constraint
 
-## Install
+## Agent Setup Checklist
+
+When configuring a project, do this in order:
+
+1. Require Node 22.18.0+ and pnpm in the root `package.json`, and pin `.node-version` to `22.18.0`.
+2. Install only `@howells/lint` as the direct lint dependency.
+3. Add a `biome.json` that extends the closest presets.
+4. Add read-only `lint`, mutating `lint:fix`, and optional `lint:strict` scripts.
+5. If the project is a monorepo, add root workspace scripts that run `howells-workspace-check`.
+6. Verify with `pnpm lint` and, when configured, `pnpm lint:strict`.
+
+## Requirements
+
+All projects using this package should declare the runtime and package manager explicitly:
+
+```json
+{
+  "packageManager": "pnpm@10.23.0",
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}
+```
+
+Also add a root `.node-version` file:
+
+```text
+22.18.0
+```
+
+Install the shared tooling:
 
 ```bash
 pnpm add -D @howells/lint
 ```
 
-## Presets
+Do not add `@biomejs/biome`, `ultracite`, or `@manypkg/cli` directly unless you are developing this package itself. They are pinned transitively here.
+
+## Biome Presets
 
 Choose the closest preset instead of starting from a generic base and patching it locally:
 
-- `@howells/lint/biome/core`
-- `@howells/lint/biome/react`
-- `@howells/lint/biome/next`
+- `@howells/lint/biome/core` for Node or non-React TypeScript packages
+- `@howells/lint/biome/react` for React packages
+- `@howells/lint/biome/next` for Next.js apps
 
-These presets already:
+These presets already pin Biome and Ultracite, enable VCS ignore file support, ignore common build output directories, keep `ignoreUnknown` on for mixed repos, enforce 2-space indentation, and enable Tailwind CSS directives on DOM-oriented presets.
 
-- pin Biome and Ultracite transitively
-- enable VCS ignore file support
-- ignore common build output directories
-- keep `ignoreUnknown` on so mixed repos do not need defensive local config
-- enforce 2-space indentation consistently
-- enable Tailwind CSS directives on DOM-oriented presets
-
-## Usage
+The shared presets exclude generated and output folders seen across Howells projects: `node_modules`, `.next`, `.turbo`, `.vercel`, `dist`, `build`, `coverage`, `out`, `storybook-static`, `playwright-report`, `test-results`, `.source`, `.cache`, `.expo`, `.output`, `.wrangler`, `.svelte-kit`, `.nuxt`, `.vite`, `.vinxi`, `dev-dist`, `tmp`, and `temp`. Keep repo-local excludes only for genuinely project-specific generated files or data directories.
 
 Node or non-React TypeScript package:
 
 ```json
 {
-  "extends": ["@howells/lint/biome/core"]
+  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+  "extends": ["@howells/lint/biome/core"],
+  "root": true
 }
 ```
 
@@ -47,7 +74,9 @@ React package:
 
 ```json
 {
-  "extends": ["@howells/lint/biome/react"]
+  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+  "extends": ["@howells/lint/biome/core", "@howells/lint/biome/react"],
+  "root": true
 }
 ```
 
@@ -55,23 +84,19 @@ Next.js app:
 
 ```json
 {
-  "extends": ["@howells/lint/biome/next"]
+  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+  "extends": [
+    "@howells/lint/biome/core",
+    "@howells/lint/biome/react",
+    "@howells/lint/biome/next"
+  ],
+  "root": true
 }
 ```
 
-## Binaries
+## Package Scripts
 
-Installers only need `@howells/lint` as a direct dependency. Use the package binaries instead of adding `@biomejs/biome`, `ultracite`, or `@manypkg/cli` separately:
-
-- `howells-biome` proxies to the pinned Biome binary
-- `howells-ultracite` proxies to the pinned Ultracite binary
-- `howells-lint` defaults to `biome check .`
-- `howells-lint-strict` runs the high-signal Biome security, correctness, and suspicious lint rules
-- `howells-format` defaults to `biome check . --write`
-- `howells-workspace-check` validates root workspace hygiene, then runs `manypkg check`
-- `howells-workspace-fix` defaults to `manypkg fix`
-
-Example scripts:
+Every package or single-package app should use this shape:
 
 ```json
 {
@@ -85,23 +110,7 @@ Example scripts:
 
 Keep `lint` non-mutating. Put all `--write` behavior in `lint:fix` or `format` so CI and local checks have the same semantics.
 
-Monorepo root scripts should compose package linting with workspace validation:
-
-```json
-{
-  "scripts": {
-    "lint": "turbo run lint && howells-workspace-check",
-    "lint:fix": "turbo run lint:fix && howells-workspace-fix",
-    "lint:strict": "turbo run lint:strict"
-  }
-}
-```
-
-`howells-workspace-check` expects workspace roots to declare `packageManager: "pnpm@..."`, require Node 20+ in `engines.node`, and keep `pnpm-workspace.yaml` present when using workspace package directories.
-
-CI should call `pnpm lint` or `pnpm check` so these root checks are not bypassed by a direct `turbo lint` command.
-
-Prefer explicit script targets over config churn when the only difference is scope:
+Prefer `howells-lint .` over raw `biome check` or long target lists. Use explicit script targets only when the package has a real scope constraint:
 
 ```json
 {
@@ -111,6 +120,46 @@ Prefer explicit script targets over config churn when the only difference is sco
   }
 }
 ```
+
+## Monorepo Roots
+
+Use workspace checks only at the monorepo root. Do not add `howells-workspace-check` to individual packages, and do not add it to single-package apps.
+
+A monorepo root should have:
+
+```json
+{
+  "packageManager": "pnpm@10.23.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "lint": "turbo run lint && howells-workspace-check",
+    "lint:fix": "turbo run lint:fix && howells-workspace-fix",
+    "lint:strict": "turbo run lint:strict",
+    "check": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@howells/lint": "^0.1.6"
+  }
+}
+```
+
+`howells-workspace-check` validates that the root declares `packageManager: "pnpm@..."`, requires Node 22.18.0+ in `engines.node`, pins `.node-version` to `22.18.0`, keeps `pnpm-workspace.yaml` present when workspace package directories exist, and passes `manypkg check`.
+
+CI should call `pnpm lint` or `pnpm check` so root workspace checks are not bypassed by a direct `turbo lint` command.
+
+## Binaries
+
+Installers only need `@howells/lint` as a direct dependency. Use these package binaries:
+
+- `howells-biome` proxies to the pinned Biome binary
+- `howells-ultracite` proxies to the pinned Ultracite binary
+- `howells-lint` defaults to `biome check .`
+- `howells-lint-strict` runs high-signal Biome security, correctness, and suspicious lint rules
+- `howells-format` defaults to `biome check . --write`
+- `howells-workspace-check` validates root workspace hygiene, then runs `manypkg check`
+- `howells-workspace-fix` runs `manypkg fix`
 
 ## Rules
 

@@ -1,9 +1,38 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
-  "extends": ["./react.json", "ultracite/biome/next"],
-  "css": {
-    "parser": {
-      "tailwindDirectives": true
-    }
-  }
+	"$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+	"extends": ["./react.json", "ultracite/biome/next"],
+	"files": {
+		"ignoreUnknown": true,
+		"includes": [
+			"**",
+			"!**/node_modules/**",
+			"!**/.next/**",
+			"!**/.turbo/**",
+			"!**/.vercel/**",
+			"!**/dist/**",
+			"!**/build/**",
+			"!**/coverage/**",
+			"!**/out/**",
+			"!**/storybook-static/**",
+			"!**/playwright-report/**",
+			"!**/test-results/**",
+			"!**/.source/**",
+			"!**/.cache/**",
+			"!**/.expo/**",
+			"!**/.output/**",
+			"!**/.wrangler/**",
+			"!**/.svelte-kit/**",
+			"!**/.nuxt/**",
+			"!**/.vite/**",
+			"!**/.vinxi/**",
+			"!**/dev-dist/**",
+			"!**/tmp/**",
+			"!**/temp/**"
+		]
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	}
 }

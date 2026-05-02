@@ -19,9 +19,10 @@ If none of these fit cleanly, the likely answer is a new shared preset here, not
 ## Migration steps
 
 1. Add `@howells/lint` as a dev dependency.
-2. Replace `eslint`, `next lint`, `prettier`, or direct `biome` scripts with `howells-lint` and `howells-format`.
-3. Replace the project `biome.json` or `biome.jsonc` with a minimal file that only extends one shared preset.
-4. Remove direct `eslint`, `eslint-config-*`, `eslint-plugin-*`, `prettier`, `@biomejs/biome`, and `ultracite` dependencies once the project is green.
+2. Pin Node with `.node-version` set to `22.18.0` and `engines.node` set to `>=22.18.0`.
+3. Replace `eslint`, `next lint`, `prettier`, or direct `biome` scripts with `howells-lint` and `howells-format`.
+4. Replace the project `biome.json` or `biome.jsonc` with a minimal file that only extends one shared preset.
+5. Remove direct `eslint`, `eslint-config-*`, `eslint-plugin-*`, `prettier`, `@biomejs/biome`, and `ultracite` dependencies once the project is green.
 
 ## Keep local config thin
 
@@ -35,7 +36,7 @@ The normal local config should look like this:
 
 Acceptable local additions:
 
-- repo-specific file includes or force-ignores that cannot be expressed better in scripts
+- repo-specific file includes or force-ignores for generated files that are unique to one project
 - one-off rule changes tied to a genuine platform constraint
 - temporary compatibility shims during migration
 
