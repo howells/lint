@@ -7,24 +7,32 @@ const require = createRequire(import.meta.url);
 const helpOptions = new Set(["--help", "-h"]);
 const versionOptions = new Set(["--version", "-V"]);
 
-function printHelp(command) {
+export function printManypkgCommandHelp(command) {
 	console.log(`Usage: howells-workspace-${command} [options]\n`);
 	console.log(`Runs: manypkg ${command} [options]`);
 }
 
-function printVersion() {
+export function printManypkgCliVersion() {
 	const { version } = require("@manypkg/cli/package.json");
 	console.log(version);
 }
 
-export function runManypkgCommand(command, args) {
+export function handleManypkgMetadataCommand(command, args) {
 	if (helpOptions.has(args[0])) {
-		printHelp(command);
-		process.exit(0);
+		printManypkgCommandHelp(command);
+		return true;
 	}
 
 	if (versionOptions.has(args[0])) {
-		printVersion();
+		printManypkgCliVersion();
+		return true;
+	}
+
+	return false;
+}
+
+export function runManypkgCommand(command, args) {
+	if (handleManypkgMetadataCommand(command, args)) {
 		process.exit(0);
 	}
 

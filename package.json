@@ -1,6 +1,6 @@
 {
 	"name": "@howells/lint",
-	"version": "0.1.4",
+	"version": "0.1.5",
 	"description": "Pinned Biome and Ultracite presets for Howells projects.",
 	"license": "MIT",
 	"engines": {
@@ -15,6 +15,7 @@
 	"bin": {
 		"howells-biome": "bin/howells-biome.mjs",
 		"howells-lint": "bin/howells-lint.mjs",
+		"howells-lint-strict": "bin/howells-lint-strict.mjs",
 		"howells-format": "bin/howells-format.mjs",
 		"howells-ultracite": "bin/howells-ultracite.mjs",
 		"howells-workspace-check": "bin/howells-workspace-check.mjs",

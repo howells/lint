@@ -66,8 +66,9 @@ Installers only need `@howells/lint` as a direct dependency. Use the package bin
 - `howells-biome` proxies to the pinned Biome binary
 - `howells-ultracite` proxies to the pinned Ultracite binary
 - `howells-lint` defaults to `biome check .`
+- `howells-lint-strict` runs the high-signal Biome security, correctness, and suspicious lint rules
 - `howells-format` defaults to `biome check . --write`
-- `howells-workspace-check` defaults to `manypkg check`
+- `howells-workspace-check` validates root workspace hygiene, then runs `manypkg check`
 - `howells-workspace-fix` defaults to `manypkg fix`
 
 Example scripts:
@@ -75,11 +76,14 @@ Example scripts:
 ```json
 {
   "scripts": {
-    "lint": "howells-lint",
-    "lint:fix": "howells-format"
+    "lint": "howells-lint .",
+    "lint:fix": "howells-format .",
+    "lint:strict": "howells-lint-strict ."
   }
 }
 ```
+
+Keep `lint` non-mutating. Put all `--write` behavior in `lint:fix` or `format` so CI and local checks have the same semantics.
 
 Monorepo root scripts should compose package linting with workspace validation:
 
@@ -87,12 +91,15 @@ Monorepo root scripts should compose package linting with workspace validation:
 {
   "scripts": {
     "lint": "turbo run lint && howells-workspace-check",
-    "lint:fix": "turbo run lint:fix && howells-workspace-fix"
+    "lint:fix": "turbo run lint:fix && howells-workspace-fix",
+    "lint:strict": "turbo run lint:strict"
   }
 }
 ```
 
-CI should call `pnpm lint` or `pnpm check` so the workspace check is not bypassed by a direct `turbo lint` command.
+`howells-workspace-check` expects workspace roots to declare `packageManager: "pnpm@..."`, require Node 20+ in `engines.node`, and keep `pnpm-workspace.yaml` present when using workspace package directories.
+
+CI should call `pnpm lint` or `pnpm check` so these root checks are not bypassed by a direct `turbo lint` command.
 
 Prefer explicit script targets over config churn when the only difference is scope:
 
@@ -112,6 +119,8 @@ Prefer explicit script targets over config churn when the only difference is sco
 - If multiple repos need the same exception, add or adjust a preset here.
 - If a repo needs framework-specific linting, choose the matching preset instead of layering rules manually.
 - Prefer inline `biome-ignore` comments for truly isolated exceptions over broad config overrides.
+- Keep package `lint` scripts read-only; use `lint:fix` for formatting and safe writes.
+- Prefer `howells-lint .` over raw `biome check` or long target lists unless a package has a real scope constraint.
 
 ## Claude Code Hooks
 
