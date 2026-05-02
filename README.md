@@ -6,6 +6,7 @@ The goal is not to invent a second lint philosophy. The goal is to:
 
 - pin a single `@biomejs/biome` version
 - pin a single `ultracite` version
+- pin a single `@manypkg/cli` version for monorepo consistency checks
 - give every consumer the same small preset matrix
 - discourage repo-local overrides unless the project has a genuinely unique constraint
 
@@ -60,12 +61,14 @@ Next.js app:
 
 ## Binaries
 
-Installers only need `@howells/lint` as a direct dependency. Use the package binaries instead of adding `@biomejs/biome` or `ultracite` separately:
+Installers only need `@howells/lint` as a direct dependency. Use the package binaries instead of adding `@biomejs/biome`, `ultracite`, or `@manypkg/cli` separately:
 
 - `howells-biome` proxies to the pinned Biome binary
 - `howells-ultracite` proxies to the pinned Ultracite binary
 - `howells-lint` defaults to `biome check .`
 - `howells-format` defaults to `biome check . --write`
+- `howells-workspace-check` defaults to `manypkg check`
+- `howells-workspace-fix` defaults to `manypkg fix`
 
 Example scripts:
 
@@ -77,6 +80,19 @@ Example scripts:
   }
 }
 ```
+
+Monorepo root scripts should compose package linting with workspace validation:
+
+```json
+{
+  "scripts": {
+    "lint": "turbo run lint && howells-workspace-check",
+    "lint:fix": "turbo run lint:fix && howells-workspace-fix"
+  }
+}
+```
+
+CI should call `pnpm lint` or `pnpm check` so the workspace check is not bypassed by a direct `turbo lint` command.
 
 Prefer explicit script targets over config churn when the only difference is scope:
 
