@@ -1,6 +1,6 @@
 # Adoption Notes
 
-Use these notes when replacing an existing ESLint, Prettier, or ad hoc Biome setup with `@howells/lint`.
+Use these notes when replacing an existing ESLint, Prettier, Oxc, or ad hoc Biome setup with `@howells/lint`.
 
 ## Primary rule
 
@@ -22,7 +22,24 @@ If none of these fit cleanly, the likely answer is a new shared preset here, not
 2. Pin Node with `.node-version` set to `22.18.0` and `engines.node` set to `>=22.18.0`.
 3. Replace `eslint`, `next lint`, `prettier`, or direct `biome` scripts with `howells-lint` and `howells-format`.
 4. Replace the project `biome.json` or `biome.jsonc` with a minimal file that only extends one shared preset.
-5. Remove direct `eslint`, `eslint-config-*`, `eslint-plugin-*`, `prettier`, `@biomejs/biome`, and `ultracite` dependencies once the project is green.
+5. Remove direct `eslint`, `eslint-config-*`, `eslint-plugin-*`, `prettier`, `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, and `ultracite` dependencies once the project is green.
+
+## Oxlint/Oxfmt opt-in
+
+Biome remains the default migration target. Use Oxlint/Oxfmt only for projects that deliberately choose the Oxc lane.
+
+For an Oxlint/Oxfmt project, add `oxlint.config.ts` and `oxfmt.config.ts` using the exports from `@howells/lint`, then use:
+
+```json
+{
+  "scripts": {
+    "lint": "howells-ox-check .",
+    "lint:fix": "howells-ox-fix ."
+  }
+}
+```
+
+Do not run Biome and Oxlint/Oxfmt together indefinitely. If both are present during a migration, write down which command is authoritative and remove the other once the migration is green.
 
 ## Keep local config thin
 

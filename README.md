@@ -1,14 +1,18 @@
 # `@howells/lint`
 
-Pinned Biome and Ultracite presets for Howells projects.
+Pinned Biome, Oxlint/Oxfmt, and Ultracite presets for Howells projects.
 
 The goal is not to invent a second lint philosophy. The goal is to:
 
 - pin a single `@biomejs/biome` version
+- pin a single `oxlint` version
+- pin a single `oxfmt` version
 - pin a single `ultracite` version
 - pin a single `@manypkg/cli` version for monorepo consistency checks
 - give every consumer the same small preset matrix
 - discourage repo-local overrides unless the project has a genuinely unique constraint
+
+Biome is the default toolchain. Oxlint/Oxfmt is offered as an explicit opt-in lane for JavaScript and TypeScript projects that want the Oxc stack's speed and ESLint-style rule coverage.
 
 ## Agent Setup Checklist
 
@@ -46,7 +50,7 @@ Install the shared tooling:
 pnpm add -D @howells/lint
 ```
 
-Do not add `@biomejs/biome`, `ultracite`, or `@manypkg/cli` directly unless you are developing this package itself. They are pinned transitively here.
+Do not add `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, or `@manypkg/cli` directly unless you are developing this package itself. They are pinned transitively here.
 
 ## Biome Presets
 
@@ -64,7 +68,7 @@ Node or non-React TypeScript package:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
   "extends": ["@howells/lint/biome/core"],
   "root": true
 }
@@ -74,7 +78,7 @@ React package:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
   "extends": ["@howells/lint/biome/core", "@howells/lint/biome/react"],
   "root": true
 }
@@ -84,7 +88,7 @@ Next.js app:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
   "extends": [
     "@howells/lint/biome/core",
     "@howells/lint/biome/react",
@@ -92,6 +96,56 @@ Next.js app:
   ],
   "root": true
 }
+```
+
+## Oxlint/Oxfmt Presets
+
+Use this lane only when a project deliberately wants Oxlint and Oxfmt instead of Biome for day-to-day linting and formatting. The default `howells-lint` and `howells-format` commands stay on Biome.
+
+Create an `oxlint.config.ts`:
+
+```ts
+import { defineConfig } from "oxlint";
+import core from "@howells/lint/oxlint/core";
+
+export default defineConfig({
+  extends: [core],
+});
+```
+
+For React or Next.js projects, add the matching presets:
+
+```ts
+import { defineConfig } from "oxlint";
+import core from "@howells/lint/oxlint/core";
+import react from "@howells/lint/oxlint/react";
+import next from "@howells/lint/oxlint/next";
+
+export default defineConfig({
+  extends: [core, react, next],
+});
+```
+
+Create an `oxfmt.config.ts`:
+
+```ts
+import { defineConfig } from "oxfmt";
+import howells from "@howells/lint/oxfmt";
+
+export default defineConfig({
+  extends: [howells],
+});
+```
+
+Oxlint type-aware rules are available through the pinned `oxlint-tsgolint` dependency. Enable them in the root Oxlint config when the project is ready for TypeScript 7 / `typescript-go` constraints:
+
+```ts
+export default defineConfig({
+  extends: [core],
+  options: {
+    typeAware: true,
+  },
+});
 ```
 
 ## Package Scripts
@@ -121,6 +175,19 @@ Prefer `howells-lint .` over raw `biome check` or long target lists. Use explici
 }
 ```
 
+For an Oxlint/Oxfmt project, keep the command names explicit:
+
+```json
+{
+  "scripts": {
+    "lint": "howells-ox-check .",
+    "lint:fix": "howells-ox-fix ."
+  }
+}
+```
+
+Use `howells-ox-fix --unsafe .` only when you deliberately want Oxlint's dangerous fixes.
+
 ## Monorepo Roots
 
 Use workspace checks only at the monorepo root. Do not add `howells-workspace-check` to individual packages, and do not add it to single-package apps.
@@ -140,7 +207,7 @@ A monorepo root should have:
     "check": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "@howells/lint": "^0.1.6"
+    "@howells/lint": "^0.1.7"
   }
 }
 ```
@@ -158,6 +225,10 @@ Installers only need `@howells/lint` as a direct dependency. Use these package b
 - `howells-lint` defaults to `biome check .`
 - `howells-lint-strict` runs high-signal Biome security, correctness, and suspicious lint rules
 - `howells-format` defaults to `biome check . --write`
+- `howells-oxlint` proxies to the pinned Oxlint binary
+- `howells-oxfmt` proxies to the pinned Oxfmt binary
+- `howells-ox-check` runs `oxfmt --check`, then `oxlint`
+- `howells-ox-fix` runs `oxfmt --write`, then `oxlint --fix`
 - `howells-workspace-check` validates root workspace hygiene, then runs `manypkg check`
 - `howells-workspace-fix` runs `manypkg fix`
 
@@ -165,6 +236,7 @@ Installers only need `@howells/lint` as a direct dependency. Use these package b
 
 - Do not add local overrides just to preserve old ESLint behavior.
 - Do not create local `base`, `shared`, or `custom` Biome wrappers.
+- Do not mix Biome and Oxlint/Oxfmt scripts in the same package unless the project has a deliberate migration plan.
 - If multiple repos need the same exception, add or adjust a preset here.
 - If a repo needs framework-specific linting, choose the matching preset instead of layering rules manually.
 - Prefer inline `biome-ignore` comments for truly isolated exceptions over broad config overrides.
@@ -208,4 +280,6 @@ Add this to `.claude/settings.json` so files are formatted on edit and linted on
 This package wraps:
 
 - [Biome configuration docs](https://biomejs.dev/reference/configuration/)
+- [Oxlint configuration docs](https://oxc.rs/docs/guide/usage/linter/config-file-reference.html)
+- [Oxfmt configuration docs](https://oxc.rs/docs/guide/usage/formatter/config-file-reference)
 - [Ultracite configuration docs](https://www.ultracite.ai/configuration)

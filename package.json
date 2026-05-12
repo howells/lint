@@ -1,7 +1,7 @@
 {
 	"name": "@howells/lint",
-	"version": "0.1.6",
-	"description": "Pinned Biome and Ultracite presets for Howells projects.",
+	"version": "0.1.7",
+	"description": "Pinned Biome, Oxlint/Oxfmt, and Ultracite presets for Howells projects.",
 	"license": "MIT",
 	"packageManager": "pnpm@10.23.0",
 	"engines": {
@@ -9,6 +9,10 @@
 	},
 	"files": [
 		"biome/*.json",
+		"oxfmt/*.d.mts",
+		"oxfmt/*.mjs",
+		"oxlint/*.d.mts",
+		"oxlint/*.mjs",
 		"bin/*.mjs",
 		"README.md",
 		"MIGRATIONS.md"
@@ -18,19 +22,42 @@
 		"howells-lint": "bin/howells-lint.mjs",
 		"howells-lint-strict": "bin/howells-lint-strict.mjs",
 		"howells-format": "bin/howells-format.mjs",
+		"howells-ox-check": "bin/howells-ox-check.mjs",
+		"howells-ox-fix": "bin/howells-ox-fix.mjs",
+		"howells-oxfmt": "bin/howells-oxfmt.mjs",
+		"howells-oxlint": "bin/howells-oxlint.mjs",
 		"howells-ultracite": "bin/howells-ultracite.mjs",
 		"howells-workspace-check": "bin/howells-workspace-check.mjs",
 		"howells-workspace-fix": "bin/howells-workspace-fix.mjs"
 	},
 	"dependencies": {
-		"@biomejs/biome": "2.4.14",
+		"@biomejs/biome": "2.4.15",
 		"@manypkg/cli": "^0.25.1",
-		"ultracite": "7.6.2"
+		"oxfmt": "0.49.0",
+		"oxlint": "1.64.0",
+		"oxlint-tsgolint": "0.22.1",
+		"ultracite": "7.7.0"
 	},
 	"exports": {
 		"./package.json": "./package.json",
 		"./biome/core": "./biome/core.json",
 		"./biome/react": "./biome/react.json",
-		"./biome/next": "./biome/next.json"
+		"./biome/next": "./biome/next.json",
+		"./oxfmt": {
+			"types": "./oxfmt/index.d.mts",
+			"default": "./oxfmt/index.mjs"
+		},
+		"./oxlint/core": {
+			"types": "./oxlint/core.d.mts",
+			"default": "./oxlint/core.mjs"
+		},
+		"./oxlint/react": {
+			"types": "./oxlint/react.d.mts",
+			"default": "./oxlint/react.mjs"
+		},
+		"./oxlint/next": {
+			"types": "./oxlint/next.d.mts",
+			"default": "./oxlint/next.mjs"
+		}
 	}
 }
