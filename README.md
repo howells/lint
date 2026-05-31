@@ -1,6 +1,6 @@
 # `@howells/lint`
 
-Pinned Biome, Oxlint/Oxfmt, and Ultracite presets for Howells projects.
+Pinned Biome, Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.
 
 The goal is not to invent a second lint philosophy. The goal is to:
 
@@ -8,6 +8,7 @@ The goal is not to invent a second lint philosophy. The goal is to:
 - pin a single `oxlint` version
 - pin a single `oxfmt` version
 - pin a single `ultracite` version
+- pin React Doctor's Oxlint plugin for React and Next.js projects on the Oxlint/Oxfmt lane
 - pin a single `@manypkg/cli` version for monorepo consistency checks
 - give every consumer the same small preset matrix
 - discourage repo-local overrides unless the project has a genuinely unique constraint
@@ -50,7 +51,7 @@ Install the shared tooling:
 pnpm add -D @howells/lint
 ```
 
-Do not add `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, or `@manypkg/cli` directly unless you are developing this package itself. They are pinned transitively here.
+Do not add `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `oxc-parser`, or `@manypkg/cli` directly unless you are developing this package itself. They are pinned transitively here.
 
 ## Biome Presets
 
@@ -100,9 +101,15 @@ Next.js app:
 
 ## Oxlint/Oxfmt Presets
 
-Use this lane only when a project deliberately wants Oxlint and Oxfmt instead of Biome for day-to-day linting and formatting. The default `howells-lint` and `howells-format` commands stay on Biome.
+Use this lane when a project wants Oxlint and Oxfmt instead of Biome. React and Next presets stack the relevant Ultracite Ox rules with [React Doctor](https://react.doctor) rules in one config.
 
-Create an `oxlint.config.ts`:
+Choose the closest preset:
+
+- `@howells/lint/oxlint/core` for Node or non-React TypeScript
+- `@howells/lint/oxlint/react` for React (Ultracite React + React Doctor recommended rules)
+- `@howells/lint/oxlint/next` for Next.js (react preset + Next.js rules)
+
+Node or non-React TypeScript:
 
 ```ts
 import { defineConfig } from "oxlint";
@@ -113,16 +120,25 @@ export default defineConfig({
 });
 ```
 
-For React or Next.js projects, add the matching presets:
+React package:
 
 ```ts
 import { defineConfig } from "oxlint";
-import core from "@howells/lint/oxlint/core";
 import react from "@howells/lint/oxlint/react";
+
+export default defineConfig({
+  extends: [react],
+});
+```
+
+Next.js app:
+
+```ts
+import { defineConfig } from "oxlint";
 import next from "@howells/lint/oxlint/next";
 
 export default defineConfig({
-  extends: [core, react, next],
+  extends: [next],
 });
 ```
 
@@ -150,7 +166,9 @@ export default defineConfig({
 
 ## Package Scripts
 
-Every package or single-package app should use this shape:
+Use scripts that match the lane the project has chosen.
+
+Biome lane:
 
 ```json
 {
@@ -162,26 +180,28 @@ Every package or single-package app should use this shape:
 }
 ```
 
-Keep `lint` non-mutating. Put all `--write` behavior in `lint:fix` or `format` so CI and local checks have the same semantics.
-
-Prefer `howells-lint .` over raw `biome check` or long target lists. Use explicit script targets only when the package has a real scope constraint:
-
-```json
-{
-  "scripts": {
-    "lint": "howells-lint apps/web packages/ui",
-    "lint:fix": "howells-format apps/web packages/ui"
-  }
-}
-```
-
-For an Oxlint/Oxfmt project, keep the command names explicit:
+Oxlint/Oxfmt lane:
 
 ```json
 {
   "scripts": {
     "lint": "howells-ox-check .",
     "lint:fix": "howells-ox-fix ."
+  }
+}
+```
+
+The Oxlint/Oxfmt lane does not currently define a separate `lint:strict`; React Doctor's recommended rules are part of the normal Ox check.
+
+Keep `lint` non-mutating. Put all write behavior in `lint:fix` or `format` so CI and local checks have the same semantics.
+
+Prefer the package binaries over raw tool commands or long target lists. Use explicit script targets only when the package has a real scope constraint:
+
+```json
+{
+  "scripts": {
+    "lint": "howells-lint apps/web packages/ui",
+    "lint:fix": "howells-format apps/web packages/ui"
   }
 }
 ```
@@ -207,7 +227,7 @@ A monorepo root should have:
     "check": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "@howells/lint": "^0.1.7"
+    "@howells/lint": "^0.2.0"
   }
 }
 ```
@@ -283,3 +303,4 @@ This package wraps:
 - [Oxlint configuration docs](https://oxc.rs/docs/guide/usage/linter/config-file-reference.html)
 - [Oxfmt configuration docs](https://oxc.rs/docs/guide/usage/formatter/config-file-reference)
 - [Ultracite configuration docs](https://www.ultracite.ai/configuration)
+- [React Doctor docs](https://react.doctor/docs)
