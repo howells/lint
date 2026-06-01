@@ -108,6 +108,7 @@ Choose the closest preset:
 - `@howells/lint/oxlint/core` for Node or non-React TypeScript
 - `@howells/lint/oxlint/react` for React (Ultracite React + React Doctor recommended rules)
 - `@howells/lint/oxlint/next` for Next.js (react preset + Next.js rules)
+- `@howells/lint/oxlint/react-doctor-rules` for composing or disabling React Doctor rules in mixed workspaces
 
 Node or non-React TypeScript:
 
@@ -139,6 +140,24 @@ import next from "@howells/lint/oxlint/next";
 
 export default defineConfig({
   extends: [next],
+});
+```
+
+Mixed monorepo with a Next.js app and Node-only packages:
+
+```ts
+import { defineConfig } from "oxlint";
+import next from "@howells/lint/oxlint/next";
+import { disabledReactDoctorRules } from "@howells/lint/oxlint/react-doctor-rules";
+
+export default defineConfig({
+  extends: [next],
+  overrides: [
+    {
+      files: ["packages/**/*.ts"],
+      rules: disabledReactDoctorRules,
+    },
+  ],
 });
 ```
 
