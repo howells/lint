@@ -103,11 +103,14 @@ Next.js app:
 
 Use this lane when a project wants Oxlint and Oxfmt instead of Biome. React and Next presets stack the relevant Ultracite Ox rules with [React Doctor](https://react.doctor) rules in one config.
 
+React Doctor severities are passed through as published by React Doctor. Native Oxlint Next.js severities come from Oxlint's official `nextjs` plugin via Ultracite's Next preset. `@howells/lint` adds canonical Howells policy on top for file naming, barrel files, env access, and tests.
+
 Choose the closest preset:
 
 - `@howells/lint/oxlint/core` for Node or non-React TypeScript
 - `@howells/lint/oxlint/react` for React (Ultracite React + React Doctor recommended rules)
 - `@howells/lint/oxlint/next` for Next.js (react preset + Next.js rules)
+- `@howells/lint/oxlint/boundaries` for monorepo import boundaries (`packages/**` cannot import from `apps/**`, and apps cannot import from other apps)
 - `@howells/lint/oxlint/react-doctor-rules` for composing or disabling React Doctor rules in mixed workspaces
 
 Node or non-React TypeScript:
@@ -142,6 +145,25 @@ export default defineConfig({
   extends: [next],
 });
 ```
+
+Monorepo root or package boundary config:
+
+```ts
+import { defineConfig } from "oxlint";
+import {
+  boundaryJsPlugins,
+  boundaryRules,
+  boundarySettings,
+} from "@howells/lint/oxlint/boundaries";
+
+export default defineConfig({
+  jsPlugins: boundaryJsPlugins,
+  settings: boundarySettings,
+  rules: boundaryRules,
+});
+```
+
+Run boundary configs from the monorepo root so element patterns such as `apps/*/**` and `packages/*/**` match the project tree.
 
 Mixed monorepo with a Next.js app and Node-only packages:
 

@@ -1,6 +1,6 @@
 {
 	"name": "@howells/lint",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "Pinned Biome, Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
 	"license": "MIT",
 	"packageManager": "pnpm@10.23.0",
@@ -35,12 +35,14 @@
 	"dependencies": {
 		"@biomejs/biome": "2.4.15",
 		"@manypkg/cli": "^0.25.1",
+		"eslint-import-resolver-typescript": "4.4.4",
+		"eslint-plugin-boundaries": "6.0.2",
 		"oxc-parser": "0.133.0",
 		"oxfmt": "0.51.0",
 		"oxlint": "1.66.0",
-		"oxlint-plugin-react-doctor": "0.2.14",
+		"oxlint-plugin-react-doctor": "0.4.0",
 		"oxlint-tsgolint": "0.23.0",
-		"ultracite": "7.7.0"
+		"ultracite": "7.8.1"
 	},
 	"exports": {
 		"./package.json": "./package.json",
@@ -62,6 +64,10 @@
 		"./oxlint/next": {
 			"types": "./oxlint/next.d.mts",
 			"default": "./oxlint/next.mjs"
+		},
+		"./oxlint/boundaries": {
+			"types": "./oxlint/boundaries.d.mts",
+			"default": "./oxlint/boundaries.mjs"
 		},
 		"./oxlint/react-doctor-rules": {
 			"types": "./oxlint/react-doctor-rules.d.mts",
