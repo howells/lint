@@ -11,12 +11,13 @@ export const boundarySettings = {
 		},
 		typescript: {
 			alwaysTryTypes: true,
+			noWarnOnMultipleProjects: true,
 			project: ["tsconfig.json", "apps/*/tsconfig.json", "packages/*/tsconfig.json"],
 		},
 	},
 	"boundaries/elements": [
-		{ type: "app", pattern: "apps/*/**", mode: "full" },
-		{ type: "package", pattern: "packages/*/**", mode: "full" },
+		{ type: "app", pattern: "apps/*", capture: ["name"] },
+		{ type: "package", pattern: "packages/*", capture: ["name"] },
 	],
 };
 
@@ -34,7 +35,14 @@ export const boundaryRules = {
 				},
 				{
 					from: { type: "app" },
-					disallow: [{ to: { type: "app" } }],
+					disallow: [
+						{
+							to: {
+								type: "app",
+								captured: { name: "!{{ from.captured.name }}" },
+							},
+						},
+					],
 					message: "Apps must not import from other apps.",
 				},
 			],

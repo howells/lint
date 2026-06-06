@@ -163,7 +163,7 @@ export default defineConfig({
 });
 ```
 
-Run boundary configs from the monorepo root so element patterns such as `apps/*/**` and `packages/*/**` match the project tree.
+Run boundary configs from the monorepo root so element patterns such as `apps/*` and `packages/*` match each workspace member as a single architectural element.
 
 Mixed monorepo with a Next.js app and Node-only packages:
 
