@@ -3,6 +3,16 @@ import ultraciteCore from "ultracite/oxlint/core";
 
 export default defineConfig({
   extends: [ultraciteCore],
+  overrides: [
+    {
+      files: ["**/*.test.{js,jsx,ts,tsx}", "**/*.spec.{js,jsx,ts,tsx}"],
+      rules: {
+        complexity: "off",
+        "max-lines-per-function": "off",
+        "max-statements": "off",
+      },
+    },
+  ],
   plugins: [...new Set([...(ultraciteCore.plugins ?? []), "vitest"])],
   rules: {
     complexity: [
