@@ -4,6 +4,9 @@ import ultraciteNext from "ultracite/oxlint/next";
 import react from "./react.mjs";
 
 export default defineConfig({
-	extends: [react, ultraciteNext],
-	rules: NEXTJS_RULES,
+  extends: [react, ultraciteNext],
+  rules: {
+    ...NEXTJS_RULES,
+    "howells/no-single-client-component-page": "error",
+  },
 });

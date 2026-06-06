@@ -103,6 +103,10 @@ React Doctor severities are passed through as published by React Doctor. Native 
 
 The core Oxlint preset enables native Oxlint rules that keep code files navigable: `max-lines` errors above 600 non-comment, non-blank lines; `max-lines-per-function` warns above 120 non-comment, non-blank lines; `max-statements` warns above 45 statements per function; and `complexity` warns above cyclomatic complexity 15. React projects promote React Doctor's `react-doctor/no-giant-component` rule to an error, so genuinely oversized components still block CI. Test files keep the file-level `max-lines` guard but disable function-size, statement-count, and complexity limits, because test framework callbacks naturally wrap many independent cases. Generated files should be ignored at the project level; rare intentional exceptions should use an exact-file override with a short refactor note.
 
+React and Next presets also reject generic component suffixes that tend to hide responsibility: `wrapper`, `client`, `page`, `component`, `container`, and `manager`. The rule checks `.jsx` and `.tsx` filenames and PascalCase component declarations. It allows real Next App Router `app/**/page.tsx` files and their conventional `Page` export.
+
+Next presets reject App Router pages that only pass through to one imported client component. Route pages should keep server composition, data loading, and route-level structure in the page, then push only the interactive leaves behind a client boundary.
+
 Choose the closest preset:
 
 - `@howells/lint/oxlint/core` for Node or non-React TypeScript
