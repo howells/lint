@@ -16,7 +16,7 @@ export default defineConfig({
   plugins: [...new Set([...(ultraciteCore.plugins ?? []), "vitest"])],
   rules: {
     complexity: [
-      "error",
+      "warn",
       {
         max: 15,
       },
@@ -30,7 +30,7 @@ export default defineConfig({
       },
     ],
     "max-lines-per-function": [
-      "error",
+      "warn",
       {
         IIFEs: true,
         max: 120,
@@ -39,7 +39,7 @@ export default defineConfig({
       },
     ],
     "max-statements": [
-      "error",
+      "warn",
       {
         max: 45,
       },

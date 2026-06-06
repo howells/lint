@@ -8,5 +8,8 @@ export default defineConfig({
 	jsPlugins: [
 		{ name: "react-doctor", specifier: "oxlint-plugin-react-doctor" },
 	],
-	rules: RECOMMENDED_RULES,
+	rules: {
+		...RECOMMENDED_RULES,
+		"react-doctor/no-giant-component": "error",
+	},
 });
