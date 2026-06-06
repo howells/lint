@@ -1,42 +1,42 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
-	"extends": ["ultracite/biome/core"],
-	"formatter": {
-		"indentStyle": "space",
-		"indentWidth": 2
-	},
-	"files": {
-		"ignoreUnknown": true,
-		"includes": [
-			"**",
-			"!**/node_modules/**",
-			"!**/.next/**",
-			"!**/.turbo/**",
-			"!**/.vercel/**",
-			"!**/dist/**",
-			"!**/build/**",
-			"!**/coverage/**",
-			"!**/out/**",
-			"!**/storybook-static/**",
-			"!**/playwright-report/**",
-			"!**/test-results/**",
-			"!**/.source/**",
-			"!**/.cache/**",
-			"!**/.expo/**",
-			"!**/.output/**",
-			"!**/.wrangler/**",
-			"!**/.svelte-kit/**",
-			"!**/.nuxt/**",
-			"!**/.vite/**",
-			"!**/.vinxi/**",
-			"!**/dev-dist/**",
-			"!**/tmp/**",
-			"!**/temp/**"
-		]
-	},
-	"vcs": {
-		"enabled": true,
-		"clientKind": "git",
-		"useIgnoreFile": true
-	}
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "extends": ["ultracite/biome/core"],
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!**/node_modules/**",
+      "!**/.next/**",
+      "!**/.turbo/**",
+      "!**/.vercel/**",
+      "!**/dist/**",
+      "!**/build/**",
+      "!**/coverage/**",
+      "!**/out/**",
+      "!**/storybook-static/**",
+      "!**/playwright-report/**",
+      "!**/test-results/**",
+      "!**/.source/**",
+      "!**/.cache/**",
+      "!**/.expo/**",
+      "!**/.output/**",
+      "!**/.wrangler/**",
+      "!**/.svelte-kit/**",
+      "!**/.nuxt/**",
+      "!**/.vite/**",
+      "!**/.vinxi/**",
+      "!**/dev-dist/**",
+      "!**/tmp/**",
+      "!**/temp/**"
+    ]
+  },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  }
 }

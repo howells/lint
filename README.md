@@ -69,7 +69,7 @@ Node or non-React TypeScript package:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
   "extends": ["@howells/lint/biome/core"],
   "root": true
 }
@@ -79,7 +79,7 @@ React package:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
   "extends": ["@howells/lint/biome/core", "@howells/lint/biome/react"],
   "root": true
 }
@@ -89,12 +89,8 @@ Next.js app:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
-  "extends": [
-    "@howells/lint/biome/core",
-    "@howells/lint/biome/react",
-    "@howells/lint/biome/next"
-  ],
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "extends": ["@howells/lint/biome/core", "@howells/lint/biome/react", "@howells/lint/biome/next"],
   "root": true
 }
 ```
@@ -103,7 +99,9 @@ Next.js app:
 
 Use this lane when a project wants Oxlint and Oxfmt instead of Biome. React and Next presets stack the relevant Ultracite Ox rules with [React Doctor](https://react.doctor) rules in one config.
 
-React Doctor severities are passed through as published by React Doctor. Native Oxlint Next.js severities come from Oxlint's official `nextjs` plugin via Ultracite's Next preset. `@howells/lint` adds canonical Howells policy on top for file naming, barrel files, env access, and tests.
+React Doctor severities are passed through as published by React Doctor. Native Oxlint Next.js severities come from Oxlint's official `nextjs` plugin via Ultracite's Next preset. `@howells/lint` adds canonical Howells policy on top for file naming, barrel files, env access, file size, function size, complexity, and tests.
+
+The core Oxlint preset enables native Oxlint rules that keep code files navigable: `max-lines` errors above 600 non-comment, non-blank lines; `max-lines-per-function` errors above 120 non-comment, non-blank lines; `max-statements` errors above 45 statements per function; and `complexity` errors above cyclomatic complexity 15. Generated files should be ignored at the project level; rare intentional exceptions should use an exact-file override with a short refactor note.
 
 Choose the closest preset:
 

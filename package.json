@@ -1,93 +1,93 @@
 {
-	"name": "@howells/lint",
-	"version": "0.2.4",
-	"description": "Pinned Biome, Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
-	"license": "MIT",
-	"packageManager": "pnpm@10.23.0",
-	"engines": {
-		"node": ">=22.18.0"
-	},
-	"files": [
-		"biome/*.json",
-		"oxfmt/*.d.mts",
-		"oxfmt/*.mjs",
-		"oxlint/*.d.mts",
-		"oxlint/*.mjs",
-		"bin/*.mjs",
-		"docs/**/*.md",
-		"CONTEXT.md",
-		"README.md",
-		"MIGRATIONS.md"
-	],
-	"bin": {
-		"howells-biome": "bin/howells-biome.mjs",
-		"howells-lint": "bin/howells-lint.mjs",
-		"howells-lint-strict": "bin/howells-lint-strict.mjs",
-		"howells-format": "bin/howells-format.mjs",
-		"howells-ox-check": "bin/howells-ox-check.mjs",
-		"howells-ox-fix": "bin/howells-ox-fix.mjs",
-		"howells-oxfmt": "bin/howells-oxfmt.mjs",
-		"howells-oxlint": "bin/howells-oxlint.mjs",
-		"howells-ultracite": "bin/howells-ultracite.mjs",
-		"howells-workspace-check": "bin/howells-workspace-check.mjs",
-		"howells-workspace-fix": "bin/howells-workspace-fix.mjs"
-	},
-	"dependencies": {
-		"@biomejs/biome": "2.4.15",
-		"@manypkg/cli": "^0.25.1",
-		"eslint": "10.4.1",
-		"eslint-import-resolver-typescript": "4.4.4",
-		"eslint-plugin-boundaries": "6.0.2",
-		"oxc-parser": "0.133.0",
-		"oxfmt": "0.51.0",
-		"oxlint": "1.66.0",
-		"oxlint-plugin-react-doctor": "0.4.0",
-		"oxlint-tsgolint": "0.23.0",
-		"ultracite": "7.8.1"
-	},
-	"exports": {
-		"./package.json": "./package.json",
-		"./biome/core": "./biome/core.json",
-		"./biome/react": "./biome/react.json",
-		"./biome/next": "./biome/next.json",
-		"./oxfmt": {
-			"types": "./oxfmt/index.d.mts",
-			"default": "./oxfmt/index.mjs"
-		},
-		"./oxlint/core": {
-			"types": "./oxlint/core.d.mts",
-			"default": "./oxlint/core.mjs"
-		},
-		"./oxlint/react": {
-			"types": "./oxlint/react.d.mts",
-			"default": "./oxlint/react.mjs"
-		},
-		"./oxlint/next": {
-			"types": "./oxlint/next.d.mts",
-			"default": "./oxlint/next.mjs"
-		},
-		"./oxlint/boundaries": {
-			"types": "./oxlint/boundaries.d.mts",
-			"default": "./oxlint/boundaries.mjs"
-		},
-		"./oxlint/react-doctor-rules": {
-			"types": "./oxlint/react-doctor-rules.d.mts",
-			"default": "./oxlint/react-doctor-rules.mjs"
-		}
-	},
-	"main": "index.js",
-	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
-	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/howells/lint.git"
-	},
-	"keywords": [],
-	"author": "",
-	"type": "commonjs",
-	"bugs": {
-		"url": "https://github.com/howells/lint/issues"
-	},
-	"homepage": "https://github.com/howells/lint#readme"
+  "name": "@howells/lint",
+  "version": "0.2.5",
+  "description": "Pinned Biome, Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
+  "keywords": [],
+  "homepage": "https://github.com/howells/lint#readme",
+  "bugs": {
+    "url": "https://github.com/howells/lint/issues"
+  },
+  "license": "MIT",
+  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/howells/lint.git"
+  },
+  "bin": {
+    "howells-biome": "bin/howells-biome.mjs",
+    "howells-format": "bin/howells-format.mjs",
+    "howells-lint": "bin/howells-lint.mjs",
+    "howells-lint-strict": "bin/howells-lint-strict.mjs",
+    "howells-ox-check": "bin/howells-ox-check.mjs",
+    "howells-ox-fix": "bin/howells-ox-fix.mjs",
+    "howells-oxfmt": "bin/howells-oxfmt.mjs",
+    "howells-oxlint": "bin/howells-oxlint.mjs",
+    "howells-ultracite": "bin/howells-ultracite.mjs",
+    "howells-workspace-check": "bin/howells-workspace-check.mjs",
+    "howells-workspace-fix": "bin/howells-workspace-fix.mjs"
+  },
+  "files": [
+    "biome/*.json",
+    "oxfmt/*.d.mts",
+    "oxfmt/*.mjs",
+    "oxlint/*.d.mts",
+    "oxlint/*.mjs",
+    "bin/*.mjs",
+    "docs/**/*.md",
+    "CONTEXT.md",
+    "README.md",
+    "MIGRATIONS.md"
+  ],
+  "type": "commonjs",
+  "main": "index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    "./biome/core": "./biome/core.json",
+    "./biome/react": "./biome/react.json",
+    "./biome/next": "./biome/next.json",
+    "./oxfmt": {
+      "types": "./oxfmt/index.d.mts",
+      "default": "./oxfmt/index.mjs"
+    },
+    "./oxlint/core": {
+      "types": "./oxlint/core.d.mts",
+      "default": "./oxlint/core.mjs"
+    },
+    "./oxlint/react": {
+      "types": "./oxlint/react.d.mts",
+      "default": "./oxlint/react.mjs"
+    },
+    "./oxlint/next": {
+      "types": "./oxlint/next.d.mts",
+      "default": "./oxlint/next.mjs"
+    },
+    "./oxlint/boundaries": {
+      "types": "./oxlint/boundaries.d.mts",
+      "default": "./oxlint/boundaries.mjs"
+    },
+    "./oxlint/react-doctor-rules": {
+      "types": "./oxlint/react-doctor-rules.d.mts",
+      "default": "./oxlint/react-doctor-rules.mjs"
+    }
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@biomejs/biome": "2.4.16",
+    "@manypkg/cli": "^0.25.1",
+    "eslint": "10.4.1",
+    "eslint-import-resolver-typescript": "4.4.5",
+    "eslint-plugin-boundaries": "6.0.2",
+    "oxc-parser": "0.134.0",
+    "oxfmt": "0.53.0",
+    "oxlint": "1.68.0",
+    "oxlint-plugin-react-doctor": "0.4.0",
+    "oxlint-tsgolint": "0.23.0",
+    "ultracite": "7.8.1"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "pnpm@10.23.0"
 }
