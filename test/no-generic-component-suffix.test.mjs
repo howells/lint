@@ -56,6 +56,7 @@ test("React preset rejects generic component suffixes", async () => {
       `import react from ${JSON.stringify(reactPresetUrl)};\nexport default react;\n`,
     );
     await mkdir(path.join(root, "src", "app", "orders"), { recursive: true });
+    await mkdir(path.join(root, "src", "app", "home"), { recursive: true });
     await writeFixture(
       root,
       "src/user-wrapper.tsx",
@@ -86,6 +87,13 @@ test("React preset rejects generic component suffixes", async () => {
       "src/app/page.tsx",
       "export default function Page() { return <main />; }\n",
     );
+    // Component named "HomePage" in a page.tsx should be allowed —
+    // the "Page" suffix is natural inside an actual page file.
+    await writeFixture(
+      root,
+      "src/app/home/page.tsx",
+      "export default function HomePage() { return <main />; }\n",
+    );
 
     const result = await runOxlint(root);
     assert.notEqual(result.status, 0);
@@ -110,6 +118,8 @@ test("React preset rejects generic component suffixes", async () => {
     assert.doesNotMatch(ruleOutput, /account-content\.tsx/);
     assert.doesNotMatch(ruleOutput, /app\/orders\/page\.tsx/);
     assert.doesNotMatch(ruleOutput, /app\/page\.tsx/);
+    assert.doesNotMatch(ruleOutput, /app\/home\/page\.tsx/);
+    assert.doesNotMatch(ruleOutput, /HomePage/);
   } finally {
     await rm(root, { force: true, recursive: true });
   }

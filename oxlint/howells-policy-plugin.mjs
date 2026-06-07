@@ -55,7 +55,7 @@ function findComponentNameSuffix(name) {
 }
 
 function isAllowedNextPageComponent(name, filename) {
-  return name === "Page" && isNextAppPageFile(filename);
+  return isNextAppPageFile(filename) && (name === "Page" || name.endsWith("Page"));
 }
 
 function hasUseClientDirective(source) {
