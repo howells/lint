@@ -272,8 +272,8 @@ Oxlint/Oxfmt lane:
 ```json
 {
   "scripts": {
-    "lint": "howells-ox-check .",
-    "lint:fix": "howells-ox-fix ."
+    "lint": "howells-check .",
+    "lint:fix": "howells-fix ."
   }
 }
 ```
@@ -287,13 +287,13 @@ Prefer the package binaries over raw tool commands or long target lists. Use exp
 ```json
 {
   "scripts": {
-    "lint": "howells-lint apps/web packages/ui",
-    "lint:fix": "howells-format apps/web packages/ui"
+    "lint": "howells-check apps/web packages/ui",
+    "lint:fix": "howells-fix apps/web packages/ui"
   }
 }
 ```
 
-Use `howells-ox-fix --unsafe .` only when you deliberately want Oxlint's dangerous fixes.
+Use `howells-fix --unsafe .` only when you deliberately want Oxlint's dangerous fixes.
 
 ## Monorepo Roots
 
@@ -314,7 +314,7 @@ A monorepo root should have:
     "check": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "@howells/lint": "^0.2.0"
+    "@howells/lint": "^0.3.0"
   }
 }
 ```
@@ -329,13 +329,15 @@ Installers only need `@howells/lint` as a direct dependency. Use these package b
 
 - `howells-biome` proxies to the pinned Biome binary
 - `howells-ultracite` proxies to the pinned Ultracite binary
+- `howells-check` runs `oxfmt --check`, then `oxlint`
+- `howells-fix` runs `oxfmt --write`, then `oxlint --fix`
 - `howells-lint` defaults to `biome check .`
 - `howells-lint-strict` runs high-signal Biome security, correctness, and suspicious lint rules
 - `howells-format` defaults to `biome check . --write`
 - `howells-oxlint` proxies to the pinned Oxlint binary
 - `howells-oxfmt` proxies to the pinned Oxfmt binary
-- `howells-ox-check` runs `oxfmt --check`, then `oxlint`
-- `howells-ox-fix` runs `oxfmt --write`, then `oxlint --fix`
+- `howells-ox-check` is an explicit alias for `howells-check`
+- `howells-ox-fix` is an explicit alias for `howells-fix`
 - `howells-workspace-check` validates root workspace hygiene, then runs `manypkg check`
 - `howells-workspace-fix` runs `manypkg fix`
 
@@ -348,7 +350,7 @@ Installers only need `@howells/lint` as a direct dependency. Use these package b
 - If a repo needs framework-specific linting, choose the matching preset instead of layering rules manually.
 - Prefer inline `biome-ignore` comments for truly isolated exceptions over broad config overrides.
 - Keep package `lint` scripts read-only; use `lint:fix` for formatting and safe writes.
-- Prefer `howells-lint .` over raw `biome check` or long target lists unless a package has a real scope constraint.
+- Prefer `howells-check .` over raw tool commands or long target lists unless a package has a real scope constraint.
 
 ## Claude Code Hooks
 

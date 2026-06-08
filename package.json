@@ -1,6 +1,6 @@
 {
   "name": "@howells/lint",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Pinned Biome, Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
   "keywords": [],
   "homepage": "https://github.com/howells/lint#readme",
@@ -15,6 +15,8 @@
   },
   "bin": {
     "howells-biome": "bin/howells-biome.mjs",
+    "howells-check": "bin/howells-check.mjs",
+    "howells-fix": "bin/howells-fix.mjs",
     "howells-format": "bin/howells-format.mjs",
     "howells-lint": "bin/howells-lint.mjs",
     "howells-lint-strict": "bin/howells-lint-strict.mjs",

@@ -55,8 +55,8 @@ Each primary Oxlint preset is self-contained. Extend only the closest primary pr
 ```json
 {
   "scripts": {
-    "lint": "howells-ox-check .",
-    "lint:fix": "howells-ox-fix ."
+    "lint": "howells-check .",
+    "lint:fix": "howells-fix ."
   }
 }
 ```
@@ -130,8 +130,8 @@ Oxlint/Oxfmt lane:
 ```json
 {
   "scripts": {
-    "lint": "howells-ox-check apps/web packages/ui",
-    "lint:fix": "howells-ox-fix apps/web packages/ui"
+    "lint": "howells-check apps/web packages/ui",
+    "lint:fix": "howells-fix apps/web packages/ui"
   }
 }
 ```
