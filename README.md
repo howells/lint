@@ -354,7 +354,7 @@ Installers only need `@howells/lint` as a direct dependency. Use these package b
 
 ## Claude Code Hooks
 
-Add this to `.claude/settings.json` so files are formatted on edit and linted on session end:
+Add this to `.claude/settings.json` so files are fixed on edit and at session end:
 
 ```json
 {
@@ -365,7 +365,7 @@ Add this to `.claude/settings.json` so files are formatted on edit and linted on
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path' | { read file_path; case \"$file_path\" in *.js|*.ts|*.jsx|*.tsx|*.json|*.jsonc|*.css|*.graphql) howells-format \"$file_path\" 2>/dev/null || true ;; esac; }"
+            "command": "jq -r '.tool_input.file_path' | { read file_path; case \"$file_path\" in *.js|*.ts|*.jsx|*.tsx|*.json|*.jsonc|*.css|*.graphql) howells-fix \"$file_path\" 2>/dev/null || true ;; esac; }"
           }
         ]
       }
@@ -375,7 +375,7 @@ Add this to `.claude/settings.json` so files are formatted on edit and linted on
         "hooks": [
           {
             "type": "command",
-            "command": "git diff --name-only --diff-filter=d HEAD | grep -E '\\.(js|ts|jsx|tsx|json|jsonc|css|graphql)$' | xargs howells-format 2>/dev/null || true"
+            "command": "git diff --name-only --diff-filter=d HEAD | grep -E '\\.(js|ts|jsx|tsx|json|jsonc|css|graphql)$' | xargs howells-fix 2>/dev/null || true"
           }
         ]
       }
