@@ -13,7 +13,7 @@ The goal is not to invent a second lint philosophy. The goal is to:
 - give every consumer the same small preset matrix
 - discourage repo-local overrides unless the project has a genuinely unique constraint
 
-Biome is the default toolchain. Oxlint/Oxfmt is offered as an explicit opt-in lane for JavaScript and TypeScript projects that want the Oxc stack's speed and ESLint-style rule coverage.
+Oxlint/Oxfmt is the preferred toolchain for Howells JavaScript and TypeScript projects. The Biome lane is retained for projects that need Biome compatibility or are not ready to adopt the preferred Oxlint/Oxfmt lane.
 
 ## Agent Setup Checklist
 
@@ -21,10 +21,10 @@ When configuring a project, do this in order:
 
 1. Require Node 22.18.0+ and pnpm in the root `package.json`, and pin `.node-version` to `22.18.0`.
 2. Install only `@howells/lint` as the direct lint dependency.
-3. Add a `biome.json` that extends the closest presets.
-4. Add read-only `lint`, mutating `lint:fix`, and optional `lint:strict` scripts.
+3. Add `oxlint.config.ts` and `oxfmt.config.ts` that extend the closest Oxlint/Oxfmt presets.
+4. Add read-only `lint` and mutating `lint:fix` scripts.
 5. If the project is a monorepo, add root workspace scripts that run `howells-workspace-check`.
-6. Verify with `pnpm lint` and, when configured, `pnpm lint:strict`.
+6. Verify with `pnpm lint`.
 
 ## Requirements
 
@@ -51,9 +51,11 @@ Install the shared tooling:
 pnpm add -D @howells/lint
 ```
 
-Do not add `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `oxc-parser`, or `@manypkg/cli` directly unless you are developing this package itself. They are pinned transitively here.
+Do not add `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `eslint-plugin-playwright`, `oxc-parser`, or `@manypkg/cli` directly unless you are developing this package itself. They are pinned transitively here.
 
 ## Biome Presets
+
+The Biome lane is retained for compatibility. Prefer the Oxlint/Oxfmt lane for new Howells projects unless a project has a real Biome constraint.
 
 Choose the closest preset instead of starting from a generic base and patching it locally:
 
@@ -97,22 +99,27 @@ Next.js app:
 
 ## Oxlint/Oxfmt Presets
 
-Use this lane when a project wants Oxlint and Oxfmt instead of Biome. React and Next presets stack the relevant Ultracite Ox rules with [React Doctor](https://react.doctor) rules in one config.
+Use this lane for new Howells JavaScript and TypeScript projects. React and Next presets stack the relevant Ultracite Ox rules with [React Doctor](https://react.doctor) rules in one config.
 
-React Doctor severities are passed through as published by React Doctor. Native Oxlint Next.js severities come from Oxlint's official `nextjs` plugin via Ultracite's Next preset. `@howells/lint` adds canonical Howells policy on top for file naming, barrel files, env access, file size, function size, complexity, and tests.
+React Doctor severities are passed through as published by React Doctor. Native Oxlint Next.js severities come from Oxlint's official `nextjs` plugin via Ultracite's Next preset. `@howells/lint` adds canonical Howells policy on top for file naming, barrel files, env access, workspace boundaries, file size, function size, complexity, and tests.
 
-The core Oxlint preset enables native Oxlint rules that keep code files navigable: `max-lines` errors above 600 non-comment, non-blank lines; `max-lines-per-function` warns above 120 non-comment, non-blank lines; `max-statements` warns above 45 statements per function; and `complexity` warns above cyclomatic complexity 15. React projects promote React Doctor's `react-doctor/no-giant-component` rule to an error, so genuinely oversized components still block CI. Test files keep the file-level `max-lines` guard but disable function-size, statement-count, and complexity limits, because test framework callbacks naturally wrap many independent cases. Generated files should be ignored at the project level; rare intentional exceptions should use an exact-file override with a short refactor note.
+The core Oxlint preset enables type-aware linting and native Oxlint rules that keep code files navigable: `max-lines` errors above 600 non-comment, non-blank lines; `max-lines-per-function` warns above 120 non-comment, non-blank lines; `max-statements` warns above 45 statements per function; and `complexity` warns above cyclomatic complexity 15. React projects promote React Doctor's `react-doctor/no-giant-component` rule to an error, so genuinely oversized components still block CI. Test files keep the file-level `max-lines` guard but disable function-size, statement-count, and complexity limits, because test framework callbacks naturally wrap many independent cases. Generated files should be ignored at the project level; rare intentional exceptions should use an exact-file override with a short refactor note.
+
+Core, React, Next, and Playwright presets also enforce the default Howells workspace convention: apps live under `apps/*`, shared packages live under `packages/*`, packages must not import apps, and apps must not import sibling apps. The rule is intentionally narrow and only applies to paths under those conventional workspace folders.
 
 React and Next presets also reject generic component suffixes that tend to hide responsibility: `wrapper`, `client`, `page`, `component`, `container`, and `manager`. The rule checks `.jsx` and `.tsx` filenames and PascalCase component declarations. It allows real Next App Router `app/**/page.tsx` files and their conventional `Page` export.
 
 Next presets reject App Router pages that only pass through to one imported client component. Route pages should keep server composition, data loading, and route-level structure in the page, then push only the interactive leaves behind a client boundary.
+
+Playwright support adds the recommended `eslint-plugin-playwright` rules through Oxlint and promotes brittle E2E patterns to errors, including `playwright/no-wait-for-timeout`, `playwright/no-force-option`, `playwright/no-element-handle`, and `playwright/prefer-web-first-assertions`. Use the Playwright export as an overlay for app-level E2E tests, or as a standalone preset for dedicated E2E packages.
 
 Choose the closest preset:
 
 - `@howells/lint/oxlint/core` for Node or non-React TypeScript
 - `@howells/lint/oxlint/react` for React (Ultracite React + React Doctor recommended rules)
 - `@howells/lint/oxlint/next` for Next.js (react preset + Next.js rules)
-- `@howells/lint/oxlint/boundaries` for monorepo import boundaries (`packages/**` cannot import from `apps/**`, and apps cannot import from other apps)
+- `@howells/lint/oxlint/playwright` as an overlay for Playwright E2E tests or as a preset for dedicated E2E packages
+- `@howells/lint/oxlint/boundaries` for composing only the default workspace boundary rule into custom configs
 - `@howells/lint/oxlint/react-doctor-rules` for composing or disabling React Doctor rules in mixed workspaces
 
 Node or non-React TypeScript:
@@ -148,7 +155,40 @@ export default defineConfig({
 });
 ```
 
-Monorepo root or package boundary config:
+Next.js app with Playwright E2E tests:
+
+```ts
+import { defineConfig } from "oxlint";
+import next from "@howells/lint/oxlint/next";
+import {
+  playwrightJsPlugins,
+  playwrightRules,
+} from "@howells/lint/oxlint/playwright";
+
+export default defineConfig({
+  extends: [next],
+  jsPlugins: playwrightJsPlugins,
+  overrides: [
+    {
+      files: ["**/*.spec.ts", "**/*.e2e.ts", "tests/**/*.{ts,tsx}"],
+      rules: playwrightRules,
+    },
+  ],
+});
+```
+
+Dedicated Playwright E2E package:
+
+```ts
+import { defineConfig } from "oxlint";
+import playwright from "@howells/lint/oxlint/playwright";
+
+export default defineConfig({
+  extends: [playwright],
+});
+```
+
+Custom boundary-only config:
 
 ```ts
 import { defineConfig } from "oxlint";
@@ -165,7 +205,7 @@ export default defineConfig({
 });
 ```
 
-Run boundary configs from the monorepo root so element patterns such as `apps/*` and `packages/*` match each workspace member as a single architectural element.
+Boundary rules are already part of the core, React, Next, and Playwright presets. Use the boundary-only export only when building a custom Oxlint config that cannot extend the standard presets.
 
 Mixed monorepo with a Next.js app and Node-only packages:
 
@@ -196,16 +236,20 @@ export default defineConfig({
 });
 ```
 
-Oxlint type-aware rules are available through the pinned `oxlint-tsgolint` dependency. Enable them in the root Oxlint config when the project is ready for TypeScript 7 / `typescript-go` constraints:
+Oxlint type-aware mode is enabled by the shared core preset through the pinned `oxlint-tsgolint` dependency. Projects choosing the Oxlint/Oxfmt lane should be ready for Oxlint's TypeScript type-aware constraints.
+
+During migration only, a project may temporarily disable type-aware mode:
 
 ```ts
 export default defineConfig({
   extends: [core],
   options: {
-    typeAware: true,
+    typeAware: false,
   },
 });
 ```
+
+Treat this as a migration exception with a removal path, not as a normal project preference.
 
 ## Package Scripts
 

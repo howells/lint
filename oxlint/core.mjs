@@ -1,8 +1,13 @@
 import { defineConfig } from "oxlint";
 import ultraciteCore from "ultracite/oxlint/core";
+import { boundaryJsPlugins, boundaryRules } from "./boundaries.mjs";
 
 export default defineConfig({
   extends: [ultraciteCore],
+  jsPlugins: boundaryJsPlugins,
+  options: {
+    typeAware: true,
+  },
   overrides: [
     {
       files: ["**/*.test.{js,jsx,ts,tsx}", "**/*.spec.{js,jsx,ts,tsx}"],
@@ -15,6 +20,7 @@ export default defineConfig({
   ],
   plugins: [...new Set([...(ultraciteCore.plugins ?? []), "vitest"])],
   rules: {
+    ...boundaryRules,
     complexity: [
       "warn",
       {

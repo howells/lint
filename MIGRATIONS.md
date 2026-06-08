@@ -10,7 +10,7 @@ Pick the closest shared preset first. Only add local config after you can explai
 
 ## Lane and preset selection
 
-Choose one lane first, then choose the closest preset in that lane.
+Choose the Oxlint/Oxfmt lane by default, then choose the closest preset in that lane. Use the Biome lane only for projects with a real Biome compatibility constraint or projects that are not ready to adopt Oxlint/Oxfmt.
 
 Biome lane:
 
@@ -23,6 +23,7 @@ Oxlint/Oxfmt lane:
 - Node or non-React TypeScript: `@howells/lint/oxlint/core`
 - React package or app without Next.js specifics: `@howells/lint/oxlint/react`
 - Next.js app: `@howells/lint/oxlint/next`
+- Playwright E2E tests: use the Playwright export as an overlay on the app preset, or as `@howells/lint/oxlint/playwright` for a dedicated E2E package
 
 If none of these fit cleanly, the likely answer is a new shared preset here, not a repo-specific fork.
 
@@ -32,19 +33,24 @@ If none of these fit cleanly, the likely answer is a new shared preset here, not
 2. Pin Node with `.node-version` set to `22.18.0` and `engines.node` set to `>=22.18.0`.
 3. Replace `eslint`, `next lint`, `prettier`, direct `biome`, or direct Oxlint/Oxfmt scripts with the chosen lane's package binaries.
 4. Replace local lint config with a minimal config that only extends one shared preset from the chosen lane.
-5. Remove direct `eslint`, `eslint-config-*`, `eslint-plugin-*`, `prettier`, `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, and `oxc-parser` dependencies once the project is green.
+5. Remove direct `eslint`, `eslint-config-*`, `eslint-plugin-*`, `prettier`, `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `eslint-plugin-playwright`, and `oxc-parser` dependencies once the project is green.
 
-## Oxlint/Oxfmt opt-in
+## Oxlint/Oxfmt preferred
 
-Biome remains the default migration target. Use Oxlint/Oxfmt only for projects that deliberately choose the Oxlint/Oxfmt lane. React and Next.js projects with real state, effects, architecture, or framework-boundary concerns are good candidates for that lane.
+Oxlint/Oxfmt is the preferred migration target. Biome remains available for compatibility, but new Howells projects should start on the Oxlint/Oxfmt lane.
 
 For an Oxlint/Oxfmt project, add `oxlint.config.ts` and `oxfmt.config.ts` using the exports from `@howells/lint`, then use:
 
 - `@howells/lint/oxlint/core` for Node or non-React TypeScript
 - `@howells/lint/oxlint/react` for React (Ultracite React + React Doctor)
 - `@howells/lint/oxlint/next` for Next.js (react preset + Next.js rules)
+- `@howells/lint/oxlint/playwright` as an overlay for Playwright E2E tests or as a preset for dedicated E2E packages
 
-Each React or Next preset is self-contained. Extend only the closest preset — do not stack `core`, `react`, and `next` together.
+The Oxlint/Oxfmt lane enables Oxlint type-aware mode in the shared core preset. Projects choosing this lane should be ready for Oxlint's TypeScript type-aware constraints.
+
+If type-aware mode blocks initial adoption, temporarily override `options.typeAware` to `false` in the local config and track its removal. Treat this as a migration exception, not as a normal project preference.
+
+Each primary Oxlint preset is self-contained. Extend only the closest primary preset — do not stack `core`, `react`, and `next` together. Treat Playwright as an overlay when E2E tests live inside an app, and as a standalone preset only for dedicated E2E packages.
 
 ```json
 {

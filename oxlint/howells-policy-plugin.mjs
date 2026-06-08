@@ -14,6 +14,7 @@ const COMPONENT_FILE_PATTERN = /\.[jt]sx$/u;
 const PASCAL_CASE_PATTERN = /^[A-Z]/u;
 const RELATIVE_IMPORT_PATTERN = /^\.{1,2}(?:\/|$)/u;
 const MODULE_EXTENSIONS = [".tsx", ".jsx", ".ts", ".js", ".mts", ".mjs"];
+const WORKSPACE_ROOT_SEGMENTS = new Set(["apps", "packages"]);
 
 function normalizeFilename(filename) {
   return filename.replaceAll("\\", "/");
@@ -89,6 +90,31 @@ function isClientComponentModule(filename, specifier) {
 
 function isPascalCaseJsxName(nameNode) {
   return nameNode?.type === "JSXIdentifier" && PASCAL_CASE_PATTERN.test(nameNode.name);
+}
+
+function findWorkspaceElement(filename) {
+  const segments = normalizeFilename(filename).split("/");
+
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const rootSegment = segments[index];
+
+    if (WORKSPACE_ROOT_SEGMENTS.has(rootSegment) && segments[index + 1]) {
+      return {
+        name: segments[index + 1],
+        type: rootSegment === "apps" ? "app" : "package",
+      };
+    }
+  }
+
+  return null;
+}
+
+function resolveImportPath(filename, specifier) {
+  if (RELATIVE_IMPORT_PATTERN.test(specifier)) {
+    return path.resolve(path.dirname(filename), specifier);
+  }
+
+  return specifier;
 }
 
 function getSingleJsxElement(expression) {
@@ -256,6 +282,50 @@ function createNoSingleClientComponentPageRule(context) {
   };
 }
 
+function createNoCrossWorkspaceAppImportsRule(context) {
+  const filename = normalizeFilename(context.filename ?? "");
+  const fromElement = findWorkspaceElement(filename);
+
+  function checkSource(node) {
+    const specifier = node.source?.value;
+
+    if (!fromElement || typeof specifier !== "string") {
+      return;
+    }
+
+    const toElement = findWorkspaceElement(resolveImportPath(filename, specifier));
+
+    if (!toElement || toElement.type !== "app") {
+      return;
+    }
+
+    if (fromElement.type === "package") {
+      context.report({
+        node,
+        message: `Packages must not import from apps. Move shared code out of "apps/${toElement.name}" before importing it from "packages/${fromElement.name}".`,
+      });
+      return;
+    }
+
+    if (fromElement.type === "app" && fromElement.name !== toElement.name) {
+      context.report({
+        node,
+        message: `Apps must not import from other apps. Move shared code out of "apps/${toElement.name}" before importing it from "apps/${fromElement.name}".`,
+      });
+    }
+  }
+
+  if (!fromElement) {
+    return {};
+  }
+
+  return {
+    ExportAllDeclaration: checkSource,
+    ExportNamedDeclaration: checkSource,
+    ImportDeclaration: checkSource,
+  };
+}
+
 const plugin = {
   meta: {
     name: "howells",
@@ -282,6 +352,17 @@ const plugin = {
         schema: [],
       },
       create: createNoSingleClientComponentPageRule,
+    },
+    "no-cross-workspace-app-imports": {
+      meta: {
+        type: "problem",
+        docs: {
+          description: "Disallow packages importing apps and apps importing sibling apps.",
+        },
+        messages: {},
+        schema: [],
+      },
+      create: createNoCrossWorkspaceAppImportsRule,
     },
   },
 };

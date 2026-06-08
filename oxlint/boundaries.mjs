@@ -1,51 +1,13 @@
 import { defineConfig } from "oxlint";
 
-export const boundaryJsPlugins = [{ name: "boundaries", specifier: "eslint-plugin-boundaries" }];
+const howellsPolicyPluginSpecifier = new URL("./howells-policy-plugin.mjs", import.meta.url).href;
 
-export const boundarySettings = {
-  "boundaries/elements": [
-    { capture: ["name"], pattern: "apps/*", type: "app" },
-    { capture: ["name"], pattern: "packages/*", type: "package" },
-  ],
-  "import/resolver": {
-    node: {
-      extensions: [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"],
-    },
-    typescript: {
-      alwaysTryTypes: true,
-      noWarnOnMultipleProjects: true,
-      project: ["tsconfig.json", "apps/*/tsconfig.json", "packages/*/tsconfig.json"],
-    },
-  },
-};
+export const boundaryJsPlugins = [{ name: "howells", specifier: howellsPolicyPluginSpecifier }];
+
+export const boundarySettings = {};
 
 export const boundaryRules = {
-  "boundaries/dependencies": [
-    "error",
-    {
-      checkUnknownLocals: true,
-      default: "allow",
-      rules: [
-        {
-          disallow: [{ to: { type: "app" } }],
-          from: { type: "package" },
-          message: "Packages must not import from apps.",
-        },
-        {
-          disallow: [
-            {
-              to: {
-                captured: { name: "!{{ from.captured.name }}" },
-                type: "app",
-              },
-            },
-          ],
-          from: { type: "app" },
-          message: "Apps must not import from other apps.",
-        },
-      ],
-    },
-  ],
+  "howells/no-cross-workspace-app-imports": "error",
 };
 
 export default defineConfig({

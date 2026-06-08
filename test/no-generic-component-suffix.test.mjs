@@ -10,15 +10,18 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const oxlintBin = path.join(repoRoot, "node_modules", ".bin", "oxlint");
+const corePresetUrl = pathToFileURL(path.join(repoRoot, "oxlint", "core.mjs")).href;
 const reactPresetUrl = pathToFileURL(path.join(repoRoot, "oxlint", "react.mjs")).href;
 const nextPresetUrl = pathToFileURL(path.join(repoRoot, "oxlint", "next.mjs")).href;
+const playwrightPresetUrl = pathToFileURL(path.join(repoRoot, "oxlint", "playwright.mjs")).href;
 
 async function writeFixture(root, relativePath, source) {
   const filePath = path.join(root, relativePath);
+  await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, source, { flag: "w" });
 }
 
-async function runOxlint(root) {
+async function runOxlint(root, targets = ["src"]) {
   try {
     await execFileAsync(
       oxlintBin,
@@ -27,7 +30,7 @@ async function runOxlint(root) {
         path.join(root, "oxlint.config.mjs"),
         "--format",
         "json",
-        path.join(root, "src"),
+        ...targets.map((target) => path.join(root, target)),
       ],
       { cwd: root },
     );
@@ -46,6 +49,88 @@ function diagnosticsForRule(stdout, code) {
   const diagnostics = report.diagnostics ?? report;
   return diagnostics.filter((diagnostic) => diagnostic.code === code);
 }
+
+test("core preset enables type-aware linting", async () => {
+  const { default: core } = await import(corePresetUrl);
+
+  assert.equal(core.options?.typeAware, true);
+});
+
+test("core preset rejects app imports across workspace boundaries", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "howells-lint-"));
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`,
+    );
+    await writeFixture(root, "apps/web/nav.ts", "export const nav = 1;\n");
+    await writeFixture(root, "apps/web/local.ts", 'import { nav } from "./nav";\nexport const local = nav;\n');
+    await writeFixture(
+      root,
+      "apps/admin/page.ts",
+      'import { nav } from "../web/nav";\nexport const page = nav;\n',
+    );
+    await writeFixture(
+      root,
+      "packages/ui/index.ts",
+      'import { nav } from "../../apps/web/nav";\nexport const ui = nav;\n',
+    );
+    await writeFixture(
+      root,
+      "packages/design/index.ts",
+      'import { ui } from "../ui";\nexport const design = ui;\n',
+    );
+
+    const result = await runOxlint(root, ["apps", "packages"]);
+    assert.notEqual(result.status, 0);
+
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(no-cross-workspace-app-imports)",
+    );
+    const ruleOutput = JSON.stringify(ruleDiagnostics);
+
+    assert.equal(ruleDiagnostics.length, 2);
+    assert.match(ruleOutput, /packages\/ui\/index\.ts/);
+    assert.match(ruleOutput, /Packages must not import from apps/);
+    assert.match(ruleOutput, /apps\/admin\/page\.ts/);
+    assert.match(ruleOutput, /Apps must not import from other apps/);
+    assert.doesNotMatch(ruleOutput, /apps\/web\/local\.ts/);
+    assert.doesNotMatch(ruleOutput, /packages\/design\/index\.ts/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("Playwright preset rejects brittle E2E test patterns", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "howells-lint-"));
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import next from ${JSON.stringify(nextPresetUrl)};\nimport { playwrightJsPlugins, playwrightRules } from ${JSON.stringify(playwrightPresetUrl)};\n\nexport default {\n  extends: [next],\n  jsPlugins: playwrightJsPlugins,\n  overrides: [\n    {\n      files: ["tests/**/*.{ts,tsx}"],\n      rules: playwrightRules,\n    },\n  ],\n};\n`,
+    );
+    await writeFixture(
+      root,
+      "tests/checkout.spec.ts",
+      'import { expect, test } from "@playwright/test";\n\ntest("checkout", async ({ page }) => {\n  await page.waitForTimeout(1000);\n  await page.locator("text=Buy").click({ force: true });\n  const button = await page.$("button");\n  expect(button).toBeTruthy();\n  expect(await page.locator("button").isVisible()).toBe(true);\n});\n',
+    );
+
+    const result = await runOxlint(root, ["tests"]);
+    assert.notEqual(result.status, 0);
+
+    assert.equal(diagnosticsForRule(result.stdout, "playwright(no-wait-for-timeout)").length, 1);
+    assert.equal(diagnosticsForRule(result.stdout, "playwright(no-force-option)").length, 1);
+    assert.equal(diagnosticsForRule(result.stdout, "playwright(no-element-handle)").length, 1);
+    assert.equal(
+      diagnosticsForRule(result.stdout, "playwright(prefer-web-first-assertions)").length,
+      1,
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
 
 test("React preset rejects generic component suffixes", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "howells-lint-"));
