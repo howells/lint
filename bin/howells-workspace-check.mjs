@@ -13,7 +13,7 @@ if (handleManypkgMetadataCommand("check", args)) {
 const errors = runWorkspacePreflight();
 
 if (errors.length > 0) {
-  console.error("Workspace hygiene check failed:");
+  console.error("Workspace lint failed:");
 
   for (const error of errors) {
     console.error(`- ${error}`);

@@ -1,11 +1,11 @@
 # `@howells/lint`
 
-Shared code quality toolchain package for Howells projects. It centralizes the supported linting, formatting, and workspace hygiene paths so consuming repositories do not build their own local lint philosophy.
+Shared code quality toolchain package for Howells projects. It centralizes the supported linting, formatting, and workspace lint paths so consuming repositories do not build their own local lint philosophy.
 
 ## Language
 
 **Code quality toolchain**:
-The package boundary for `@howells/lint`: linting, formatting, lint-adjacent test linting, architecture/import boundary checks, and workspace hygiene needed to keep those tools consistent.
+The package boundary for `@howells/lint`: linting, formatting, lint-adjacent test linting, architecture/import boundary checks, and workspace lint needed to keep those tools consistent.
 _Avoid_: project health toolkit, repo audit toolkit
 
 **Extended Ultracite philosophy**:
@@ -20,22 +20,26 @@ _Avoid_: Oxc mode, Ox stack
 The retained compatibility path for projects that need Biome presets or are not ready to adopt the preferred Oxlint/Oxfmt lane.
 _Avoid_: default lane, primary lane
 
-**Strict lint**:
-A Biome compatibility command for running higher-signal rule groups separately from normal Biome linting. The Oxlint/Oxfmt lane does not have a separate strict mode because its stricter rules belong in normal linting.
-_Avoid_: Oxlint strict mode, optional quality gate
-
-**Compatibility wrapper**:
-A command or export retained so existing consumers keep working after the preferred lane changes. Compatibility wrappers should not define the package's current recommendation.
-_Avoid_: default command, primary path
+**Frozen compatibility lane**:
+A retained lane that receives dependency, breakage, and ecosystem-compatibility updates but does not receive new Howells policy by default.
+_Avoid_: parallel primary lane
 
 **Preferred command**:
-A package binary that names the recommended Oxlint/Oxfmt path without exposing historical lane naming. `howells-check` and `howells-fix` are preferred commands; `howells-ox-check` and `howells-ox-fix` remain explicit compatibility aliases.
-_Avoid_: default command
+A package binary that names the recommended Oxlint/Oxfmt path without aliases or fallbacks. `howells-check` and `howells-fix` are the only high-level project check/fix commands.
+_Avoid_: alias command, fallback command, default command
+
+**Howells policy plugin**:
+The single Oxlint plugin entrypoint for local Howells rules that extend Ultracite. Rule implementations can stay together while the set is small, but should split by domain when the next local rule is added.
+_Avoid_: custom lint framework
 
 **Migration exception**:
 A temporary local override used only to adopt the shared toolchain in an existing project. It should have a removal path and must not become a project preference.
 _Avoid_: local preference, repo style
 
 **Howells workspace convention**:
-The default monorepo layout where apps live under `apps/*` and shared packages live under `packages/*`. Packages must not import apps, and apps must not import sibling apps.
+The personal-project monorepo layout where apps live under `apps/*` and shared packages live under `packages/*`. Packages must not import apps, and apps must not import sibling apps; no boundary meaning is inferred from other workspace folder names.
 _Avoid_: generic monorepo architecture
+
+**Workspace lint**:
+Checks in `@howells/lint` that lint package-manager, runtime, and workspace configuration for consistency with the shared toolchain. Workspace lint can recognize more folder names than the Howells workspace convention because it does not assign import-boundary meaning to them, and it must not expand into unrelated repo-health checks.
+_Avoid_: workspace hygiene, architecture policy

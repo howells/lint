@@ -10,7 +10,7 @@ Pick the closest shared preset first. Only add local config after you can explai
 
 ## Lane and preset selection
 
-Choose the Oxlint/Oxfmt lane by default, then choose the closest preset in that lane. Use the Biome lane only for projects with a real Biome compatibility constraint or projects that are not ready to adopt Oxlint/Oxfmt.
+Choose the Oxlint/Oxfmt lane by default, then choose the closest preset in that lane. Use the Biome lane only for projects with a real Biome compatibility constraint or projects that are not ready to adopt Oxlint/Oxfmt; it is a frozen compatibility lane, not a parallel primary path.
 
 Biome lane:
 
@@ -119,8 +119,8 @@ Biome lane:
 ```json
 {
   "scripts": {
-    "lint": "howells-lint apps/web packages/ui",
-    "lint:fix": "howells-format apps/web packages/ui"
+    "lint": "howells-biome check apps/web packages/ui",
+    "lint:fix": "howells-biome check apps/web packages/ui --write"
   }
 }
 ```

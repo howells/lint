@@ -55,7 +55,7 @@ Do not add `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, 
 
 ## Biome Presets
 
-The Biome lane is retained for compatibility. Prefer the Oxlint/Oxfmt lane for new Howells projects unless a project has a real Biome constraint.
+The Biome lane is a frozen compatibility lane. It is retained for projects that need Biome presets, and it receives dependency, breakage, and ecosystem-compatibility updates, but new Howells policy work should target Oxlint/Oxfmt first.
 
 Choose the closest preset instead of starting from a generic base and patching it locally:
 
@@ -105,7 +105,7 @@ React Doctor severities are passed through as published by React Doctor. Native 
 
 The core Oxlint preset enables type-aware linting and native Oxlint rules that keep code files navigable: `max-lines` errors above 600 non-comment, non-blank lines; `max-lines-per-function` warns above 120 non-comment, non-blank lines; `max-statements` warns above 45 statements per function; and `complexity` warns above cyclomatic complexity 15. React projects promote React Doctor's `react-doctor/no-giant-component` rule to an error, so genuinely oversized components still block CI. Test files keep the file-level `max-lines` guard but disable function-size, statement-count, and complexity limits, because test framework callbacks naturally wrap many independent cases. Generated files should be ignored at the project level; rare intentional exceptions should use an exact-file override with a short refactor note.
 
-Core, React, Next, and Playwright presets also enforce the default Howells workspace convention: apps live under `apps/*`, shared packages live under `packages/*`, packages must not import apps, and apps must not import sibling apps. The rule is intentionally narrow and only applies to paths under those conventional workspace folders.
+Core, React, Next, and Playwright presets also enforce the default Howells workspace convention: apps live under `apps/*`, shared packages live under `packages/*`, packages must not import apps, and apps must not import sibling apps. The rule is intentionally narrow and does not infer boundary meaning from other workspace folder names.
 
 React and Next presets also reject generic component suffixes that tend to hide responsibility: `wrapper`, `client`, `page`, `component`, `container`, and `manager`. The rule checks `.jsx` and `.tsx` filenames and PascalCase component declarations. It allows real Next App Router `app/**/page.tsx` files and their conventional `Page` export.
 
@@ -260,9 +260,8 @@ Biome lane:
 ```json
 {
   "scripts": {
-    "lint": "howells-lint .",
-    "lint:fix": "howells-format .",
-    "lint:strict": "howells-lint-strict ."
+    "lint": "howells-biome check .",
+    "lint:fix": "howells-biome check . --write"
   }
 }
 ```
@@ -278,7 +277,7 @@ Oxlint/Oxfmt lane:
 }
 ```
 
-The Oxlint/Oxfmt lane does not currently define a separate `lint:strict`; React Doctor's recommended rules are part of the normal Ox check.
+The Oxlint/Oxfmt lane does not define a separate `lint:strict`; React Doctor, type-aware Oxlint, workspace boundaries, and Playwright overlays belong in the normal check.
 
 Keep `lint` non-mutating. Put all write behavior in `lint:fix` or `format` so CI and local checks have the same semantics.
 
@@ -297,7 +296,7 @@ Use `howells-fix --unsafe .` only when you deliberately want Oxlint's dangerous 
 
 ## Monorepo Roots
 
-Use workspace checks only at the monorepo root. Do not add `howells-workspace-check` to individual packages, and do not add it to single-package apps.
+Use workspace lint only at the monorepo root. Do not add `howells-workspace-check` to individual packages, and do not add it to single-package apps.
 
 A monorepo root should have:
 
@@ -310,18 +309,17 @@ A monorepo root should have:
   "scripts": {
     "lint": "turbo run lint && howells-workspace-check",
     "lint:fix": "turbo run lint:fix && howells-workspace-fix",
-    "lint:strict": "turbo run lint:strict",
     "check": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "@howells/lint": "^0.3.0"
+    "@howells/lint": "^0.4.0"
   }
 }
 ```
 
 `howells-workspace-check` validates that the root declares `packageManager: "pnpm@..."`, requires Node 22.18.0+ in `engines.node`, pins `.node-version` to `22.18.0`, keeps `pnpm-workspace.yaml` present when workspace package directories exist, and passes `manypkg check`.
 
-CI should call `pnpm lint` or `pnpm check` so root workspace checks are not bypassed by a direct `turbo lint` command.
+CI should call `pnpm lint` or `pnpm check` so root workspace lint is not bypassed by a direct `turbo lint` command.
 
 ## Binaries
 
@@ -331,14 +329,9 @@ Installers only need `@howells/lint` as a direct dependency. Use these package b
 - `howells-ultracite` proxies to the pinned Ultracite binary
 - `howells-check` runs `oxfmt --check`, then `oxlint`
 - `howells-fix` runs `oxfmt --write`, then `oxlint --fix`
-- `howells-lint` defaults to `biome check .`
-- `howells-lint-strict` runs high-signal Biome security, correctness, and suspicious lint rules
-- `howells-format` defaults to `biome check . --write`
 - `howells-oxlint` proxies to the pinned Oxlint binary
 - `howells-oxfmt` proxies to the pinned Oxfmt binary
-- `howells-ox-check` is an explicit alias for `howells-check`
-- `howells-ox-fix` is an explicit alias for `howells-fix`
-- `howells-workspace-check` validates root workspace hygiene, then runs `manypkg check`
+- `howells-workspace-check` runs workspace lint, then runs `manypkg check`
 - `howells-workspace-fix` runs `manypkg fix`
 
 ## Rules
