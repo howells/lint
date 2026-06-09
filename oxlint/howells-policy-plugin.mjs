@@ -326,6 +326,18 @@ function createNoCrossWorkspaceAppImportsRule(context) {
   };
 }
 
+function createNoRuntimeDynamicImportsRule(context) {
+  return {
+    ImportExpression(node) {
+      context.report({
+        node,
+        message:
+          "Runtime dynamic imports make package loading harder to trace and validate. Use a static import instead.",
+      });
+    },
+  };
+}
+
 const plugin = {
   meta: {
     name: "howells",
@@ -363,6 +375,17 @@ const plugin = {
         schema: [],
       },
       create: createNoCrossWorkspaceAppImportsRule,
+    },
+    "no-runtime-dynamic-imports": {
+      meta: {
+        type: "problem",
+        docs: {
+          description: "Disallow runtime import() expressions.",
+        },
+        messages: {},
+        schema: [],
+      },
+      create: createNoRuntimeDynamicImportsRule,
     },
   },
 };

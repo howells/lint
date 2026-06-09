@@ -50,6 +50,7 @@ export default defineConfig({
         max: 45,
       },
     ],
+    "howells/no-runtime-dynamic-imports": "error",
     "no-restricted-properties": [
       "error",
       {

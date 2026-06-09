@@ -40,6 +40,10 @@ _Avoid_: local preference, repo style
 The personal-project monorepo layout where apps live under `apps/*` and shared packages live under `packages/*`. Packages must not import apps, and apps must not import sibling apps; no boundary meaning is inferred from other workspace folder names.
 _Avoid_: generic monorepo architecture
 
+**Runtime dynamic import**:
+An `import()` expression that loads a module while code is running. The Oxlint/Oxfmt lane rejects these in favor of static imports so package loading remains statically traceable.
+_Avoid_: lazy import, on-demand package loading
+
 **Workspace lint**:
 Checks in `@howells/lint` that lint package-manager, runtime, and workspace configuration for consistency with the shared toolchain. Workspace lint can recognize more folder names than the Howells workspace convention because it does not assign import-boundary meaning to them, and it must not expand into unrelated repo-health checks.
 _Avoid_: workspace hygiene, architecture policy

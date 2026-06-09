@@ -6,6 +6,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import core from "../oxlint/core.mjs";
 
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -51,8 +52,6 @@ function diagnosticsForRule(stdout, code) {
 }
 
 test("core preset enables type-aware linting", async () => {
-  const { default: core } = await import(corePresetUrl);
-
   assert.equal(core.options?.typeAware, true);
 });
 
@@ -65,7 +64,11 @@ test("core preset rejects app imports across workspace boundaries", async () => 
       `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`,
     );
     await writeFixture(root, "apps/web/nav.ts", "export const nav = 1;\n");
-    await writeFixture(root, "apps/web/local.ts", 'import { nav } from "./nav";\nexport const local = nav;\n');
+    await writeFixture(
+      root,
+      "apps/web/local.ts",
+      'import { nav } from "./nav";\nexport const local = nav;\n',
+    );
     await writeFixture(
       root,
       "apps/admin/page.ts",
@@ -98,6 +101,41 @@ test("core preset rejects app imports across workspace boundaries", async () => 
     assert.match(ruleOutput, /Apps must not import from other apps/);
     assert.doesNotMatch(ruleOutput, /apps\/web\/local\.ts/);
     assert.doesNotMatch(ruleOutput, /packages\/design\/index\.ts/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("core preset rejects runtime dynamic imports", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "howells-lint-"));
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`,
+    );
+    await writeFixture(
+      root,
+      "src/loader.ts",
+      'import { staticValue } from "./static-value";\n\nexport async function loadKnownPackage() {\n  return import("heavy-package");\n}\n\nexport async function loadNamedPackage(packageName: string) {\n  return import(packageName);\n}\n\nexport const value = staticValue;\n',
+    );
+    await writeFixture(root, "src/static-value.ts", "export const staticValue = 1;\n");
+
+    const result = await runOxlint(root);
+    assert.notEqual(result.status, 0);
+
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(no-runtime-dynamic-imports)",
+    );
+    const ruleOutput = JSON.stringify(ruleDiagnostics);
+
+    assert.equal(ruleDiagnostics.length, 2);
+    assert.match(ruleOutput, /loader\.ts/);
+    assert.match(ruleOutput, /"line":4/);
+    assert.match(ruleOutput, /"line":8/);
+    assert.match(ruleOutput, /Use a static import instead/);
+    assert.doesNotMatch(ruleOutput, /static-value/);
   } finally {
     await rm(root, { force: true, recursive: true });
   }
