@@ -2,7 +2,10 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const workspaceDirs = ["apps", "packages", "services", "workers", "examples"];
-const requiredNodeVersion = "22.18.0";
+const requiredNodeVersion = "24.15.0";
+const [requiredMajor, requiredMinor, requiredPatch] = requiredNodeVersion
+  .split(".")
+  .map((part) => Number.parseInt(part, 10));
 
 const readRootPackageJson = () => {
   const packageJsonPath = join(process.cwd(), "package.json");
@@ -43,33 +46,26 @@ const hasLikelyWorkspaceLayout = (packageJson) =>
   Boolean(packageJson?.workspaces) || workspaceDirs.some(hasWorkspaceChildren);
 
 const isAtLeastRequiredNodeVersion = (major, minor, patch = 0) => {
-  if (major > 22) {
-    return true;
+  if (major !== requiredMajor) {
+    return major > requiredMajor;
   }
 
-  if (major < 22) {
-    return false;
+  if (minor !== requiredMinor) {
+    return minor > requiredMinor;
   }
 
-  if (minor > 18) {
-    return true;
-  }
-
-  if (minor < 18) {
-    return false;
-  }
-
-  return patch >= 0;
+  return patch >= requiredPatch;
 };
 
-const isNode2218Engine = (range) => {
+const engineSatisfiesRequiredNode = (range) => {
   if (typeof range !== "string") {
     return false;
   }
 
   const normalizedRange = range.replaceAll(/\s+/gu, "");
+  // Match the lower bound; ignore any upper bound (e.g. ">=24.15.0 <25").
   const match = normalizedRange.match(
-    /^(?:>=|\^|~)?(?<major>\d+)(?:\.(?<minor>\d+))?(?:\.(?<patch>\d+))?$/u,
+    /^(?:>=|\^|~)?(?<major>\d+)(?:\.(?<minor>\d+))?(?:\.(?<patch>\d+))?/u,
   );
 
   if (!match?.groups?.major || !match.groups.minor) {
@@ -106,7 +102,7 @@ export const runWorkspacePreflight = () => {
     errors.push("root package.json packageManager must use pnpm");
   }
 
-  if (!isNode2218Engine(packageJson.engines?.node)) {
+  if (!engineSatisfiesRequiredNode(packageJson.engines?.node)) {
     errors.push(`root package.json engines.node must require Node ${requiredNodeVersion}+`);
   }
 
