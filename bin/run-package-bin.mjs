@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
+import process from "node:process";
 import { inheritedEnv } from "./env.mjs";
 
 const require = createRequire(import.meta.url);
@@ -53,12 +54,39 @@ export const resolvePackageBin = (packageName, binName) => {
   throw new Error(`Could not resolve bin '${binName}' for package '${packageName}'.`);
 };
 
-export const runPackageBin = (packageName, binName, args) => {
+// Oxlint's type-aware mode discovers the tsgolint executable by walking up from
+// the working directory for `node_modules/.bin/tsgolint`. Consumers who install
+// only `@howells/lint` keep tsgolint inside this package's dependency tree, out
+// of that search path, so point Oxlint straight at it. Any of the executable,
+// the pnpm bin shim, or tsgolint's own JS launcher is accepted here.
+const spawnEnv = (packageName) => {
+  const env = inheritedEnv();
+
+  if (packageName !== "oxlint" || env.OXLINT_TSGOLINT_PATH) {
+    return env;
+  }
+
+  try {
+    return { ...env, OXLINT_TSGOLINT_PATH: resolvePackageBin("oxlint-tsgolint", "tsgolint") };
+  } catch {
+    return env;
+  }
+};
+
+// Spawn the resolved bin through the current Node executable rather than
+// executing it directly. Every package we wrap ships a `#!/usr/bin/env node`
+// script, so this is behavior-preserving while removing any dependency on the
+// file's executable bit or a POSIX shebang (which Windows ignores).
+export const spawnPackageBin = (packageName, binName, args) => {
   const binPath = resolvePackageBin(packageName, binName);
-  const result = spawnSync(binPath, args, {
-    env: inheritedEnv(),
+  return spawnSync(process.execPath, [binPath, ...args], {
+    env: spawnEnv(packageName),
     stdio: "inherit",
   });
+};
+
+export const runPackageBin = (packageName, binName, args) => {
+  const result = spawnPackageBin(packageName, binName, args);
 
   if (result.error) {
     throw result.error;
