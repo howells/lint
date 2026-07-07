@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { resolvePackageBin } from "../bin/run-package-bin.mjs";
 import core from "../oxlint/core.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -15,6 +16,20 @@ const corePresetUrl = pathToFileURL(path.join(repoRoot, "oxlint", "core.mjs")).h
 const reactPresetUrl = pathToFileURL(path.join(repoRoot, "oxlint", "react.mjs")).href;
 const nextPresetUrl = pathToFileURL(path.join(repoRoot, "oxlint", "next.mjs")).href;
 const playwrightPresetUrl = pathToFileURL(path.join(repoRoot, "oxlint", "playwright.mjs")).href;
+
+// Oxlint resolves bare jsPlugin specifiers (e.g. Ultracite's github/sonarjs and
+// the react-doctor plugin) relative to the root config file's node_modules
+// ancestry, and it requires the tsgolint executable whenever type-aware mode is
+// on. Nesting fixtures under this package's node_modules gives them the same
+// dependency ancestry a real consumer install has, and resolving tsgolint the
+// way the binaries do proves that resolution path keeps working.
+const fixtureBase = path.join(repoRoot, "node_modules", ".howells-lint-fixtures");
+const tsgolintPath = resolvePackageBin("oxlint-tsgolint", "tsgolint");
+
+async function makeFixtureRoot() {
+  await mkdir(fixtureBase, { recursive: true });
+  return mkdtemp(path.join(fixtureBase, "case-"));
+}
 
 async function writeFixture(root, relativePath, source) {
   const filePath = path.join(root, relativePath);
@@ -33,7 +48,7 @@ async function runOxlint(root, targets = ["src"]) {
         "json",
         ...targets.map((target) => path.join(root, target)),
       ],
-      { cwd: root },
+      { cwd: root, env: { ...process.env, OXLINT_TSGOLINT_PATH: tsgolintPath } },
     );
     return { status: 0, stdout: "[]" };
   } catch (error) {
@@ -55,8 +70,15 @@ test("core preset enables type-aware linting", async () => {
   assert.equal(core.options?.typeAware, true);
 });
 
+test("tsgolint executable resolves from this package's dependency tree", () => {
+  // The binaries pass this path to Oxlint via OXLINT_TSGOLINT_PATH so type-aware
+  // mode works even when a consumer runs from a directory where tsgolint is not
+  // on the cwd-relative `node_modules/.bin` search path.
+  assert.ok(existsSync(tsgolintPath), `expected tsgolint to exist at ${tsgolintPath}`);
+});
+
 test("core preset rejects app imports across workspace boundaries", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "howells-lint-"));
+  const root = await makeFixtureRoot();
 
   try {
     await writeFile(
@@ -107,7 +129,7 @@ test("core preset rejects app imports across workspace boundaries", async () => 
 });
 
 test("core preset rejects runtime dynamic imports", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "howells-lint-"));
+  const root = await makeFixtureRoot();
 
   try {
     await writeFile(
@@ -142,7 +164,7 @@ test("core preset rejects runtime dynamic imports", async () => {
 });
 
 test("Playwright preset rejects brittle E2E test patterns", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "howells-lint-"));
+  const root = await makeFixtureRoot();
 
   try {
     await writeFile(
@@ -171,7 +193,7 @@ test("Playwright preset rejects brittle E2E test patterns", async () => {
 });
 
 test("React preset rejects generic component suffixes", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "howells-lint-"));
+  const root = await makeFixtureRoot();
 
   try {
     await writeFile(
@@ -249,7 +271,7 @@ test("React preset rejects generic component suffixes", async () => {
 });
 
 test("Next preset rejects pages that only pass through to one client component", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "howells-lint-"));
+  const root = await makeFixtureRoot();
 
   try {
     await writeFile(
