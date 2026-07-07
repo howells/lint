@@ -90,12 +90,11 @@ Biome lane:
 Oxlint/Oxfmt lane:
 
 ```ts
-import { defineConfig } from "oxlint";
 import next from "@howells/lint/oxlint/next";
 
-export default defineConfig({
+export default {
   extends: [next],
-});
+};
 ```
 
 Acceptable local additions:

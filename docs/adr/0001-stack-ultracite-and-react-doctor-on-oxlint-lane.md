@@ -19,8 +19,8 @@ Some React Doctor rules overlap with Ultracite's React and accessibility rules. 
 
 For React and Next.js projects on the Oxlint/Oxfmt lane, stack the relevant Ultracite Oxlint presets with React Doctor rules in one preset:
 
-- `@howells/lint/oxlint/react` extends `ultracite/oxlint/core` and `ultracite/oxlint/react`, then adds React Doctor's recommended rules through `oxlint-plugin-react-doctor`.
-- `@howells/lint/oxlint/next` extends the React preset and `ultracite/oxlint/next`, then adds React Doctor's Next.js rules.
+- `@howells/lint/oxlint/react` extends `ultracite/oxlint/core` and `ultracite/oxlint/react`. Ultracite's React preset registers `oxlint-plugin-react-doctor` and enables its rules, so this preset only adds Howells naming policy on top.
+- `@howells/lint/oxlint/next` extends the React preset and `ultracite/oxlint/next`, which supplies the React Doctor Next.js rules; this preset only adds the Howells page policy.
 
 Do not filter overlapping rules by default.
 

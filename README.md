@@ -125,44 +125,40 @@ Choose the closest preset:
 Node or non-React TypeScript:
 
 ```ts
-import { defineConfig } from "oxlint";
 import core from "@howells/lint/oxlint/core";
 
-export default defineConfig({
+export default {
   extends: [core],
-});
+};
 ```
 
 React package:
 
 ```ts
-import { defineConfig } from "oxlint";
 import react from "@howells/lint/oxlint/react";
 
-export default defineConfig({
+export default {
   extends: [react],
-});
+};
 ```
 
 Next.js app:
 
 ```ts
-import { defineConfig } from "oxlint";
 import next from "@howells/lint/oxlint/next";
 
-export default defineConfig({
+export default {
   extends: [next],
-});
+};
 ```
 
 Next.js app with Playwright E2E tests:
 
 ```ts
-import { defineConfig } from "oxlint";
 import next from "@howells/lint/oxlint/next";
 import { playwrightJsPlugins, playwrightRules } from "@howells/lint/oxlint/playwright";
 
-export default defineConfig({
+export default {
   extends: [next],
   jsPlugins: playwrightJsPlugins,
   overrides: [
@@ -171,35 +167,33 @@ export default defineConfig({
       rules: playwrightRules,
     },
   ],
-});
+};
 ```
 
 Dedicated Playwright E2E package:
 
 ```ts
-import { defineConfig } from "oxlint";
 import playwright from "@howells/lint/oxlint/playwright";
 
-export default defineConfig({
+export default {
   extends: [playwright],
-});
+};
 ```
 
 Custom boundary-only config:
 
 ```ts
-import { defineConfig } from "oxlint";
 import {
   boundaryJsPlugins,
   boundaryRules,
   boundarySettings,
 } from "@howells/lint/oxlint/boundaries";
 
-export default defineConfig({
+export default {
   jsPlugins: boundaryJsPlugins,
   settings: boundarySettings,
   rules: boundaryRules,
-});
+};
 ```
 
 Boundary rules are already part of the core, React, Next, and Playwright presets. Use the boundary-only export only when building a custom Oxlint config that cannot extend the standard presets.
@@ -207,11 +201,10 @@ Boundary rules are already part of the core, React, Next, and Playwright presets
 Mixed monorepo with a Next.js app and Node-only packages:
 
 ```ts
-import { defineConfig } from "oxlint";
 import next from "@howells/lint/oxlint/next";
 import { disabledReactDoctorRules } from "@howells/lint/oxlint/react-doctor-rules";
 
-export default defineConfig({
+export default {
   extends: [next],
   overrides: [
     {
@@ -219,18 +212,15 @@ export default defineConfig({
       rules: disabledReactDoctorRules,
     },
   ],
-});
+};
 ```
 
 Create an `oxfmt.config.ts`:
 
 ```ts
-import { defineConfig } from "oxfmt";
 import howells from "@howells/lint/oxfmt";
 
-export default defineConfig({
-  extends: [howells],
-});
+export default howells;
 ```
 
 Oxlint type-aware mode is enabled by the shared core preset through the pinned `oxlint-tsgolint` dependency. Projects choosing the Oxlint/Oxfmt lane should be ready for Oxlint's TypeScript type-aware constraints.
@@ -238,12 +228,14 @@ Oxlint type-aware mode is enabled by the shared core preset through the pinned `
 During migration only, a project may temporarily disable type-aware mode:
 
 ```ts
-export default defineConfig({
+import core from "@howells/lint/oxlint/core";
+
+export default {
   extends: [core],
   options: {
     typeAware: false,
   },
-});
+};
 ```
 
 Treat this as a migration exception with a removal path, not as a normal project preference.

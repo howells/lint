@@ -74,6 +74,10 @@ test("partitionOxlintArgs pairs value-taking flags and collects targets", () => 
     options: ["-D", "correctness"],
     targets: ["packages/ui"],
   });
+  assert.deepEqual(partitionOxlintArgs(["src", "-f", "json"]), {
+    options: ["-f", "json"],
+    targets: ["src"],
+  });
   assert.deepEqual(partitionOxlintArgs([]), { options: [], targets: [] });
 });
 
