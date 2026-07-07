@@ -1,16 +1,13 @@
 import { defineConfig } from "oxlint";
-import { RECOMMENDED_RULES } from "oxlint-plugin-react-doctor";
 import ultraciteReact from "ultracite/oxlint/react";
 import core from "./core.mjs";
 
-const reactDoctorPluginSpecifier = import.meta.resolve("oxlint-plugin-react-doctor");
-
+// Ultracite's React preset now registers the react-doctor plugin and enables
+// its full rule set, so this preset only layers the Howells-specific policy on
+// top of core + Ultracite.
 export default defineConfig({
   extends: [core, ultraciteReact],
-  jsPlugins: [{ name: "react-doctor", specifier: reactDoctorPluginSpecifier }],
   rules: {
-    ...RECOMMENDED_RULES,
     "howells/no-generic-component-suffix": "error",
-    "react-doctor/no-giant-component": "error",
   },
 });
