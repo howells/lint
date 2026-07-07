@@ -2,6 +2,18 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Oxlint/Oxfmt, or ad hoc Biome setup with `@howells/lint`.
 
+## 1.0.0 breaking changes
+
+Upgrading from a 0.x release to 1.0.0 changes four things consumers can feel:
+
+1. **React Doctor rules are now errors.** The Oxlint React and Next presets used to spread React Doctor's published severities, which were mostly warnings. They now delegate to Ultracite's React and Next presets, which enable every React Doctor rule at `error`. A codebase that previously passed with React Doctor warnings can now fail `howells-check`/CI with no code change. This is intentional — the rules describe real correctness and performance problems. To adopt incrementally, spread `disabledReactDoctorRules` from `@howells/lint/oxlint/react-doctor-rules` (or disable specific `react-doctor/*` rules) in a project override, and treat it as a migration exception with a removal path, not a permanent preference.
+
+2. **Node standard is 24.15.0.** `engines.node` is now `>=24.15.0`; pin `.node-version` to `24.15.0` and align the root `engines.node`. `howells-workspace-check` enforces this.
+
+3. **Type-aware linting works from consumer projects.** Oxlint's type-aware mode needs the `tsgolint` executable, which pnpm keeps inside this package's dependency tree and out of a consumer's `node_modules/.bin` search path when run from a subdirectory or with a non-hoisting `.npmrc`. The `howells-check`, `howells-fix`, and `howells-oxlint` binaries now resolve `tsgolint` and pass it to Oxlint via `OXLINT_TSGOLINT_PATH`, so type-aware rules run reliably regardless of working directory. Run Oxlint through these binaries rather than a raw `oxlint` call to get this behavior.
+
+4. **`howells-check` and `howells-fix` report both tools in one run.** They no longer stop at the first failing stage: the formatter check and the linter both run every time, so a single invocation surfaces every formatting and lint problem, then exits non-zero if either failed.
+
 ## Primary rule
 
 Do not migrate an old local lint philosophy into a new local override.
@@ -30,7 +42,7 @@ If none of these fit cleanly, the likely answer is a new shared preset here, not
 ## Migration steps
 
 1. Add `@howells/lint` as a dev dependency.
-2. Pin Node with `.node-version` set to `22.18.0` and `engines.node` set to `>=22.18.0`.
+2. Pin Node with `.node-version` set to `24.15.0` and `engines.node` set to `>=24.15.0`.
 3. Replace `eslint`, `next lint`, `prettier`, direct `biome`, or direct Oxlint/Oxfmt scripts with the chosen lane's package binaries.
 4. Replace local lint config with a minimal config that only extends one shared preset from the chosen lane.
 5. Remove direct `eslint`, `eslint-config-*`, `eslint-plugin-*`, `prettier`, `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `eslint-plugin-playwright`, and `oxc-parser` dependencies once the project is green.

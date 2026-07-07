@@ -19,7 +19,7 @@ Oxlint/Oxfmt is the preferred toolchain for Howells JavaScript and TypeScript pr
 
 When configuring a project, do this in order:
 
-1. Require Node 22.18.0+ and pnpm in the root `package.json`, and pin `.node-version` to `22.18.0`.
+1. Require Node 24.15.0+ and pnpm in the root `package.json`, and pin `.node-version` to `24.15.0`.
 2. Install only `@howells/lint` as the direct lint dependency.
 3. Add `oxlint.config.ts` and `oxfmt.config.ts` that extend the closest Oxlint/Oxfmt presets.
 4. Add read-only `lint` and mutating `lint:fix` scripts.
@@ -32,9 +32,9 @@ All projects using this package should declare the runtime and package manager e
 
 ```json
 {
-  "packageManager": "pnpm@10.23.0",
+  "packageManager": "pnpm@11.5.2",
   "engines": {
-    "node": ">=22.18.0"
+    "node": ">=24.15.0"
   }
 }
 ```
@@ -42,7 +42,7 @@ All projects using this package should declare the runtime and package manager e
 Also add a root `.node-version` file:
 
 ```text
-22.18.0
+24.15.0
 ```
 
 Install the shared tooling:
@@ -71,7 +71,7 @@ Node or non-React TypeScript package:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
   "extends": ["@howells/lint/biome/core"],
   "root": true
 }
@@ -81,7 +81,7 @@ React package:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
   "extends": ["@howells/lint/biome/core", "@howells/lint/biome/react"],
   "root": true
 }
@@ -91,7 +91,7 @@ Next.js app:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
   "extends": ["@howells/lint/biome/core", "@howells/lint/biome/react", "@howells/lint/biome/next"],
   "root": true
 }
@@ -101,9 +101,9 @@ Next.js app:
 
 Use this lane for new Howells JavaScript and TypeScript projects. React and Next presets stack the relevant Ultracite Ox rules with [React Doctor](https://react.doctor) rules in one config.
 
-React Doctor severities are passed through as published by React Doctor. Native Oxlint Next.js severities come from Oxlint's official `nextjs` plugin via Ultracite's Next preset. `@howells/lint` adds canonical Howells policy on top for file naming, barrel files, env access, workspace boundaries, file size, function size, complexity, and tests.
+React Doctor and native Oxlint Next.js rules now arrive through Ultracite's React and Next presets, which register the React Doctor plugin and enable its rules at error severity. `@howells/lint` adds canonical Howells policy on top for file naming, barrel files, env access, workspace boundaries, file size, function size, complexity, and tests.
 
-The core Oxlint preset enables type-aware linting and native Oxlint rules that keep code files navigable: `max-lines` errors above 600 non-comment, non-blank lines; `max-lines-per-function` warns above 120 non-comment, non-blank lines; `max-statements` warns above 45 statements per function; and `complexity` warns above cyclomatic complexity 15. It also rejects runtime `import()` expressions, including literal specifiers, so package loading stays statically traceable. React projects promote React Doctor's `react-doctor/no-giant-component` rule to an error, so genuinely oversized components still block CI. Test files keep the file-level `max-lines` guard but disable function-size, statement-count, and complexity limits, because test framework callbacks naturally wrap many independent cases. Generated files should be ignored at the project level; rare intentional exceptions should use an exact-file override with a short refactor note.
+The core Oxlint preset enables type-aware linting and native Oxlint rules that keep code files navigable: `max-lines` errors above 600 non-comment, non-blank lines; `max-lines-per-function` warns above 120 non-comment, non-blank lines; `max-statements` warns above 45 statements per function; and `complexity` warns above cyclomatic complexity 15. It also rejects runtime `import()` expressions, including literal specifiers, so package loading stays statically traceable. Test files keep the file-level `max-lines` guard but disable function-size, statement-count, and complexity limits, because test framework callbacks naturally wrap many independent cases. Generated files should be ignored at the project level; rare intentional exceptions should use an exact-file override with a short refactor note.
 
 Core, React, Next, and Playwright presets also enforce the default Howells workspace convention: apps live under `apps/*`, shared packages live under `packages/*`, packages must not import apps, and apps must not import sibling apps. The rule is intentionally narrow and does not infer boundary meaning from other workspace folder names.
 
@@ -116,8 +116,8 @@ Playwright support adds the recommended `eslint-plugin-playwright` rules through
 Choose the closest preset:
 
 - `@howells/lint/oxlint/core` for Node or non-React TypeScript
-- `@howells/lint/oxlint/react` for React (Ultracite React + React Doctor recommended rules)
-- `@howells/lint/oxlint/next` for Next.js (react preset + Next.js rules)
+- `@howells/lint/oxlint/react` for React (Ultracite React, which includes the React Doctor rules)
+- `@howells/lint/oxlint/next` for Next.js (react preset + Ultracite Next, which includes the React Doctor Next.js rules)
 - `@howells/lint/oxlint/playwright` as an overlay for Playwright E2E tests or as a preset for dedicated E2E packages
 - `@howells/lint/oxlint/boundaries` for composing only the default workspace boundary rule into custom configs
 - `@howells/lint/oxlint/react-doctor-rules` for composing or disabling React Doctor rules in mixed workspaces
@@ -299,9 +299,9 @@ A monorepo root should have:
 
 ```json
 {
-  "packageManager": "pnpm@10.23.0",
+  "packageManager": "pnpm@11.5.2",
   "engines": {
-    "node": ">=22.18.0"
+    "node": ">=24.15.0"
   },
   "scripts": {
     "lint": "turbo run lint && howells-workspace-check",
@@ -314,7 +314,7 @@ A monorepo root should have:
 }
 ```
 
-`howells-workspace-check` validates that the root declares `packageManager: "pnpm@..."`, requires Node 22.18.0+ in `engines.node`, pins `.node-version` to `22.18.0`, keeps `pnpm-workspace.yaml` present when workspace package directories exist, and passes `manypkg check`.
+`howells-workspace-check` validates that the root declares `packageManager: "pnpm@..."`, requires Node 24.15.0+ in `engines.node`, pins `.node-version` to `24.15.0`, keeps `pnpm-workspace.yaml` present when workspace package directories exist, and passes `manypkg check`.
 
 CI should call `pnpm lint` or `pnpm check` so root workspace lint is not bypassed by a direct `turbo lint` command.
 
@@ -324,12 +324,14 @@ Installers only need `@howells/lint` as a direct dependency. Use these package b
 
 - `howells-biome` proxies to the pinned Biome binary
 - `howells-ultracite` proxies to the pinned Ultracite binary
-- `howells-check` runs `oxfmt --check`, then `oxlint`
-- `howells-fix` runs `oxfmt --write`, then `oxlint --fix`
+- `howells-check` runs both `oxfmt --check` and `oxlint`, reporting both results in one pass and failing if either fails
+- `howells-fix` runs `oxfmt --write`, then `oxlint --fix`, and likewise reports both results
 - `howells-oxlint` proxies to the pinned Oxlint binary
 - `howells-oxfmt` proxies to the pinned Oxfmt binary
 - `howells-workspace-check` runs workspace lint, then runs `manypkg check`
 - `howells-workspace-fix` runs `manypkg fix`
+
+`howells-check` and `howells-fix` forward flags to Oxlint. Known value-taking flags work in both forms, so `howells-check --config oxlint.config.ts src` and `howells-check --config=oxlint.config.ts src` are equivalent; bare arguments are treated as lint targets.
 
 ## Rules
 
