@@ -1,35 +1,32 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
-import { inheritedEnv } from "./env.mjs";
-import { resolvePackageBin } from "./run-package-bin.mjs";
+import process from "node:process";
+import { partitionOxlintArgs } from "./parse-oxlint-args.mjs";
+import { spawnPackageBin } from "./run-package-bin.mjs";
 
 const args = process.argv.slice(2);
 const useDangerousFixes = args.includes("--unsafe");
 const filteredArgs = args.filter((arg) => arg !== "--unsafe");
-const targets = filteredArgs.filter((arg) => !arg.startsWith("-"));
-const oxlintOptions = filteredArgs.filter((arg) => arg.startsWith("-"));
+const { options: oxlintOptions, targets } = partitionOxlintArgs(filteredArgs);
 const resolvedTargets = targets.length > 0 ? targets : ["."];
 
+// Format first so the linter fixes clean input, but run both stages and report
+// the first failure rather than stopping after the formatter.
 const run = (packageName, binName, commandArgs) => {
-  const binPath = resolvePackageBin(packageName, binName);
-  const result = spawnSync(binPath, commandArgs, {
-    env: inheritedEnv(),
-    stdio: "inherit",
-  });
+  const result = spawnPackageBin(packageName, binName, commandArgs);
 
   if (result.error) {
     throw result.error;
   }
 
-  if ((result.status ?? 1) !== 0) {
-    process.exit(result.status ?? 1);
-  }
+  return result.status ?? 1;
 };
 
-run("oxfmt", "oxfmt", ["--write", ...resolvedTargets]);
-run("oxlint", "oxlint", [
+const formatStatus = run("oxfmt", "oxfmt", ["--write", ...resolvedTargets]);
+const lintStatus = run("oxlint", "oxlint", [
   useDangerousFixes ? "--fix-dangerously" : "--fix",
   ...oxlintOptions,
   ...resolvedTargets,
 ]);
+
+process.exit(formatStatus || lintStatus);

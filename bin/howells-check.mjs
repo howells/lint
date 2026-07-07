@@ -1,29 +1,26 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
-import { inheritedEnv } from "./env.mjs";
-import { resolvePackageBin } from "./run-package-bin.mjs";
+import process from "node:process";
+import { partitionOxlintArgs } from "./parse-oxlint-args.mjs";
+import { spawnPackageBin } from "./run-package-bin.mjs";
 
 const args = process.argv.slice(2);
-const targets = args.filter((arg) => !arg.startsWith("-"));
-const oxlintOptions = args.filter((arg) => arg.startsWith("-"));
+const { options: oxlintOptions, targets } = partitionOxlintArgs(args);
 const resolvedTargets = targets.length > 0 ? targets : ["."];
 
+// Run the formatter check and the linter unconditionally so a single pass
+// surfaces every problem, then fail with the first non-zero status.
 const run = (packageName, binName, commandArgs) => {
-  const binPath = resolvePackageBin(packageName, binName);
-  const result = spawnSync(binPath, commandArgs, {
-    env: inheritedEnv(),
-    stdio: "inherit",
-  });
+  const result = spawnPackageBin(packageName, binName, commandArgs);
 
   if (result.error) {
     throw result.error;
   }
 
-  if ((result.status ?? 1) !== 0) {
-    process.exit(result.status ?? 1);
-  }
+  return result.status ?? 1;
 };
 
-run("oxfmt", "oxfmt", ["--check", ...resolvedTargets]);
-run("oxlint", "oxlint", [...oxlintOptions, ...resolvedTargets]);
+const formatStatus = run("oxfmt", "oxfmt", ["--check", ...resolvedTargets]);
+const lintStatus = run("oxlint", "oxlint", [...oxlintOptions, ...resolvedTargets]);
+
+process.exit(formatStatus || lintStatus);
