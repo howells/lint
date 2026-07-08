@@ -270,6 +270,46 @@ test("React preset rejects generic component suffixes", async () => {
   }
 });
 
+test("opt-in no-raw-jsx-elements rule bans raw host elements and honors allow", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    // The rule is opt-in: extend a standard preset (which loads the howells
+    // plugin via jsPlugins) and turn the rule on with an `allow` list.
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import react from ${JSON.stringify(reactPresetUrl)};\n\nexport default {\n  extends: [react],\n  rules: {\n    "howells/no-raw-jsx-elements": ["error", { allow: ["html", "body"] }],\n  },\n};\n`,
+    );
+    await writeFixture(
+      root,
+      "src/shell.tsx",
+      "export function Shell() {\n  return (\n    <html>\n      <body>\n        <div>\n          <Frame>\n            <span>hi</span>\n          </Frame>\n        </div>\n      </body>\n    </html>\n  );\n}\n",
+    );
+
+    const result = await runOxlint(root);
+    assert.notEqual(result.status, 0);
+
+    const ruleDiagnostics = diagnosticsForRule(result.stdout, "howells(no-raw-jsx-elements)");
+    const messages = ruleDiagnostics.map((diagnostic) => diagnostic.message);
+    const ruleOutput = JSON.stringify(ruleDiagnostics);
+
+    // Lowercase hosts <div> and <span> are reported; <html>/<body> are allowed
+    // and the uppercase <Frame> component is never a bare host.
+    assert.equal(ruleDiagnostics.length, 2);
+    assert.match(ruleOutput, /Raw <div> is banned/);
+    assert.match(ruleOutput, /Raw <span> is banned/);
+    assert.doesNotMatch(ruleOutput, /Raw <html>/);
+    assert.doesNotMatch(ruleOutput, /Raw <body>/);
+    assert.doesNotMatch(ruleOutput, /Raw <Frame>/);
+    assert.equal(
+      messages.filter((message) => message.includes("design-system component instead")).length,
+      2,
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("Next preset rejects pages that only pass through to one client component", async () => {
   const root = await makeFixtureRoot();
 

@@ -111,6 +111,19 @@ React and Next presets also reject generic component suffixes that tend to hide 
 
 Next presets reject App Router pages that only pass through to one imported client component. Route pages should keep server composition, data loading, and route-level structure in the page, then push only the interactive leaves behind a client boundary.
 
+An opt-in `howells/no-raw-jsx-elements` rule bans raw lowercase JSX host elements (`<div>`, `<span>`, `<button>`, …) so application markup renders only design-system components. It is deliberately generic — the diagnostic carries no project-specific component names — so any project can point it at its own component vocabulary. It is **not** enabled by any preset, because banning every host element is a strong, project-specific choice that would break most consumers. The `howells` plugin is already loaded by every Oxlint preset (via `jsPlugins`), so a project turns the rule on by adding it to their own config and listing sanctioned host tags (for example the Next root shell's `html` and `body`) in the `allow` option. Uppercase components, member expressions (`Foo.Bar`), namespaced names, and fragments are always left alone.
+
+```ts
+import next from "@howells/lint/oxlint/next";
+
+export default {
+  extends: [next],
+  rules: {
+    "howells/no-raw-jsx-elements": ["error", { allow: ["html", "body"] }],
+  },
+};
+```
+
 Playwright support adds the recommended `eslint-plugin-playwright` rules through Oxlint and promotes brittle E2E patterns to errors, including `playwright/no-wait-for-timeout`, `playwright/no-force-option`, `playwright/no-element-handle`, and `playwright/prefer-web-first-assertions`. Use the Playwright export as an overlay for app-level E2E tests, or as a standalone preset for dedicated E2E packages.
 
 Choose the closest preset:

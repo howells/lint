@@ -338,6 +338,61 @@ function createNoRuntimeDynamicImportsRule(context) {
   };
 }
 
+const LOWERCASE_TAG_PATTERN = /^[a-z]/u;
+
+// Generic, cross-project version of the "no naked host element" doctrine. A raw
+// lowercase JSX tag (<div>, <span>, <button>, …) is a naked HTML host element;
+// this rule bans them so application markup renders only through a project's
+// design-system component vocabulary. It carries no design-system-specific
+// replacement table — the diagnostic is deliberately generic — so any Howells
+// project can opt in and point it at its own component set.
+//
+// The rule is OPT-IN: it is not enabled by any shared preset, because banning
+// every host element is a strong, project-specific choice. Once the `howells`
+// plugin is loaded (every preset already wires it via `jsPlugins`), a consumer
+// turns it on with `"howells/no-raw-jsx-elements": "error"` in their own config
+// and lists sanctioned host tags (e.g. the Next root shell's `html`/`body`) in
+// the `allow` option.
+//
+// Uppercase components (Foo), member expressions (Foo.Bar), namespaced names
+// (svg:path) and fragments are never bare hosts and are always left alone.
+
+/**
+ * ESLint-style rule factory for `no-raw-jsx-elements`. Visits every JSX opening
+ * element and reports raw lowercase host elements unless the tag appears in
+ * `options[0].allow`.
+ *
+ * @param {{ options?: Array<{ allow?: string[] }>, report: Function }} context
+ */
+function createNoRawJsxElementsRule(context) {
+  const allow = new Set(context.options?.[0]?.allow ?? []);
+
+  return {
+    JSXOpeningElement(node) {
+      const name = node.name;
+      // JSXMemberExpression (Foo.Bar) and JSXNamespacedName are never bare hosts.
+      if (name?.type !== "JSXIdentifier") {
+        return;
+      }
+
+      const tag = name.name;
+      // Uppercase → a component; only lowercase identifiers are raw HTML hosts.
+      if (!LOWERCASE_TAG_PATTERN.test(tag)) {
+        return;
+      }
+
+      if (allow.has(tag)) {
+        return;
+      }
+
+      context.report({
+        node: name,
+        message: `Raw <${tag}> is banned — render a design-system component instead (configure \`allow\` for sanctioned host elements).`,
+      });
+    },
+  };
+}
+
 const plugin = {
   meta: {
     name: "howells",
@@ -386,6 +441,26 @@ const plugin = {
         schema: [],
       },
       create: createNoRuntimeDynamicImportsRule,
+    },
+    "no-raw-jsx-elements": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "Disallow raw lowercase HTML host elements — render design-system components instead. Opt-in; not enabled by any preset.",
+        },
+        messages: {},
+        schema: [
+          {
+            type: "object",
+            properties: {
+              allow: { type: "array", items: { type: "string" } },
+            },
+            additionalProperties: false,
+          },
+        ],
+      },
+      create: createNoRawJsxElementsRule,
     },
   },
 };
