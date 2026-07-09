@@ -124,6 +124,41 @@ export default {
 };
 ```
 
+An opt-in `howells/no-raw-type-utilities` rule bans Tailwind **typographic** utilities in class strings **unless** they are sanctioned via the `allow` option — so type is styled only through a project's own design-system type classes. It is deliberately generic: it carries no project token table, and both what it governs and what it permits are supplied as params. It scans class strings with real AST scoping — `className`/`class` attributes, `cn`/`cx`/`clsx`/`cva`/`tv`/`twMerge`/`twJoin`/`classNames` call arguments, and `Record<*Size, string>` size-ladder objects — so it never fires on a same-spelled word in a comment, a JSDoc `@example`, or an unrelated string prop (a Radix `value="italic"` is untouched).
+
+- `allow` — glob patterns (`*` wildcard) for the sanctioned classes (your design-system type tokens, plus whatever weights/leading/etc. you permit). Everything else in the governed namespace is reported.
+- `match` — glob patterns for the governed namespace. Defaults to standard Tailwind typography (`text-<size>`, arbitrary `text-[…]`, `font-*`, `leading-*`, `tracking-*`, `uppercase`/`lowercase`/`capitalize`/`normal-case`, `italic`). Colour (`text-[#…]`), alignment (`text-center`), and wrapping (`text-balance`) are **not** governed by default; add them to `match` if you want them policed too.
+
+```ts
+import react from "@howells/lint/oxlint/react";
+
+export default {
+  extends: [react],
+  rules: {
+    "howells/no-raw-type-utilities": [
+      "error",
+      {
+        // The ONLY typographic classes this project permits — everything else
+        // in the default namespace (raw text-*, un-listed font weights, …) errors.
+        allow: [
+          "text-caption",
+          "text-paragraph*",
+          "text-subheading*",
+          "text-heading*",
+          "text-title",
+          "text-2xs",
+          "text-eyebrow",
+          "font-normal",
+          "font-medium",
+          "font-semibold",
+          "font-mono",
+        ],
+      },
+    ],
+  },
+};
+```
+
 Playwright support adds the recommended `eslint-plugin-playwright` rules through Oxlint and promotes brittle E2E patterns to errors, including `playwright/no-wait-for-timeout`, `playwright/no-force-option`, `playwright/no-element-handle`, and `playwright/prefer-web-first-assertions`. Use the Playwright export as an overlay for app-level E2E tests, or as a standalone preset for dedicated E2E packages.
 
 Choose the closest preset:

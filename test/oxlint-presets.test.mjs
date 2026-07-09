@@ -310,6 +310,97 @@ test("opt-in no-raw-jsx-elements rule bans raw host elements and honors allow", 
   }
 });
 
+test("opt-in no-raw-type-utilities rule bans raw typographic utilities and honors context", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    // Generic rule: the sanctioned typographic classes are supplied entirely via
+    // `allow` (design-system tokens + the weights/leading this project permits).
+    // Everything else typographic — including raw sizes and un-allowed font
+    // weights — is governed by the default namespace and reported.
+    const allow = [
+      "text-caption",
+      "text-paragraph*",
+      "text-heading*",
+      "font-medium",
+      "font-semibold",
+      "leading-none",
+    ];
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import react from ${JSON.stringify(reactPresetUrl)};\n\nexport default {\n  extends: [react],\n  rules: {\n    "howells/no-raw-type-utilities": ["error", { allow: ${JSON.stringify(allow)} }],\n  },\n};\n`,
+    );
+    await writeFixture(
+      root,
+      "src/typography.tsx",
+      [
+        `import { cva } from "class-variance-authority";`,
+        ``,
+        `type ComponentSize = "sm" | "lg";`,
+        ``,
+        `const ToggleGroupItem = (_props: { value: string }) => null;`,
+        ``,
+        `// Size ladder: Record<*Size, string> is scanned even outside className/cn.`,
+        `const SIZES: Record<ComponentSize, string> = {`,
+        `  sm: "text-sm font-medium",`,
+        `  lg: "text-lg",`,
+        `};`,
+        ``,
+        `const variants = cva("text-xs", {`,
+        `  variants: { tone: { loud: "uppercase tracking-widest text-caption" } },`,
+        `});`,
+        ``,
+        `/**`,
+        ` * @example <Thing label="One uppercase letter" />`,
+        ` */`,
+        `export function Thing() {`,
+        `  return (`,
+        `    <div className={SIZES.sm}>`,
+        `      <p className="text-base text-[13px] text-[#fff] leading-none">{variants()}</p>`,
+        `      <ToggleGroupItem value="italic" />`,
+        `      <span className="text-caption font-semibold font-bold">ok</span>`,
+        `    </div>`,
+        `  );`,
+        `}`,
+        ``,
+      ].join("\n"),
+    );
+
+    const result = await runOxlint(root);
+    assert.notEqual(result.status, 0);
+
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(no-raw-type-utilities)",
+    );
+    // Assert against the parsed (unescaped) messages, not the JSON string.
+    const messages = ruleDiagnostics.map((diagnostic) => diagnostic.message).join("\n");
+
+    // Governed & not allowed → flagged: raw sizes (incl. from the Record<*Size>
+    // ladder and the cva base arg), arbitrary length size, tracking, uppercase,
+    // and an un-allowed font weight (font-* is in the default namespace).
+    assert.match(messages, /Typographic utility "text-sm"/);
+    assert.match(messages, /Typographic utility "text-lg"/);
+    assert.match(messages, /Typographic utility "text-xs"/);
+    assert.match(messages, /Typographic utility "text-base"/);
+    assert.match(messages, /Typographic utility "text-\[13px\]"/);
+    assert.match(messages, /Typographic utility "tracking-widest"/);
+    assert.match(messages, /Typographic utility "uppercase"/);
+    assert.match(messages, /Typographic utility "font-bold"/);
+
+    // Sanctioned via `allow`, colour arbitrary (never governed), and — crucially —
+    // a same-spelled word in a JSDoc @example or a non-className string prop
+    // (Radix `value="italic"`) are all left alone.
+    assert.doesNotMatch(messages, /"text-caption"/);
+    assert.doesNotMatch(messages, /"text-\[#fff\]"/);
+    assert.doesNotMatch(messages, /"font-(?:medium|semibold)"/);
+    assert.doesNotMatch(messages, /"leading-none"/);
+    assert.doesNotMatch(messages, /"(?:not-)?italic"/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("Next preset rejects pages that only pass through to one client component", async () => {
   const root = await makeFixtureRoot();
 
