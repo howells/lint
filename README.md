@@ -358,7 +358,7 @@ A monorepo root should have:
     "check": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "@howells/lint": "^1.0.1"
+    "@howells/lint": "^1.1.0"
   }
 }
 ```

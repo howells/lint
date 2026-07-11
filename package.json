@@ -1,6 +1,6 @@
 {
   "name": "@howells/lint",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Pinned Biome, Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
   "keywords": [],
   "homepage": "https://github.com/howells/lint#readme",
