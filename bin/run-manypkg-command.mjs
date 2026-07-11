@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createRequire } from "node:module";
+
 import { runPackageBin } from "./run-package-bin.mjs";
 
 const require = createRequire(import.meta.url);

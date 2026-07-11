@@ -1,6 +1,6 @@
 {
   "name": "@howells/lint",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pinned Biome, Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
   "keywords": [],
   "homepage": "https://github.com/howells/lint#readme",
@@ -71,21 +71,23 @@
     }
   },
   "scripts": {
+    "check": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin test oxlint oxfmt oxfmt.config.mjs && node --test && pnpm peers check",
     "test": "node --test"
   },
   "dependencies": {
-    "@biomejs/biome": "2.5.2",
-    "@manypkg/cli": "^0.25.1",
-    "eslint": "10.6.0",
-    "eslint-plugin-github": "6.0.0",
+    "@biomejs/biome": "2.5.3",
+    "@manypkg/cli": "0.25.1",
+    "eslint": "9.39.2",
+    "eslint-plugin-github": "6.1.0",
     "eslint-plugin-playwright": "2.10.5",
     "eslint-plugin-sonarjs": "4.1.0",
     "oxc-parser": "0.139.0",
     "oxfmt": "0.58.0",
     "oxlint": "1.73.0",
-    "oxlint-plugin-react-doctor": "0.7.1",
+    "oxlint-plugin-react-doctor": "0.7.3",
     "oxlint-tsgolint": "0.24.0",
-    "ultracite": "7.9.2"
+    "typescript": "6.0.3",
+    "ultracite": "7.9.3"
   },
   "engines": {
     "node": ">=24.15.0"

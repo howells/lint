@@ -71,7 +71,7 @@ Node or non-React TypeScript package:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
   "extends": ["@howells/lint/biome/core"],
   "root": true
 }
@@ -81,7 +81,7 @@ React package:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
   "extends": ["@howells/lint/biome/core", "@howells/lint/biome/react"],
   "root": true
 }
@@ -91,8 +91,12 @@ Next.js app:
 
 ```json
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
-  "extends": ["@howells/lint/biome/core", "@howells/lint/biome/react", "@howells/lint/biome/next"],
+  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
+  "extends": [
+    "@howells/lint/biome/core",
+    "@howells/lint/biome/react",
+    "@howells/lint/biome/next"
+  ],
   "root": true
 }
 ```
@@ -204,7 +208,10 @@ Next.js app with Playwright E2E tests:
 
 ```ts
 import next from "@howells/lint/oxlint/next";
-import { playwrightJsPlugins, playwrightRules } from "@howells/lint/oxlint/playwright";
+import {
+  playwrightJsPlugins,
+  playwrightRules,
+} from "@howells/lint/oxlint/playwright";
 
 export default {
   extends: [next],
@@ -270,6 +277,8 @@ import howells from "@howells/lint/oxfmt";
 
 export default howells;
 ```
+
+The package binaries discover `oxfmt.config.*` from the current directory up through its parents and pass it to Oxfmt explicitly. If a project has no Oxfmt config, they use the packaged Howells preset directly. An explicit `--config`/`-c` flag passed to `howells-oxfmt` always wins; `howells-check` and `howells-fix` reserve their config flag for Oxlint and discover the Oxfmt config automatically.
 
 Oxlint type-aware mode is enabled by the shared core preset through the pinned `oxlint-tsgolint` dependency. Projects choosing the Oxlint/Oxfmt lane should be ready for Oxlint's TypeScript type-aware constraints.
 
@@ -349,7 +358,7 @@ A monorepo root should have:
     "check": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "@howells/lint": "^0.4.0"
+    "@howells/lint": "^1.0.1"
   }
 }
 ```
@@ -364,10 +373,10 @@ Installers only need `@howells/lint` as a direct dependency. Use these package b
 
 - `howells-biome` proxies to the pinned Biome binary
 - `howells-ultracite` proxies to the pinned Ultracite binary
-- `howells-check` runs both `oxfmt --check` and `oxlint`, reporting both results in one pass and failing if either fails
-- `howells-fix` runs `oxfmt --write`, then `oxlint --fix`, and likewise reports both results
+- `howells-check` runs both `oxfmt --check` and `oxlint`, discovers the project Oxfmt config or uses the packaged preset, reports both results in one pass, and fails if either fails
+- `howells-fix` runs `oxfmt --write`, then `oxlint --fix`, with the same Oxfmt config discovery and combined failure reporting
 - `howells-oxlint` proxies to the pinned Oxlint binary
-- `howells-oxfmt` proxies to the pinned Oxfmt binary
+- `howells-oxfmt` proxies to the pinned Oxfmt binary with project-config discovery and packaged-preset fallback
 - `howells-workspace-check` runs workspace lint, then runs `manypkg check`
 - `howells-workspace-fix` runs `manypkg fix`
 

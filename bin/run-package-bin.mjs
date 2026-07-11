@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import process from "node:process";
+
 import { inheritedEnv } from "./env.mjs";
 
 const require = createRequire(import.meta.url);
@@ -18,7 +19,13 @@ const resolvePackageJsonPath = (packageName) => {
     let searchDir = currentDir;
 
     while (true) {
-      const candidate = join(searchDir, "..", "node_modules", ...packageSegments, "package.json");
+      const candidate = join(
+        searchDir,
+        "..",
+        "node_modules",
+        ...packageSegments,
+        "package.json"
+      );
 
       if (existsSync(candidate)) {
         return candidate;
@@ -34,7 +41,9 @@ const resolvePackageJsonPath = (packageName) => {
     }
   }
 
-  throw new Error(`Could not resolve package.json for package '${packageName}'.`);
+  throw new Error(
+    `Could not resolve package.json for package '${packageName}'.`
+  );
 };
 
 export const resolvePackageBin = (packageName, binName) => {
@@ -51,7 +60,9 @@ export const resolvePackageBin = (packageName, binName) => {
     return join(packageDir, binField[binName]);
   }
 
-  throw new Error(`Could not resolve bin '${binName}' for package '${packageName}'.`);
+  throw new Error(
+    `Could not resolve bin '${binName}' for package '${packageName}'.`
+  );
 };
 
 // Oxlint's type-aware mode discovers the tsgolint executable by walking up from
@@ -67,7 +78,10 @@ const spawnEnv = (packageName) => {
   }
 
   try {
-    return { ...env, OXLINT_TSGOLINT_PATH: resolvePackageBin("oxlint-tsgolint", "tsgolint") };
+    return {
+      ...env,
+      OXLINT_TSGOLINT_PATH: resolvePackageBin("oxlint-tsgolint", "tsgolint"),
+    };
   } catch {
     return env;
   }

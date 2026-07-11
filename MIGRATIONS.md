@@ -2,11 +2,17 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Oxlint/Oxfmt, or ad hoc Biome setup with `@howells/lint`.
 
+## 1.0.1 compatibility fix
+
+Version 1.0.1 corrects the runtime dependency graph used by Ultracite's Oxlint JS plugins. It keeps ESLint on the newest release supported by the complete GitHub plugin tree and pins a compatible TypeScript runtime for Ultracite and SonarJS. Consumers do not need peer overrides or direct lint-tool dependencies; remove any temporary ESLint or TypeScript override added for 1.0.0, update `@howells/lint`, and reinstall.
+
+The 1.0.1 binaries also pass the nearest `oxfmt.config.*` file to Oxfmt explicitly and fall back to the packaged Howells preset when no project config exists. This repairs 1.0.0's silent use of Oxfmt defaults. Run the project's `lint:fix` once after updating and review the resulting formatting changes.
+
 ## 1.0.0 breaking changes
 
 Upgrading from a 0.x release to 1.0.0 changes four things consumers can feel:
 
-1. **React Doctor rules are now errors.** The Oxlint React and Next presets used to spread React Doctor's published severities, which were mostly warnings. They now delegate to Ultracite's React and Next presets, which enable every React Doctor rule at `error`. A codebase that previously passed with React Doctor warnings can now fail `howells-check`/CI with no code change. This is intentional — the rules describe real correctness and performance problems. To adopt incrementally, spread `disabledReactDoctorRules` from `@howells/lint/oxlint/react-doctor-rules` (or disable specific `react-doctor/*` rules) in a project override, and treat it as a migration exception with a removal path, not a permanent preference.
+1. **React Doctor rules are now errors.** The Oxlint React and Next presets used to spread React Doctor's published severities, which were mostly warnings. They now include the React Doctor portion of Ultracite's opt-in JS-plugin preset, which enables every React Doctor rule at `error`. A codebase that previously passed with React Doctor warnings can now fail `howells-check`/CI with no code change. This is intentional — the rules describe real correctness and performance problems. To adopt incrementally, spread `disabledReactDoctorRules` from `@howells/lint/oxlint/react-doctor-rules` (or disable specific `react-doctor/*` rules) in a project override, and treat it as a migration exception with a removal path, not a permanent preference.
 
 2. **Node standard is 24.15.0.** `engines.node` is now `>=24.15.0`; pin `.node-version` to `24.15.0` and align the root `engines.node`. `howells-workspace-check` enforces this.
 

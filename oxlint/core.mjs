@@ -1,9 +1,11 @@
 import { defineConfig } from "oxlint";
 import ultraciteCore from "ultracite/oxlint/core";
+
 import { boundaryJsPlugins, boundaryRules } from "./boundaries.mjs";
+import { ultraciteCoreJsPlugins } from "./ultracite-js-plugins.mjs";
 
 export default defineConfig({
-  extends: [ultraciteCore],
+  extends: [ultraciteCore, ultraciteCoreJsPlugins],
   jsPlugins: boundaryJsPlugins,
   options: {
     typeAware: true,

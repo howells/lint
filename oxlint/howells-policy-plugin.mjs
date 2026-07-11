@@ -31,7 +31,9 @@ function withoutExtension(filename) {
 }
 
 function isNextAppPageFile(filename) {
-  return /(?:^|\/)(?:src\/)?app\/(?:.*\/)?page\.[jt]sx$/u.test(normalizeFilename(filename));
+  return /(?:^|\/)(?:src\/)?app\/(?:.*\/)?page\.[jt]sx$/u.test(
+    normalizeFilename(filename)
+  );
 }
 
 function findFilenameSuffix(filename) {
@@ -44,7 +46,9 @@ function findFilenameSuffix(filename) {
   }
 
   const stem = withoutExtension(basename(filename)).toLowerCase();
-  return BANNED_SUFFIXES.find(({ kebab }) => stem === kebab || stem.endsWith(`-${kebab}`));
+  return BANNED_SUFFIXES.find(
+    ({ kebab }) => stem === kebab || stem.endsWith(`-${kebab}`)
+  );
 }
 
 function findComponentNameSuffix(name) {
@@ -52,11 +56,15 @@ function findComponentNameSuffix(name) {
     return null;
   }
 
-  return BANNED_SUFFIXES.find(({ pascal }) => name === pascal || name.endsWith(pascal));
+  return BANNED_SUFFIXES.find(
+    ({ pascal }) => name === pascal || name.endsWith(pascal)
+  );
 }
 
 function isAllowedNextPageComponent(name, filename) {
-  return isNextAppPageFile(filename) && (name === "Page" || name.endsWith("Page"));
+  return (
+    isNextAppPageFile(filename) && (name === "Page" || name.endsWith("Page"))
+  );
 }
 
 function hasUseClientDirective(source) {
@@ -69,7 +77,9 @@ function resolveRelativeModule(filename, specifier) {
     ? [basePath]
     : [
         ...MODULE_EXTENSIONS.map((extension) => `${basePath}${extension}`),
-        ...MODULE_EXTENSIONS.map((extension) => path.join(basePath, `index${extension}`)),
+        ...MODULE_EXTENSIONS.map((extension) =>
+          path.join(basePath, `index${extension}`)
+        ),
       ];
 
   return candidates.find((candidate) => fs.existsSync(candidate));
@@ -89,7 +99,10 @@ function isClientComponentModule(filename, specifier) {
 }
 
 function isPascalCaseJsxName(nameNode) {
-  return nameNode?.type === "JSXIdentifier" && PASCAL_CASE_PATTERN.test(nameNode.name);
+  return (
+    nameNode?.type === "JSXIdentifier" &&
+    PASCAL_CASE_PATTERN.test(nameNode.name)
+  );
 }
 
 function findWorkspaceElement(filename) {
@@ -135,10 +148,10 @@ function getSingleJsxElement(expression) {
   }
 
   const elementChildren = expression.children.filter(
-    (child) => child.type === "JSXElement" || child.type === "JSXFragment",
+    (child) => child.type === "JSXElement" || child.type === "JSXFragment"
   );
   const meaningfulTextChildren = expression.children.filter(
-    (child) => child.type === "JSXText" && child.value.trim() !== "",
+    (child) => child.type === "JSXText" && child.value.trim() !== ""
   );
 
   if (elementChildren.length !== 1 || meaningfulTextChildren.length > 0) {
@@ -219,7 +232,10 @@ function createNoGenericComponentSuffixRule(context) {
     },
     ExportDefaultDeclaration(node) {
       const declaration = node.declaration;
-      if (declaration?.type === "FunctionDeclaration" || declaration?.type === "ClassDeclaration") {
+      if (
+        declaration?.type === "FunctionDeclaration" ||
+        declaration?.type === "ClassDeclaration"
+      ) {
         reportComponentName(declaration.id);
       }
     },
@@ -265,11 +281,17 @@ function createNoSingleClientComponentPageRule(context) {
       }
 
       for (const specifier of node.specifiers ?? []) {
-        if (specifier.type === "ImportSpecifier" && specifier.local?.type === "Identifier") {
+        if (
+          specifier.type === "ImportSpecifier" &&
+          specifier.local?.type === "Identifier"
+        ) {
           importedComponentSources.set(specifier.local.name, node.source.value);
         }
 
-        if (specifier.type === "ImportDefaultSpecifier" && specifier.local?.type === "Identifier") {
+        if (
+          specifier.type === "ImportDefaultSpecifier" &&
+          specifier.local?.type === "Identifier"
+        ) {
           importedComponentSources.set(specifier.local.name, node.source.value);
         }
       }
@@ -293,7 +315,9 @@ function createNoCrossWorkspaceAppImportsRule(context) {
       return;
     }
 
-    const toElement = findWorkspaceElement(resolveImportPath(filename, specifier));
+    const toElement = findWorkspaceElement(
+      resolveImportPath(filename, specifier)
+    );
 
     if (!toElement || toElement.type !== "app") {
       return;
@@ -506,7 +530,7 @@ function isRecordSizeStringAnnotation(declarator) {
   const keyName = keyType?.typeName?.name;
   return (
     typeof keyName === "string" &&
-    /Size$/u.test(keyName) &&
+    keyName.endsWith("Size") &&
     valueType?.type === "TSStringKeyword"
   );
 }
@@ -586,7 +610,10 @@ function createNoRawTypeUtilitiesRule(context) {
         break;
       case "TemplateLiteral":
         for (const quasi of node.quasis) {
-          checkClassString(quasi.value?.cooked ?? quasi.value?.raw ?? "", quasi);
+          checkClassString(
+            quasi.value?.cooked ?? quasi.value?.raw ?? "",
+            quasi
+          );
         }
         for (const expression of node.expressions) {
           scanClassExpression(expression);
@@ -685,7 +712,8 @@ const plugin = {
       meta: {
         type: "suggestion",
         docs: {
-          description: "Disallow generic React component suffixes that hide responsibility.",
+          description:
+            "Disallow generic React component suffixes that hide responsibility.",
         },
         messages: {},
         schema: [],
@@ -696,7 +724,8 @@ const plugin = {
       meta: {
         type: "problem",
         docs: {
-          description: "Disallow Next page files that only pass through to one client component.",
+          description:
+            "Disallow Next page files that only pass through to one client component.",
         },
         messages: {},
         schema: [],
@@ -707,7 +736,8 @@ const plugin = {
       meta: {
         type: "problem",
         docs: {
-          description: "Disallow packages importing apps and apps importing sibling apps.",
+          description:
+            "Disallow packages importing apps and apps importing sibling apps.",
         },
         messages: {},
         schema: [],

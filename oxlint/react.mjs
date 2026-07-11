@@ -1,12 +1,13 @@
 import { defineConfig } from "oxlint";
 import ultraciteReact from "ultracite/oxlint/react";
-import core from "./core.mjs";
 
-// Ultracite's React preset now registers the react-doctor plugin and enables
-// its full rule set, so this preset only layers the Howells-specific policy on
-// top of core + Ultracite.
+import core from "./core.mjs";
+import { ultraciteReactDoctor } from "./ultracite-js-plugins.mjs";
+
+// Ultracite 7.9.3 moved React Doctor into its opt-in JS-plugin preset. Keep it
+// in the standard Howells React lane while leaving it out of core-only repos.
 export default defineConfig({
-  extends: [core, ultraciteReact],
+  extends: [core, ultraciteReact, ultraciteReactDoctor],
   rules: {
     "howells/no-generic-component-suffix": "error",
   },

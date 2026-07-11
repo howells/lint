@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 import process from "node:process";
+
 import { partitionOxlintArgs } from "./parse-oxlint-args.mjs";
+import { withOxfmtConfig } from "./resolve-oxfmt-config.mjs";
 import { spawnPackageBin } from "./run-package-bin.mjs";
 
 const args = process.argv.slice(2);
@@ -20,7 +22,14 @@ const run = (packageName, binName, commandArgs) => {
   return result.status ?? 1;
 };
 
-const formatStatus = run("oxfmt", "oxfmt", ["--check", ...resolvedTargets]);
-const lintStatus = run("oxlint", "oxlint", [...oxlintOptions, ...resolvedTargets]);
+const formatStatus = run(
+  "oxfmt",
+  "oxfmt",
+  withOxfmtConfig(["--check", ...resolvedTargets])
+);
+const lintStatus = run("oxlint", "oxlint", [
+  ...oxlintOptions,
+  ...resolvedTargets,
+]);
 
 process.exit(formatStatus || lintStatus);

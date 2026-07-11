@@ -31,4 +31,3 @@ Consumers get one Oxlint/Oxfmt lane preset for React and Next.js projects, with 
 Some findings may be duplicate or near-duplicate when upstream rule sets overlap. This is acceptable because coverage is preferred over maintaining a local rule reconciliation matrix.
 
 `@howells/lint` owns the pinned React Doctor Oxlint plugin and its parser compatibility dependency so consumer projects do not install them directly.
-

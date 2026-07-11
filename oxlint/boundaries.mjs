@@ -1,8 +1,13 @@
 import { defineConfig } from "oxlint";
 
-const howellsPolicyPluginSpecifier = new URL("./howells-policy-plugin.mjs", import.meta.url).href;
+const howellsPolicyPluginSpecifier = new URL(
+  "./howells-policy-plugin.mjs",
+  import.meta.url
+).href;
 
-export const boundaryJsPlugins = [{ name: "howells", specifier: howellsPolicyPluginSpecifier }];
+export const boundaryJsPlugins = [
+  { name: "howells", specifier: howellsPolicyPluginSpecifier },
+];
 
 export const boundarySettings = {};
 

@@ -1,5 +1,6 @@
 import { defineConfig } from "oxlint";
 import ultraciteNext from "ultracite/oxlint/next";
+
 import react from "./react.mjs";
 
 // Ultracite's Next preset supplies the react-doctor Next.js rules; this preset

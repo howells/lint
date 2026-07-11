@@ -38,7 +38,9 @@ const hasWorkspaceChildren = (directory) => {
   }
 
   return readdirSync(directoryPath, { withFileTypes: true }).some(
-    (entry) => entry.isDirectory() && existsSync(join(directoryPath, entry.name, "package.json")),
+    (entry) =>
+      entry.isDirectory() &&
+      existsSync(join(directoryPath, entry.name, "package.json"))
   );
 };
 
@@ -65,7 +67,7 @@ const engineSatisfiesRequiredNode = (range) => {
   const normalizedRange = range.replaceAll(/\s+/gu, "");
   // Match the lower bound; ignore any upper bound (e.g. ">=24.15.0 <25").
   const match = normalizedRange.match(
-    /^(?:>=|\^|~)?(?<major>\d+)(?:\.(?<minor>\d+))?(?:\.(?<patch>\d+))?/u,
+    /^(?:>=|\^|~)?(?<major>\d+)(?:\.(?<minor>\d+))?(?:\.(?<patch>\d+))?/u
   );
 
   if (!match?.groups?.major || !match.groups.minor) {
@@ -75,7 +77,7 @@ const engineSatisfiesRequiredNode = (range) => {
   return isAtLeastRequiredNodeVersion(
     Number(match.groups.major),
     Number(match.groups.minor),
-    Number(match.groups.patch ?? 0),
+    Number(match.groups.patch ?? 0)
   );
 };
 
@@ -103,7 +105,9 @@ export const runWorkspacePreflight = () => {
   }
 
   if (!engineSatisfiesRequiredNode(packageJson.engines?.node)) {
-    errors.push(`root package.json engines.node must require Node ${requiredNodeVersion}+`);
+    errors.push(
+      `root package.json engines.node must require Node ${requiredNodeVersion}+`
+    );
   }
 
   const nodeVersion = readNodeVersionFile();
