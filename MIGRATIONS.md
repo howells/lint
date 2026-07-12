@@ -2,6 +2,14 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Oxlint/Oxfmt, or ad hoc Biome setup with `@howells/lint`.
 
+## 1.1.1 workspace and fixer behavior fixes
+
+Version 1.1.1 changes two consumer-visible behaviors:
+
+1. **`howells-workspace-check` treats the repo's `.node-version` as the source of truth.** It no longer demands one exact Node version. It now requires that `.node-version` exists as a plain `x.y.z` pin at or above the tool's floor (`24.15.0`), and that the root `engines.node` lower bound covers the pinned version. A repo pinning `24.16.0` with `engines.node: ">=24.16.0 <25"` now passes; it failed under 1.1.0's exact-match rule.
+
+2. **`howells-fix` exits 0 when the given paths hold nothing lintable.** When every passed file is excluded by ignore rules or is not a lintable type (a JSON/lockfile-only commit from lint-staged, say), the fixer prints an informational line and succeeds instead of failing with Oxlint's "No files found to lint" error. Explicitly-named paths that do not exist on disk still fail.
+
 ## 1.1.0 compatibility fix
 
 Version 1.1.0 corrects the runtime dependency graph used by Ultracite's Oxlint JS plugins. It keeps ESLint on the newest release supported by the complete GitHub plugin tree and pins a compatible TypeScript runtime for Ultracite and SonarJS. Consumers do not need peer overrides or direct lint-tool dependencies; remove any temporary ESLint or TypeScript override added for 1.0.0, update `@howells/lint`, and reinstall.
