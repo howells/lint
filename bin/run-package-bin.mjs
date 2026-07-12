@@ -99,6 +99,18 @@ export const spawnPackageBin = (packageName, binName, args) => {
   });
 };
 
+// Same resolution and environment as spawnPackageBin, but captures stdout and
+// stderr as strings instead of inheriting the parent's streams. Callers that
+// need to inspect a tool's output (e.g. to tell an empty path set apart from a
+// real failure) use this and re-emit the captured output themselves.
+export const spawnPackageBinCapture = (packageName, binName, args) => {
+  const binPath = resolvePackageBin(packageName, binName);
+  return spawnSync(process.execPath, [binPath, ...args], {
+    env: spawnEnv(packageName),
+    encoding: "utf-8",
+  });
+};
+
 export const runPackageBin = (packageName, binName, args) => {
   const result = spawnPackageBin(packageName, binName, args);
 
