@@ -11,6 +11,9 @@ importers:
       '@biomejs/biome':
         specifier: 2.5.3
         version: 2.5.3
+      '@howells/neon':
+        specifier: ^0.1.0
+        version: 0.1.0
       '@manypkg/cli':
         specifier: 0.25.1
         version: 0.25.1
@@ -190,6 +193,24 @@ packages:
 
   '@github/browserslist-config@1.0.0':
     resolution: {integrity: sha512-gIhjdJp/c2beaIWWIlsXdqXVRUz3r2BxBCpfz/F3JXHvSAQ1paMYjLH+maEATtENg+k5eLV7gA+9yPp762ieuw==}
+
+  '@howells/neon@0.1.0':
+    resolution: {integrity: sha512-2GNhnX1rQ7BvYTPG0NiibVQAg6WcYBNs9Hwgg6K/Ps84o5vlcKT09osGwtMTTiWnTpoJf/eTQxpYOJ2YxSpRMA==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@neondatabase/serverless': ^1.1.0
+      drizzle-kit: ^0.31.0
+      drizzle-orm: ^0.45.0
+      pg: ^8.11.0
+    peerDependenciesMeta:
+      '@neondatabase/serverless':
+        optional: true
+      drizzle-kit:
+        optional: true
+      drizzle-orm:
+        optional: true
+      pg:
+        optional: true
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -2223,6 +2244,8 @@ snapshots:
       levn: 0.4.1
 
   '@github/browserslist-config@1.0.0': {}
+
+  '@howells/neon@0.1.0': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

@@ -68,6 +68,10 @@
     "./oxlint/react-doctor-rules": {
       "types": "./oxlint/react-doctor-rules.d.mts",
       "default": "./oxlint/react-doctor-rules.mjs"
+    },
+    "./oxlint/neon": {
+      "types": "./oxlint/neon.d.mts",
+      "default": "./oxlint/neon.mjs"
     }
   },
   "scripts": {
@@ -75,6 +79,7 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@howells/neon": "^0.1.0",
     "@biomejs/biome": "2.5.3",
     "@manypkg/cli": "0.25.1",
     "eslint": "9.39.2",
