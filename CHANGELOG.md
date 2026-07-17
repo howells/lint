@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2 — 2026-07-17
+
+### Fixed
+
+- The Oxlint core preset turns off core `require-await`. Ultracite enables it alongside typed `typescript/promise-function-async`, and together they contradict: the typed rule forces `async` onto every promise-returning function, and core `require-await` then rejects any of them with nothing to await — making a no-await implementation of a promise-typed signature (test stubs, passthrough adapters) unwritable. The typed rule carries the intent; the untyped one yields. Covered by a preset regression test.
+
 ## 1.1.1 — 2026-07-12
 
 ### Fixed

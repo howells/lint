@@ -68,6 +68,15 @@ export default defineConfig({
         threshold: 0,
       },
     ],
+    // Ultracite enables both core `require-await` and typed
+    // `typescript/promise-function-async`. Together they contradict: the typed
+    // rule forces `async` onto every promise-returning function, and core
+    // `require-await` then rejects any of them that has nothing to await — so a
+    // no-await implementation of a promise-typed signature (test stubs,
+    // passthrough adapters) is unwritable. The typed rule carries the intent
+    // (promise-returning functions are async, never throw synchronously); the
+    // untyped one yields.
+    "require-await": "off",
     "unicorn/filename-case": [
       "error",
       {

@@ -216,6 +216,36 @@ test("core preset rejects runtime dynamic imports", async () => {
   }
 });
 
+test("core preset lets promise-typed stubs be async without awaiting", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`
+    );
+    // `typescript/promise-function-async` forces `async` onto every
+    // promise-returning function; core `require-await` would then reject this
+    // stub — the only lawful implementation of its promise-typed signature.
+    // The preset keeps the typed rule and turns the untyped one off.
+    await writeFixture(
+      root,
+      "src/passthrough.ts",
+      "export const passthrough: (items: string[]) => Promise<string[]> = async (items) => items;\n"
+    );
+
+    const result = await runOxlint(root);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "eslint(require-await)"
+    );
+
+    assert.equal(ruleDiagnostics.length, 0);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("Playwright preset rejects brittle E2E test patterns", async () => {
   const root = await makeFixtureRoot();
 
