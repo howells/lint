@@ -2,6 +2,25 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Oxlint/Oxfmt, or ad hoc Biome setup with `@howells/lint`.
 
+## 1.2.0 toolchain refresh
+
+Version 1.2.0 refreshes the Oxlint/Oxfmt lane to Ultracite 7.10.0 and Oxlint 1.76.0. Update `@howells/lint`, reinstall, and run `lint:fix` once. Three things can change what your project reports.
+
+1. **Next.js projects get React Doctor's Next.js rules back.** Ultracite 7.10.0 moved the 23 `react-doctor/nextjs-*` rules into a separate opt-in preset. Taking that release without this one would have quietly dropped them from `@howells/lint/oxlint/next` — passing CI, no coverage. They are wired back in, so a Next.js project that drifted while they were effectively absent may surface real findings on first run: raw `<img>` and `<a>` elements, `next/image` without `sizes`, async client components, redirects inside `try`/`catch`. Fix them; they are the findings the preset was always meant to report.
+
+2. **Named React components must be arrow functions, except where Next.js requires otherwise.** Ultracite's React preset now enables `react/function-component-definition` with `namedComponents: "arrow-function"`. Under `@howells/lint/oxlint/react`, `export function Widget() {}` becomes an error — write `export const Widget = () => {}`. Under `@howells/lint/oxlint/next`, the function-declaration form is allowed back, because Next.js mandates a default export per route file and generates `export default function Page()`. Non-default-exported function declarations are still rejected in Next projects too, by core's `func-style`.
+
+3. **React projects lose the TanStack Start rules.** Ultracite split React Doctor's framework rules out of the base JS-plugin preset. `@howells/lint/oxlint/react` keeps the `react-doctor/query-*` rules, which only match TanStack Query's own API and so never fire in a project that does not use it. The `react-doctor/tanstack-start-*` rules are dropped: several fire on generic JSX and recommend TanStack Router replacements, which is noise in a Next.js codebase. If a project genuinely runs TanStack Start, that is a case for a new shared preset here, not a local override.
+
+Ultracite's core preset also adds `id-denylist`, `node/exports-style`, and `oxc/bad-match-all-arg`, and turns `node/no-top-level-await` off. These are taken as upstream ships them.
+
+ESLint stays on 9.39.5 and TypeScript on 6.0.3 even though 10.8.0 and 7.0.2 are published. Both are deliberate holds:
+
+- ESLint 10 is blocked below `eslint-plugin-github`, which pulls `eslint-plugin-import@2.32.0` and `eslint-plugin-jsx-a11y@6.10.2`. Neither declares an ESLint 10 peer, so the install produces the unmet-peer graph that 1.1.0 was written to repair.
+- TypeScript 7 is blocked by the JS-plugin bridge: `@typescript-eslint/utils@8.65.0` declares peer `typescript >=4.8.4 <6.1.0`, and `eslint-plugin-sonarjs@4.2.0` depends on `typescript >=5 <6.1.0`.
+
+Do not add a local override to force either one — it breaks the JS-plugin bridge, and consumers should not be carrying tool overrides at all. Both will lift here when upstream allows it.
+
 ## 1.1.1 workspace and fixer behavior fixes
 
 Version 1.1.1 changes two consumer-visible behaviors:

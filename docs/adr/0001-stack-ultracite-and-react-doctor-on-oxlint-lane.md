@@ -30,4 +30,10 @@ Consumers get one Oxlint/Oxfmt lane preset for React and Next.js projects, with 
 
 Some findings may be duplicate or near-duplicate when upstream rule sets overlap. This is acceptable because coverage is preferred over maintaining a local rule reconciliation matrix.
 
+## Update — 1.2.0
+
+The decision stands; the mechanism has moved twice. Ultracite's React and Next presets no longer register `oxlint-plugin-react-doctor` themselves. Ultracite 7.9.3 moved React Doctor into an opt-in JS-plugin preset, and 7.10.0 split its framework rules out again into per-framework JS-plugin presets. `@howells/lint` now composes those presets explicitly in `oxlint/ultracite-js-plugins.mjs`: React Doctor's general rules reach the React preset, and its Next.js rules reach only the Next preset.
+
+That split created one exception to "do not filter overlapping rules by default": React Doctor's `tanstack-start-*` rules are dropped, because several fire on generic JSX and recommend TanStack Router replacements in a lane that targets Next.js. The `query-*` rules are kept, since they only match TanStack Query's own API. This is a framework-relevance filter, not the duplicate-reconciliation layer the original decision rejected.
+
 `@howells/lint` owns the pinned React Doctor Oxlint plugin and its parser compatibility dependency so consumer projects do not install them directly.

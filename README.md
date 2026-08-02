@@ -168,8 +168,8 @@ Playwright support adds the recommended `eslint-plugin-playwright` rules through
 Choose the closest preset:
 
 - `@howells/lint/oxlint/core` for Node or non-React TypeScript
-- `@howells/lint/oxlint/react` for React (Ultracite React, which includes the React Doctor rules)
-- `@howells/lint/oxlint/next` for Next.js (react preset + Ultracite Next, which includes the React Doctor Next.js rules)
+- `@howells/lint/oxlint/react` for React (Ultracite React plus React Doctor's general rules)
+- `@howells/lint/oxlint/next` for Next.js (react preset + Ultracite Next plus React Doctor's Next.js rules, which only this preset enables)
 - `@howells/lint/oxlint/playwright` as an overlay for Playwright E2E tests or as a preset for dedicated E2E packages
 - `@howells/lint/oxlint/boundaries` for composing only the default workspace boundary rule into custom configs
 - `@howells/lint/oxlint/react-doctor-rules` for composing or disabling React Doctor rules in mixed workspaces

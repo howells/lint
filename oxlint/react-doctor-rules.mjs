@@ -1,5 +1,9 @@
 import { NEXTJS_RULES, RECOMMENDED_RULES } from "oxlint-plugin-react-doctor";
-import ultraciteJsPlugins from "ultracite/oxlint/js-plugins";
+
+import {
+  ultraciteNextReactDoctor,
+  ultraciteReactDoctor,
+} from "./ultracite-js-plugins.mjs";
 
 export const reactDoctorRecommendedRules = RECOMMENDED_RULES;
 export const reactDoctorNextRules = NEXTJS_RULES;
@@ -9,15 +13,17 @@ export const reactDoctorRules = {
 };
 
 // Disable every react-doctor rule reachable through the shared presets: the
-// plugin's recommended sets plus whatever Ultracite's opt-in JS-plugin preset
-// enables. Deriving from Ultracite keeps this escape hatch complete as its rule
-// set evolves, rather than relying on the plugin's static exports.
-const enabledReactDoctorRuleNames = new Set([
-  ...Object.keys(reactDoctorRules),
-  ...Object.keys(ultraciteJsPlugins.rules ?? {}).filter((ruleName) =>
-    ruleName.startsWith("react-doctor/")
-  ),
-]);
+// plugin's recommended sets plus whatever the Howells React and Next presets
+// enable. Deriving from those presets rather than from the plugin's static
+// exports keeps this escape hatch complete as Ultracite moves rules between its
+// JS-plugin presets — as 7.10.0 did when it split the Next.js rules out.
+const enabledReactDoctorRuleNames = new Set(
+  [
+    ...Object.keys(reactDoctorRules),
+    ...Object.keys(ultraciteReactDoctor.rules ?? {}),
+    ...Object.keys(ultraciteNextReactDoctor.rules ?? {}),
+  ].filter((ruleName) => ruleName.startsWith("react-doctor/"))
+);
 
 export const disabledReactDoctorRules = Object.fromEntries(
   [...enabledReactDoctorRuleNames].map((ruleName) => [ruleName, "allow"])

@@ -9,6 +9,8 @@ import { promisify } from "node:util";
 
 import { resolvePackageBin } from "../bin/run-package-bin.mjs";
 import core from "../oxlint/core.mjs";
+import next from "../oxlint/next.mjs";
+import { disabledReactDoctorRules } from "../oxlint/react-doctor-rules.mjs";
 import react from "../oxlint/react.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -77,6 +79,20 @@ async function runOxlint(root, targets = ["src"]) {
   }
 }
 
+function resolvedRules(preset, resolved = {}) {
+  for (const extended of preset.extends ?? []) {
+    resolvedRules(extended, resolved);
+  }
+  Object.assign(resolved, preset.rules ?? {});
+  return resolved;
+}
+
+function ruleNamesWithPrefix(preset, prefix) {
+  return Object.keys(resolvedRules(preset)).filter((ruleName) =>
+    ruleName.startsWith(prefix)
+  );
+}
+
 function diagnosticsForRule(stdout, code) {
   const report = JSON.parse(stdout);
   const diagnostics = report.diagnostics ?? report;
@@ -114,6 +130,59 @@ test("Ultracite JS-plugin coverage remains assigned to the correct presets", () 
 
   assert.ok(reactJsPluginNames.includes("react-doctor"));
   assert.equal(reactRules["react-doctor/no-array-index-as-key"], "error");
+});
+
+// Ultracite 7.10.0 moved React Doctor's framework rules out of the base
+// JS-plugin preset, which silently emptied the Next.js set from every preset
+// here. Assert where each framework family lands so a later upstream move
+// cannot drop it again unnoticed.
+test("React Doctor framework rules land in the preset that owns the framework", () => {
+  assert.equal(ruleNamesWithPrefix(core, "react-doctor/").length, 0);
+
+  assert.equal(ruleNamesWithPrefix(react, "react-doctor/nextjs-").length, 0);
+  assert.ok(ruleNamesWithPrefix(next, "react-doctor/nextjs-").length >= 20);
+  assert.equal(
+    resolvedRules(next)["react-doctor/nextjs-no-img-element"],
+    "error"
+  );
+
+  // The `query-*` rules only match TanStack Query's own API, so they stay in
+  // the standard React lane; `tanstack-start-*` assumes a router this lane
+  // does not target.
+  assert.ok(ruleNamesWithPrefix(react, "react-doctor/query-").length > 0);
+  assert.equal(
+    ruleNamesWithPrefix(next, "react-doctor/tanstack-start-").length,
+    0
+  );
+});
+
+// Ultracite requires named components to be arrow functions. Next.js mandates a
+// default export per route file and writes it as a function declaration, so the
+// Next preset takes the looser position and the React preset keeps upstream's.
+test("only the Next preset admits the function-declaration component form", () => {
+  const reactSetting =
+    resolvedRules(react)["react/function-component-definition"];
+  const nextSetting =
+    resolvedRules(next)["react/function-component-definition"];
+
+  assert.deepEqual(reactSetting?.[1]?.namedComponents, "arrow-function");
+  assert.deepEqual(nextSetting?.[1]?.namedComponents, [
+    "arrow-function",
+    "function-declaration",
+  ]);
+});
+
+test("the React Doctor escape hatch covers every rule the presets enable", () => {
+  const enabled = [
+    ...ruleNamesWithPrefix(react, "react-doctor/"),
+    ...ruleNamesWithPrefix(next, "react-doctor/"),
+  ];
+  const uncovered = enabled.filter(
+    (ruleName) => !(ruleName in disabledReactDoctorRules)
+  );
+
+  assert.ok(enabled.length > 0);
+  assert.deepEqual(uncovered, []);
 });
 
 test("tsgolint executable resolves from this package's dependency tree", () => {
@@ -561,6 +630,43 @@ test("Next preset rejects pages that only pass through to one client component",
     assert.match(ruleOutput, /client component/);
     assert.doesNotMatch(ruleOutput, /account\/page\.tsx/);
     assert.doesNotMatch(ruleOutput, /marketing\/page\.tsx/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("Next preset keeps the framework's default-export page shape writable", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import next from ${JSON.stringify(nextPresetUrl)};\nexport default next;\n`
+    );
+    await writeFixture(
+      root,
+      "src/app/page.tsx",
+      "export default function Page() {\n  return <main />;\n}\n"
+    );
+    await writeFixture(
+      root,
+      "src/gallery.tsx",
+      'export const Gallery = () => <img alt="" src="/a.png" />;\n'
+    );
+
+    const result = await runOxlint(root);
+
+    assert.equal(
+      diagnosticsForRule(result.stdout, "react(function-component-definition)")
+        .length,
+      0
+    );
+    // The Next.js React Doctor rules still have to be reaching the preset.
+    assert.equal(
+      diagnosticsForRule(result.stdout, "react-doctor(nextjs-no-img-element)")
+        .length,
+      1
+    );
   } finally {
     await rm(root, { force: true, recursive: true });
   }
