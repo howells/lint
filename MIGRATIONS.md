@@ -2,6 +2,10 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Oxlint/Oxfmt, or ad hoc Biome setup with `@howells/lint`.
 
+## 1.2.1 casing fix
+
+If 1.2.0 reported `sonarjs/function-name` on your Next.js route handlers (`GET`, `POST`, `PATCH`, `DELETE`) or on PascalCase components, take 1.2.1 and re-run. Those were unfixable by rename — the framework dispatches route handlers by name, and a lowercase JSX tag is a different program — and they are gone in 1.2.1 without any change on your side. Do not rename anything to satisfy 1.2.0, and remove any local override you added for it.
+
 ## 1.2.0 toolchain refresh
 
 Version 1.2.0 refreshes the Oxlint/Oxfmt lane to Ultracite 7.10.0 and Oxlint 1.76.0. Update `@howells/lint`, reinstall, and run `lint:fix` once. Three things can change what your project reports.

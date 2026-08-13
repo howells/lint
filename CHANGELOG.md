@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1 — 2026-08-13
+
+### Fixed
+
+- The React and Next presets accept the casing React and Next.js require. `sonarjs/function-name` defaults to `^[_a-z][a-zA-Z0-9]*$` and Ultracite enables it — SonarJS itself ships it disabled in `recommended` — so in a React lane it fired on the one place the ecosystem _mandates_ PascalCase, and in a Next lane it fired on names the framework dispatches on and which therefore cannot be renamed at all: `GET`, `POST`, `PATCH`, `DELETE`. This made 1.2.0's Next relaxation self-contradicting: the preset deliberately re-allowed `export default function Page()` and then rejected the name `Page`. Measured on a ~460-file consumer app it was 70 errors, none of them fixable in the app — 55 route-handler exports and 15 components; with the fix, zero. The format widens to camelCase or PascalCase in the React preset and is inherited by Next. `core` keeps the strict default: a lowercase JSX tag resolves to an intrinsic element, so the exemption is meaningless outside a React lane and should not leak into Node packages. Two tests cover it, including that `_Mixed_Up` is still rejected — the rule is widened, not switched off — and that `core` still rejects PascalCase.
+
 ## 1.2.0 — 2026-08-03
 
 ### Changed
