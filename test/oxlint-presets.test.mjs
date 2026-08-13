@@ -635,6 +635,92 @@ test("Next preset rejects pages that only pass through to one client component",
   }
 });
 
+test("React and Next lanes accept the casing their frameworks require", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import next from ${JSON.stringify(nextPresetUrl)};\nexport default next;\n`
+    );
+    // Next dispatches route handlers by these exact names. They are not
+    // renameable, so a rule that rejects them is unsatisfiable rather than strict.
+    await writeFixture(
+      root,
+      "src/app/api/things/route.ts",
+      "export async function GET() {\n  return Response.json({});\n}\n\nexport async function DELETE() {\n  return Response.json({});\n}\n"
+    );
+    await writeFixture(
+      root,
+      "src/widget.tsx",
+      "export function Widget() {\n  return <main />;\n}\n"
+    );
+    // The shape real route pages are written in, and the one the Next preset
+    // deliberately re-allows via react/function-component-definition.
+    await writeFixture(
+      root,
+      "src/app/firms/page.tsx",
+      "export default async function FirmIndex() {\n  return <main />;\n}\n"
+    );
+    // camelCase stays valid; this is a widening, not a replacement.
+    await writeFixture(
+      root,
+      "src/helper.ts",
+      "export const compute = () => 1;\nexport function alsoCompute() {\n  return 2;\n}\n"
+    );
+    // And the rule must still be ON: a genuinely badly-cased helper still fails.
+    await writeFixture(
+      root,
+      "src/bad.ts",
+      "export function _Mixed_Up() {\n  return 3;\n}\n"
+    );
+
+    const result = await runOxlint(root);
+    const flagged = JSON.stringify(
+      diagnosticsForRule(result.stdout, "sonarjs(function-name)")
+    );
+
+    assert.doesNotMatch(flagged, /GET/);
+    assert.doesNotMatch(flagged, /DELETE/);
+    assert.doesNotMatch(flagged, /Widget/);
+    assert.doesNotMatch(flagged, /FirmIndex/);
+    assert.doesNotMatch(flagged, /alsoCompute/);
+    assert.match(flagged, /_Mixed_Up/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("core lane keeps the strict camelCase function name", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`
+    );
+    // No JSX here, so PascalCase carries no framework meaning and the strict
+    // default is right. This is what stops the React widening leaking into
+    // Node packages.
+    await writeFixture(
+      root,
+      "src/thing.ts",
+      "export function Widget() {\n  return 1;\n}\n"
+    );
+
+    const result = await runOxlint(root);
+
+    assert.match(
+      JSON.stringify(
+        diagnosticsForRule(result.stdout, "sonarjs(function-name)")
+      ),
+      /Widget/
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("Next preset keeps the framework's default-export page shape writable", async () => {
   const root = await makeFixtureRoot();
 
