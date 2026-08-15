@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.0.0 — 2026-08-15
+
+### Removed
+
+- **The Biome lane.** The `@howells/lint/biome/core`, `/biome/react` and `/biome/next` presets, the `howells-biome` binary, and the `@biomejs/biome` dependency are gone. Oxlint/Oxfmt is the whole toolchain. Seven repositories held a `biome.json` extending these presets at the point of removal, but only two still ran Biome from a `lint` script — the other five had already moved to `howells-check` and left dead config behind. This ships as a major precisely so nothing is taken by surprise: a consumer only crosses 2.0.0 by asking for it, and 1.x keeps working for as long as a project stays there. `docs/adr/0003-remove-the-biome-lane.md` records the reasoning; `docs/adr/0002` is marked superseded rather than deleted.
+
+ESLint is unaffected and is not going anywhere. It is not a lane and never was: `eslint-plugin-github`, `eslint-plugin-sonarjs` and `eslint-plugin-playwright` run _inside_ Oxlint through its JS-plugin bridge, and account for 188 of the core preset's 678 enabled rules plus all 36 in the Playwright preset. The pinned `eslint` dependency is the runtime they resolve against.
+
+### Added
+
+- The core preset carries Ultracite's build of the [anti-slop](https://github.com/dmmulroy/anti-slop) plugin, so React, Next and Playwright inherit it. It rejects the low-evidence TypeScript that turns up when code is written fast: type assertions with no stated reason, `unknown` in parameters and returns, `Reflect.get`/`Reflect.apply` property access, module mocking, widen-then-assert. No new dependency — the plugin is unpublished upstream and Ultracite vendors a bundled build. It is extended last, after Ultracite's core preset, because it disables `typescript/consistent-indexed-object-style` and `unicorn/no-immediate-mutation`, which deadlock against `anti-slop/no-known-value-widening` — the autofix of one produces the input of the other. Nothing after core turns them back on, so React and Next inherit the resolution too.
+- The core preset carries Ultracite's Vitest rules, scoped by upstream to `*.test.*`, `*.spec.*`, and `__tests__` files. This replaces the twelve rules this package hand-rolled at top level with roughly sixty, and picks up the conflict resolutions Ultracite maintains against them (`valid-title` off against `prefer-describe-function-title`, `prefer-called-times` off against `prefer-called-once`, and so on). Vitest rules no longer apply outside test files, which is where they were always inert anyway.
+
+### Changed
+
+- Refresh the toolchain: Ultracite 7.10.5, Oxlint 1.78.0, Oxfmt 0.63.0, React Doctor's Oxlint plugin 0.9.12, `oxc-parser` 0.144.0. The JS-plugin bridge set (GitHub 6.1.2, SonarJS 4.2.0, Playwright 2.11.0) and `oxlint-tsgolint` 7.0.2001 are unchanged and already current.
+
+### Fixed
+
+- The Next preset accepts a route file's segment exports again. React Doctor 0.9.x rewrote its port of the react-refresh rule with a stripped-down default — no framework detection, no route-file awareness — so under 0.9.12 every `page.tsx` exporting `metadata`, `dynamic`, `revalidate`, or `generateStaticParams` alongside its component reported itself as unsafe for Fast Refresh. Upstream's remedy is `settings: { "react-doctor": { portedRuleMode: "curated" } }`, which a shared preset cannot deliver: Oxlint reads `settings` from the root config only and does not merge it through `extends`, so it would have to be pasted into every consumer's own `oxlint.config.ts`. The React preset keeps React Doctor's default, which is the genuine react-refresh contract. The Next preset turns the ported rule off and runs Oxlint's native `react/only-export-components` with an allowlist of Next's route-segment export names — rule options, unlike `settings`, do flow through `extends`.
+
+### Notes
+
+- Oxlint 1.78.0 no longer lints a path it considers ignored — `node_modules`, any dot-prefixed directory, anything matched by `.gitignore` — even when that path is named explicitly on the command line, and `--no-ignore` does not lift it. It reports "No files found to lint" instead. This package's own preset fixtures lived under `node_modules` for plugin resolution and now run from a temp directory with a `node_modules` symlink. A consumer linting a hidden directory (`.storybook`, `.github/scripts`) will see the same silence; `howells-check` surfaces it as "Expected at least one target file".
+- ESLint stays on 9.39.5 and TypeScript on 6.0.3. Both holds were rechecked against this refresh and both still stand for the reasons given in 1.2.0: `eslint-plugin-github` still pulls `eslint-plugin-import@2.32.0` and `eslint-plugin-jsx-a11y@6.10.2`, neither of which admits ESLint 10, and `@typescript-eslint/utils` still declares peer `typescript >=4.8.4 <6.1.0`.
+
 ## 1.2.1 — 2026-08-13
 
 ### Fixed

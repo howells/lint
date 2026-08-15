@@ -8,11 +8,11 @@ Shared code quality toolchain package for Howells projects. It centralizes the s
 
 **Extended Ultracite philosophy**: The Oxlint/Oxfmt lane starts from Ultracite and adds only narrow Howells policy for recurring project failures that upstream presets do not cover. _Avoid_: custom lint philosophy, local ESLint migration
 
-**Oxlint/Oxfmt lane**: The preferred project setup path that chooses Oxlint for linting and Oxfmt for formatting. _Avoid_: Oxc mode, Ox stack
+**Oxlint/Oxfmt lane**: The only project setup path. It chooses Oxlint for linting and Oxfmt for formatting. Since 2.0.0 there is no second lane, so "lane" and "the toolchain" name the same thing. _Avoid_: Oxc mode, Ox stack, preferred lane
 
-**Biome lane**: The retained compatibility path for projects that need Biome presets or are not ready to adopt the preferred Oxlint/Oxfmt lane. _Avoid_: default lane, primary lane
+**Retired Biome lane**: The Biome preset path that 2.0.0 removed. A project that still needs it stays on 1.x, which keeps working and receives nothing further. Do not describe it as supported, frozen, or retained. _Avoid_: Biome lane, frozen compatibility lane, compatibility path
 
-**Frozen compatibility lane**: A retained lane that receives dependency, breakage, and ecosystem-compatibility updates but does not receive new Howells policy by default. _Avoid_: parallel primary lane
+**ESLint plugin bridge**: Oxlint's JS-plugin mechanism, which loads `eslint-plugin-github`, `eslint-plugin-sonarjs`, and `eslint-plugin-playwright` inside the Oxlint/Oxfmt lane. ESLint is a pinned runtime for those plugins, never a lane and never a linter this package runs. _Avoid_: ESLint lane, ESLint fallback, legacy ESLint support
 
 **Preferred command**: A package binary that names the recommended Oxlint/Oxfmt path without aliases or fallbacks. `howells-check` and `howells-fix` are the only high-level project check/fix commands. _Avoid_: alias command, fallback command, default command
 
