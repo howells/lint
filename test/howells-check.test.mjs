@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { realpathSync } from "node:fs";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { test } from "node:test";
@@ -19,16 +21,27 @@ const corePresetUrl = pathToFileURL(
   path.join(repoRoot, "oxlint", "core.mjs")
 ).href;
 
-// Fixtures live under the repo (so Oxlint resolves Ultracite's bare jsPlugin
-// specifiers from the repo's node_modules) but NOT under node_modules, so Node
-// type-strips the `.ts` config a real consumer writes. A local package.json
-// makes the fixture an ESM package the way a consumer project is.
-const fixtureBase = path.join(repoRoot, ".test-fixtures");
+// Fixtures live outside the repo, with a node_modules symlink back to it so
+// Oxlint still resolves Ultracite's bare jsPlugin specifiers and Node type-
+// strips the `.ts` config a real consumer writes. Under the repo they would sit
+// inside a gitignored directory, and Oxlint 1.78 skips ignored paths even when
+// they are named explicitly on the command line ("No files found to lint").
+// A local package.json makes the fixture an ESM package the way a consumer
+// project is.
+const fixtureBase = path.join(
+  realpathSync(tmpdir()),
+  "howells-lint-check-fixtures"
+);
 
 async function makeConsumerFixture(srcFiles) {
   await mkdir(fixtureBase, { recursive: true });
   const root = await mkdtemp(path.join(fixtureBase, "case-"));
 
+  await symlink(
+    path.join(repoRoot, "node_modules"),
+    path.join(root, "node_modules"),
+    "dir"
+  );
   await writeFile(
     path.join(root, "package.json"),
     JSON.stringify({ type: "module" })

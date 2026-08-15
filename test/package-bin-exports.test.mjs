@@ -24,13 +24,21 @@ test("package exposes one canonical high-level command surface", async () => {
     packageJson.bin["howells-workspace-fix"],
     "bin/howells-workspace-fix.mjs"
   );
-  assert.equal(packageJson.bin["howells-biome"], "bin/howells-biome.mjs");
   assert.equal(packageJson.bin["howells-oxlint"], "bin/howells-oxlint.mjs");
   assert.equal(packageJson.bin["howells-oxfmt"], "bin/howells-oxfmt.mjs");
   assert.equal(
     packageJson.bin["howells-ultracite"],
     "bin/howells-ultracite.mjs"
   );
+
+  // The Biome lane was removed in 2.0.0. Assert the binary, the presets, and
+  // the dependency are all gone together — a leftover export that resolves to
+  // a deleted file fails at import time in a consumer, not here.
+  assert.equal(packageJson.bin["howells-biome"], undefined);
+  assert.equal(packageJson.exports["./biome/core"], undefined);
+  assert.equal(packageJson.exports["./biome/react"], undefined);
+  assert.equal(packageJson.exports["./biome/next"], undefined);
+  assert.equal(packageJson.dependencies["@biomejs/biome"], undefined);
 
   assert.equal(packageJson.bin["howells-lint"], undefined);
   assert.equal(packageJson.bin["howells-format"], undefined);

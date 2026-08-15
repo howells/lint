@@ -1,7 +1,7 @@
 {
   "name": "@howells/lint",
-  "version": "1.2.1",
-  "description": "Pinned Biome, Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
+  "version": "2.0.0",
+  "description": "Pinned Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
   "keywords": [],
   "homepage": "https://github.com/howells/lint#readme",
   "bugs": {
@@ -14,7 +14,6 @@
     "url": "git+https://github.com/howells/lint.git"
   },
   "bin": {
-    "howells-biome": "bin/howells-biome.mjs",
     "howells-check": "bin/howells-check.mjs",
     "howells-fix": "bin/howells-fix.mjs",
     "howells-oxfmt": "bin/howells-oxfmt.mjs",
@@ -24,7 +23,6 @@
     "howells-workspace-fix": "bin/howells-workspace-fix.mjs"
   },
   "files": [
-    "biome/*.json",
     "oxfmt/*.d.mts",
     "oxfmt/*.mjs",
     "oxlint/*.d.mts",
@@ -38,9 +36,6 @@
   "type": "commonjs",
   "exports": {
     "./package.json": "./package.json",
-    "./biome/core": "./biome/core.json",
-    "./biome/react": "./biome/react.json",
-    "./biome/next": "./biome/next.json",
     "./oxfmt": {
       "types": "./oxfmt/index.d.mts",
       "default": "./oxfmt/index.mjs"
@@ -79,20 +74,19 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@biomejs/biome": "2.5.6",
     "@howells/neon": "^0.1.1",
     "@manypkg/cli": "0.25.1",
     "eslint": "9.39.5",
     "eslint-plugin-github": "6.1.2",
     "eslint-plugin-playwright": "2.11.0",
     "eslint-plugin-sonarjs": "4.2.0",
-    "oxc-parser": "0.142.0",
-    "oxfmt": "0.61.0",
-    "oxlint": "1.76.0",
-    "oxlint-plugin-react-doctor": "0.9.3",
+    "oxc-parser": "0.144.0",
+    "oxfmt": "0.63.0",
+    "oxlint": "1.78.0",
+    "oxlint-plugin-react-doctor": "0.9.12",
     "oxlint-tsgolint": "7.0.2001",
     "typescript": "6.0.3",
-    "ultracite": "7.10.0"
+    "ultracite": "7.10.5"
   },
   "engines": {
     "node": ">=24.15.0"

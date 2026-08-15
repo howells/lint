@@ -1,24 +1,24 @@
 # @howells/lint
 
-The shared lint and format toolchain. It pins Oxlint, Oxfmt, Ultracite, React Doctor, Biome and `@manypkg/cli`, and ships the preset matrix every Howells repo extends. Consumers depend on this package, never on the underlying tools.
+The shared lint and format toolchain. It pins Oxlint, Oxfmt, Ultracite, React Doctor and `@manypkg/cli`, and ships the preset matrix every Howells repo extends. Consumers depend on this package, never on the underlying tools.
 
 ## Lanes
 
-- Oxlint/Oxfmt is the preferred lane and the only one that gets new policy.
-- Biome is a frozen compatibility lane: dependency, breakage and ecosystem fixes only.
-- Don't mix Biome and Oxlint/Oxfmt scripts in one package unless there's a deliberate migration plan.
+- Oxlint/Oxfmt is the only lane. 2.0.0 removed the Biome one; see `docs/adr/0003-remove-the-biome-lane.md`.
+- Don't reintroduce Biome, and don't describe it as frozen or retained. A repo that still needs it stays on 1.x.
+- ESLint is not a lane. It's the pinned runtime for the `eslint-plugin-github`, `eslint-plugin-sonarjs` and `eslint-plugin-playwright` rules that Oxlint loads through its JS-plugin bridge - 188 rules in core, all 36 in Playwright. Don't propose removing it.
 
 ## What it exports
 
 - Oxlint presets: `@howells/lint/oxlint/core` (Node or non-React TypeScript), `/oxlint/react`, `/oxlint/next`, `/oxlint/playwright` (overlay for app E2E tests, or standalone preset for a dedicated E2E package), `/oxlint/boundaries` (the workspace boundary rule alone, for configs that can't extend a standard preset), `/oxlint/react-doctor-rules` (compose or disable React Doctor rules in mixed workspaces), `/oxlint/neon`.
 - Oxfmt preset: `@howells/lint/oxfmt`, a default-exported config object.
-- Biome presets: `@howells/lint/biome/core`, `/biome/react`, `/biome/next`.
-- Binaries: `howells-check` (oxfmt `--check` plus oxlint in one pass, both results reported, fails if either fails), `howells-fix` (oxfmt `--write` then oxlint `--fix`), `howells-oxlint`, `howells-oxfmt`, `howells-biome`, `howells-ultracite`, `howells-workspace-check`, `howells-workspace-fix`.
+- Binaries: `howells-check` (oxfmt `--check` plus oxlint in one pass, both results reported, fails if either fails), `howells-fix` (oxfmt `--write` then oxlint `--fix`), `howells-oxlint`, `howells-oxfmt`, `howells-ultracite`, `howells-workspace-check`, `howells-workspace-fix`.
+- The core preset extends Ultracite's anti-slop and Vitest rule sets, in that order after Ultracite core. Anti-slop must stay last: it disables `typescript/consistent-indexed-object-style` and `unicorn/no-immediate-mutation`, which deadlock against `anti-slop/no-known-value-widening`.
 - Every Oxlint preset enforces the Howells workspace convention: apps under `apps/*`, shared packages under `packages/*`, packages never import apps, apps never import sibling apps.
 
 ## Wiring a consumer repo
 
-1. Install `@howells/lint` as the only direct lint dependency. Don't add `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `eslint-plugin-playwright`, `oxc-parser`, `@biomejs/biome` or `@manypkg/cli` directly; they're pinned transitively.
+1. Install `@howells/lint` as the only direct lint dependency. Don't add `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `eslint-plugin-playwright`, `oxc-parser` or `@manypkg/cli` directly; they're pinned transitively.
 2. Set `engines.node` to `>=24.15.0`, `packageManager` to `pnpm@11.5.2`, and add a root `.node-version` of `24.15.0`.
 3. Add `oxlint.config.ts` extending the closest preset, and `oxfmt.config.ts` re-exporting `@howells/lint/oxfmt`.
 4. Scripts: `"lint": "howells-check ."` and `"lint:fix": "howells-fix ."`. Keep `lint` non-mutating; all writes go in `lint:fix` or `format`. The Oxlint lane has no `lint:strict` - type-aware linting, React Doctor, boundaries and Playwright overlays all belong in the normal check.

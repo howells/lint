@@ -1,6 +1,30 @@
 # Adoption Notes
 
-Use these notes when replacing an existing ESLint, Prettier, Oxlint/Oxfmt, or ad hoc Biome setup with `@howells/lint`.
+Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
+
+## 2.0.0 removes the Biome lane
+
+**If your project runs Biome, do not take 2.0.0.** Stay on the 1.x range you already have. It keeps working; it just stops receiving new policy. Take 2.0.0 when you are ready to move that project onto `howells-check`.
+
+2.0.0 deletes `@howells/lint/biome/core`, `/biome/react`, `/biome/next`, the `howells-biome` binary, and the `@biomejs/biome` dependency. There is no deprecation window and no shim — a `biome.json` that extends one of those presets fails to resolve after the upgrade.
+
+If your project has a `biome.json` extending these presets but its `lint` script already calls `howells-check`, the config is dead weight. Delete `biome.json`, drop `howells-biome` from any remaining script, and take 2.0.0 normally.
+
+ESLint is untouched and is not being removed. It is not a lane: `eslint-plugin-github`, `eslint-plugin-sonarjs` and `eslint-plugin-playwright` run inside Oxlint through its JS-plugin bridge and supply 188 of the core preset's rules plus all 36 in the Playwright preset. Nothing in your project runs ESLint directly, and nothing should.
+
+## 2.0.0 toolchain refresh, anti-slop, and Vitest
+
+Version 2.0.0 moves the toolchain to Ultracite 7.10.5, Oxlint 1.78.0, Oxfmt 0.63.0, and React Doctor 0.9.12. Update `@howells/lint`, reinstall, and run `lint:fix` once. Four things change what your project reports, and two of them are new rule sets in the core preset rather than a version bump.
+
+1. **Oxlint stops linting ignored paths, even when you name them.** Oxlint 1.78.0 skips anything under `node_modules`, anything in a dot-prefixed directory, and anything matched by `.gitignore` — including a path passed directly on the command line. `--no-ignore` does not lift it. If a script lints a hidden directory (`.storybook`, `.github/scripts`, a `.config` folder), those files are now silently unlinted; `howells-check` reports "Expected at least one target file" when that leaves nothing to do. Move the source out of the hidden directory, or drop it from the lint targets deliberately rather than by accident.
+
+2. **Next.js route files stopped tripping the Fast Refresh rule.** React Doctor 0.9.12 rewrote its port of the react-refresh rule with a default that has no framework or route-file awareness, so every `page.tsx` exporting `metadata`, `dynamic`, `revalidate`, or `generateStaticParams` beside its component reported itself as unsafe. `@howells/lint/oxlint/next` turns that port off and runs Oxlint's native `react/only-export-components` with an allowlist of Next's route-segment export names. Nothing is required on your side, and any local override you added for `react-doctor/only-export-components` in a Next project can be removed. `@howells/lint/oxlint/react` is unchanged: it keeps React Doctor's default, which is the real react-refresh contract for a non-Next React app — a file exporting both a component and a helper constant is still an error there.
+
+3. **Anti-slop is on everywhere.** The core preset now carries Ultracite's bundled build of [anti-slop](https://github.com/dmmulroy/anti-slop), so React and Next inherit it too. Expect findings on first run, and expect most of them to be real: a type assertion with no stated reason, `unknown` in a parameter or return where a named type belongs, `Reflect.get` standing in for property access, a runtime `typeof` that should be a type guard. Two rules are a style position rather than a bug hunt — `no-object-parameters` and `no-runtime-typeof` — and `require-safety-comment-for-type-assertion` wants a `// SAFETY:` comment above each remaining assertion. Fix them; that is what the rules are for. `no-runtime-typeof` exempts `typeof` inside a type predicate, which is the shape it is pushing you toward. No new dependency is involved.
+
+4. **Vitest rules moved to Ultracite's set and are now scoped to test files.** This package used to enable twelve `vitest/*` rules at top level. The core preset now extends Ultracite's Vitest preset instead: roughly sixty rules, applied only to `*.test.*`, `*.spec.*`, and `__tests__` files. A test suite that passed on the old dozen will surface new findings — `prefer-to-be` over `toEqual` on primitives, `prefer-strict-equal`, hooks ordering, `require-top-level-describe`, `expect-expect` — and `lint:fix` handles a good share of them.
+
+ESLint stays on 9.39.5 and TypeScript on 6.0.3. Both holds were rechecked against this refresh and both still stand for the reasons recorded under 1.2.0.
 
 ## 1.2.1 casing fix
 
@@ -57,17 +81,9 @@ Do not migrate an old local lint philosophy into a new local override.
 
 Pick the closest shared preset first. Only add local config after you can explain why the repo is a real exception.
 
-## Lane and preset selection
+## Preset selection
 
-Choose the Oxlint/Oxfmt lane by default, then choose the closest preset in that lane. Use the Biome lane only for projects with a real Biome compatibility constraint or projects that are not ready to adopt Oxlint/Oxfmt; it is a frozen compatibility lane, not a parallel primary path.
-
-Biome lane:
-
-- Node or non-React TypeScript: `@howells/lint/biome/core`
-- React package or app without Next.js specifics: `@howells/lint/biome/react`
-- Next.js app: `@howells/lint/biome/next`
-
-Oxlint/Oxfmt lane:
+There is one toolchain. Choose the closest preset:
 
 - Node or non-React TypeScript: `@howells/lint/oxlint/core`
 - React package or app without Next.js specifics: `@howells/lint/oxlint/react`
@@ -80,22 +96,20 @@ If none of these fit cleanly, the likely answer is a new shared preset here, not
 
 1. Add `@howells/lint` as a dev dependency.
 2. Pin Node with `.node-version` set to `24.15.0` and `engines.node` set to `>=24.15.0`.
-3. Replace `eslint`, `next lint`, `prettier`, direct `biome`, or direct Oxlint/Oxfmt scripts with the chosen lane's package binaries.
-4. Replace local lint config with a minimal config that only extends one shared preset from the chosen lane.
+3. Replace `eslint`, `next lint`, `prettier`, `biome`, or direct Oxlint/Oxfmt scripts with this package's binaries.
+4. Replace local lint config with a minimal config that only extends one shared preset.
 5. Remove direct `eslint`, `eslint-config-*`, `eslint-plugin-*`, `prettier`, `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `eslint-plugin-playwright`, and `oxc-parser` dependencies once the project is green.
 
-## Oxlint/Oxfmt preferred
+## Config files
 
-Oxlint/Oxfmt is the preferred migration target. Biome remains available for compatibility, but new Howells projects should start on the Oxlint/Oxfmt lane.
-
-For an Oxlint/Oxfmt project, add `oxlint.config.ts` and `oxfmt.config.ts` using the exports from `@howells/lint`, then use:
+Add `oxlint.config.ts` and `oxfmt.config.ts` using the exports from `@howells/lint`, then use:
 
 - `@howells/lint/oxlint/core` for Node or non-React TypeScript
 - `@howells/lint/oxlint/react` for React (Ultracite React + React Doctor)
 - `@howells/lint/oxlint/next` for Next.js (react preset + Next.js rules)
 - `@howells/lint/oxlint/playwright` as an overlay for Playwright E2E tests or as a preset for dedicated E2E packages
 
-The Oxlint/Oxfmt lane enables Oxlint type-aware mode in the shared core preset. Projects choosing this lane should be ready for Oxlint's TypeScript type-aware constraints.
+The core preset enables Oxlint type-aware mode. A project adopting it should be ready for Oxlint's TypeScript type-aware constraints.
 
 If type-aware mode blocks initial adoption, temporarily override `options.typeAware` to `false` in the local config and track its removal. Treat this as a migration exception, not as a normal project preference.
 
@@ -110,21 +124,11 @@ Each primary Oxlint preset is self-contained. Extend only the closest primary pr
 }
 ```
 
-Do not run Biome and Oxlint/Oxfmt together indefinitely. If both are present during a migration, write down which command is authoritative and remove the other once the migration is green.
+Do not run a previous linter alongside these binaries indefinitely. If both are present during a migration, write down which command is authoritative and remove the other once the migration is green.
 
 ## Keep local config thin
 
-The normal local config should only extend the chosen lane's closest preset.
-
-Biome lane:
-
-```json
-{
-  "extends": ["@howells/lint/biome/next"]
-}
-```
-
-Oxlint/Oxfmt lane:
+The normal local config should only extend the closest preset.
 
 ```ts
 import next from "@howells/lint/oxlint/next";
@@ -142,7 +146,7 @@ Acceptable local additions:
 
 Avoid:
 
-- copying old ESLint rule customizations into the new lane
+- copying old ESLint or Biome rule customizations across
 - broad `linter.rules` sections to preserve team habit
 - local wrapper configs like `base.json` or `library.json`
 - repeating the same override across multiple repos
@@ -161,19 +165,6 @@ Do not normalize repeated local exceptions.
 ## Prefer scope in scripts
 
 If one repo only needs a narrower target, prefer script-level scope.
-
-Biome lane:
-
-```json
-{
-  "scripts": {
-    "lint": "howells-biome check apps/web packages/ui",
-    "lint:fix": "howells-biome check apps/web packages/ui --write"
-  }
-}
-```
-
-Oxlint/Oxfmt lane:
 
 ```json
 {

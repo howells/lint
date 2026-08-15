@@ -1,10 +1,9 @@
 # `@howells/lint`
 
-Pinned Biome, Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.
+Pinned Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.
 
 The goal is not to invent a second lint philosophy. The goal is to:
 
-- pin a single `@biomejs/biome` version
 - pin a single `oxlint` version
 - pin a single `oxfmt` version
 - pin a single `ultracite` version
@@ -13,7 +12,7 @@ The goal is not to invent a second lint philosophy. The goal is to:
 - give every consumer the same small preset matrix
 - discourage repo-local overrides unless the project has a genuinely unique constraint
 
-Oxlint/Oxfmt is the preferred toolchain for Howells JavaScript and TypeScript projects. The Biome lane is retained for projects that need Biome compatibility or are not ready to adopt the preferred Oxlint/Oxfmt lane.
+Oxlint/Oxfmt is the only toolchain. The Biome lane was removed in 2.0.0 - see `MIGRATIONS.md`. A project that still needs Biome presets stays on 1.x, which keeps working; it does not get new policy.
 
 ## Agent Setup Checklist
 
@@ -51,63 +50,17 @@ Install the shared tooling:
 pnpm add -D @howells/lint
 ```
 
-Do not add `@biomejs/biome`, `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `eslint-plugin-playwright`, `oxc-parser`, or `@manypkg/cli` directly unless you are developing this package itself. They are pinned transitively here.
-
-## Biome Presets
-
-The Biome lane is a frozen compatibility lane. It is retained for projects that need Biome presets, and it receives dependency, breakage, and ecosystem-compatibility updates, but new Howells policy work should target Oxlint/Oxfmt first.
-
-Choose the closest preset instead of starting from a generic base and patching it locally:
-
-- `@howells/lint/biome/core` for Node or non-React TypeScript packages
-- `@howells/lint/biome/react` for React packages
-- `@howells/lint/biome/next` for Next.js apps
-
-These presets already pin Biome and Ultracite, enable VCS ignore file support, ignore common build output directories, keep `ignoreUnknown` on for mixed repos, enforce 2-space indentation, and enable Tailwind CSS directives on DOM-oriented presets.
-
-The shared presets exclude generated and output folders seen across Howells projects: `node_modules`, `.next`, `.turbo`, `.vercel`, `dist`, `build`, `coverage`, `out`, `storybook-static`, `playwright-report`, `test-results`, `.source`, `.cache`, `.expo`, `.output`, `.wrangler`, `.svelte-kit`, `.nuxt`, `.vite`, `.vinxi`, `dev-dist`, `tmp`, and `temp`. Keep repo-local excludes only for genuinely project-specific generated files or data directories.
-
-Node or non-React TypeScript package:
-
-```json
-{
-  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
-  "extends": ["@howells/lint/biome/core"],
-  "root": true
-}
-```
-
-React package:
-
-```json
-{
-  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
-  "extends": ["@howells/lint/biome/core", "@howells/lint/biome/react"],
-  "root": true
-}
-```
-
-Next.js app:
-
-```json
-{
-  "$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
-  "extends": [
-    "@howells/lint/biome/core",
-    "@howells/lint/biome/react",
-    "@howells/lint/biome/next"
-  ],
-  "root": true
-}
-```
+Do not add `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `eslint-plugin-playwright`, `oxc-parser`, or `@manypkg/cli` directly unless you are developing this package itself. They are pinned transitively here.
 
 ## Oxlint/Oxfmt Presets
 
-Use this lane for new Howells JavaScript and TypeScript projects. React and Next presets stack the relevant Ultracite Ox rules with [React Doctor](https://react.doctor) rules in one config.
+Use these presets for every Howells JavaScript and TypeScript project. React and Next presets stack the relevant Ultracite Ox rules with [React Doctor](https://react.doctor) rules in one config.
 
 React Doctor and native Oxlint Next.js rules now arrive through Ultracite's React and Next presets, which register the React Doctor plugin and enable its rules at error severity. `@howells/lint` adds canonical Howells policy on top for file naming, barrel files, env access, workspace boundaries, file size, function size, complexity, and tests.
 
 The core Oxlint preset enables type-aware linting and native Oxlint rules that keep code files navigable: `max-lines` errors above 600 non-comment, non-blank lines; `max-lines-per-function` warns above 120 non-comment, non-blank lines; `max-statements` warns above 45 statements per function; and `complexity` warns above cyclomatic complexity 15. It also rejects runtime `import()` expressions, including literal specifiers, so package loading stays statically traceable. Test files keep the file-level `max-lines` guard but disable function-size, statement-count, and complexity limits, because test framework callbacks naturally wrap many independent cases. Generated files should be ignored at the project level; rare intentional exceptions should use an exact-file override with a short refactor note.
+
+The core preset carries two further Ultracite rule sets, so React, Next, and Playwright inherit them. [anti-slop](https://github.com/dmmulroy/anti-slop) rejects the low-evidence TypeScript that turns up when code is written fast: type assertions with no stated reason, `unknown` in parameters and returns, `Reflect.get`/`Reflect.apply` property access, module mocking, widen-then-assert. Ultracite vendors a bundled build of it, so nothing extra is installed. Ultracite's Vitest rules cover test files - roughly 60 rules scoped to `*.test.*`, `*.spec.*`, and `__tests__` - replacing the dozen this package used to hand-roll.
 
 Core, React, Next, and Playwright presets also enforce the default Howells workspace convention: apps live under `apps/*`, shared packages live under `packages/*`, packages must not import apps, and apps must not import sibling apps. The rule is intentionally narrow and does not infer boundary meaning from other workspace folder names.
 
@@ -299,21 +252,6 @@ Treat this as a migration exception with a removal path, not as a normal project
 
 ## Package Scripts
 
-Use scripts that match the lane the project has chosen.
-
-Biome lane:
-
-```json
-{
-  "scripts": {
-    "lint": "howells-biome check .",
-    "lint:fix": "howells-biome check . --write"
-  }
-}
-```
-
-Oxlint/Oxfmt lane:
-
 ```json
 {
   "scripts": {
@@ -323,7 +261,7 @@ Oxlint/Oxfmt lane:
 }
 ```
 
-The Oxlint/Oxfmt lane does not define a separate `lint:strict`; React Doctor, type-aware Oxlint, workspace boundaries, and Playwright overlays belong in the normal check.
+There is no separate `lint:strict`; React Doctor, type-aware Oxlint, workspace boundaries, and Playwright overlays belong in the normal check.
 
 Keep `lint` non-mutating. Put all write behavior in `lint:fix` or `format` so CI and local checks have the same semantics.
 
@@ -371,7 +309,6 @@ CI should call `pnpm lint` or `pnpm check` so root workspace lint is not bypasse
 
 Installers only need `@howells/lint` as a direct dependency. Use these package binaries:
 
-- `howells-biome` proxies to the pinned Biome binary
 - `howells-ultracite` proxies to the pinned Ultracite binary
 - `howells-check` runs both `oxfmt --check` and `oxlint`, discovers the project Oxfmt config or uses the packaged preset, reports both results in one pass, and fails if either fails
 - `howells-fix` runs `oxfmt --write`, then `oxlint --fix`, with the same Oxfmt config discovery and combined failure reporting
@@ -385,11 +322,10 @@ Installers only need `@howells/lint` as a direct dependency. Use these package b
 ## Rules
 
 - Do not add local overrides just to preserve old ESLint behavior.
-- Do not create local `base`, `shared`, or `custom` Biome wrappers.
-- Do not mix Biome and Oxlint/Oxfmt scripts in the same package unless the project has a deliberate migration plan.
+- Do not create local `base`, `shared`, or `custom` preset wrappers.
 - If multiple repos need the same exception, add or adjust a preset here.
 - If a repo needs framework-specific linting, choose the matching preset instead of layering rules manually.
-- Prefer inline `biome-ignore` comments for truly isolated exceptions over broad config overrides.
+- Prefer inline `oxlint-disable-next-line` comments for truly isolated exceptions over broad config overrides.
 - Keep package `lint` scripts read-only; use `lint:fix` for formatting and safe writes.
 - Prefer `howells-check .` over raw tool commands or long target lists unless a package has a real scope constraint.
 
@@ -429,7 +365,6 @@ Add this to `.claude/settings.json` so files are fixed on edit and at session en
 
 This package wraps:
 
-- [Biome configuration docs](https://biomejs.dev/reference/configuration/)
 - [Oxlint configuration docs](https://oxc.rs/docs/guide/usage/linter/config-file-reference.html)
 - [Oxfmt configuration docs](https://oxc.rs/docs/guide/usage/formatter/config-file-reference)
 - [Ultracite configuration docs](https://www.ultracite.ai/configuration)
