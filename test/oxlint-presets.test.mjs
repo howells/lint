@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { existsSync, realpathSync } from "node:fs";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -33,21 +34,39 @@ const playwrightPresetUrl = pathToFileURL(
 ).href;
 
 // Oxlint resolves bare jsPlugin specifiers (e.g. Ultracite's opt-in
-// github/sonarjs/react-doctor plugins) relative to the root config file's node_modules
-// ancestry, and it requires the tsgolint executable whenever type-aware mode is
-// on. Nesting fixtures under this package's node_modules gives them the same
-// dependency ancestry a real consumer install has, and resolving tsgolint the
-// way the binaries do proves that resolution path keeps working.
+// github/sonarjs/react-doctor plugins) relative to the root config file's
+// node_modules ancestry, and it requires the tsgolint executable whenever
+// type-aware mode is on. Each fixture therefore gets a node_modules symlink
+// back to this package's own, which gives it the dependency ancestry a real
+// consumer install has; resolving tsgolint the way the binaries do proves that
+// resolution path keeps working.
+//
+// The fixtures used to live *inside* the repo's node_modules for the same
+// reason. Oxlint 1.78 skips any path it considers ignored — node_modules, a
+// dot-prefixed directory, anything matched by .gitignore — even when that path
+// is named explicitly on the command line, and `--no-ignore` does not lift it.
+// Every fixture came back as "No files found to lint" instead of running the
+// presets, so they moved outside the repo entirely.
+// realpathSync because macOS resolves os.tmpdir() to a symlink: Oxlint reports
+// the symlinked path while the JS-plugin bridge derives its project root from
+// the real cwd, and eslint-plugin-sonarjs then throws "is not nested under
+// topDir" — which aborts the whole JS-plugin pass for that file, taking the
+// `howells/*` rules under test down with it.
 const fixtureBase = path.join(
-  repoRoot,
-  "node_modules",
-  ".howells-lint-fixtures"
+  realpathSync(tmpdir()),
+  "howells-lint-preset-fixtures"
 );
 const tsgolintPath = resolvePackageBin("oxlint-tsgolint", "tsgolint");
 
 async function makeFixtureRoot() {
   await mkdir(fixtureBase, { recursive: true });
-  return mkdtemp(path.join(fixtureBase, "case-"));
+  const root = await mkdtemp(path.join(fixtureBase, "case-"));
+  await symlink(
+    path.join(repoRoot, "node_modules"),
+    path.join(root, "node_modules"),
+    "dir"
+  );
+  return root;
 }
 
 async function writeFixture(root, relativePath, source) {
@@ -751,6 +770,111 @@ test("Next preset keeps the framework's default-export page shape writable", asy
     assert.equal(
       diagnosticsForRule(result.stdout, "react-doctor(nextjs-no-img-element)")
         .length,
+      1
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+// React Doctor 0.9.x dropped the framework awareness its port of the
+// react-refresh rule used to have, and its replacement is reachable only
+// through `settings`, which Oxlint does not merge through `extends`. Every
+// Next.js route file exports segment configuration alongside its component, so
+// the Next lane runs Oxlint's native rule with an allowlist instead.
+test("Next preset accepts a route file's segment exports beside its component", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import next from ${JSON.stringify(nextPresetUrl)};\nexport default next;\n`
+    );
+    await writeFixture(
+      root,
+      "src/app/blog/page.tsx",
+      'export const dynamic = "force-dynamic";\n\nexport const metadata = { title: "Blog" };\n\nexport default function Page() {\n  return <main />;\n}\n'
+    );
+
+    const result = await runOxlint(root);
+
+    assert.equal(
+      diagnosticsForRule(result.stdout, "react-doctor(only-export-components)")
+        .length,
+      0
+    );
+    assert.equal(
+      diagnosticsForRule(result.stdout, "react(only-export-components)").length,
+      0
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+// Anti-slop and the Vitest preset are part of the standard core lane, not an
+// opt-in overlay. Both come from Ultracite, and both are easy to lose silently
+// if the extends list is reordered or a rule moves upstream.
+test("core preset carries anti-slop and the Vitest rules", () => {
+  const rules = resolvedRules(core);
+
+  assert.equal(
+    rules["anti-slop/require-safety-comment-for-type-assertion"],
+    "error"
+  );
+  assert.equal(rules["anti-slop/no-unknown-parameters"], "error");
+
+  // Anti-slop must be extended after Ultracite's core preset: these two rules
+  // deadlock against `anti-slop/no-known-value-widening`, so the "off" has to
+  // be the one that survives.
+  assert.equal(rules["typescript/consistent-indexed-object-style"], "off");
+  assert.equal(rules["unicorn/no-immediate-mutation"], "off");
+
+  // Ultracite scopes the Vitest rules to test files through an override, so
+  // they do not appear in the flattened top-level rule set.
+  const vitestOverrides = (core.extends ?? []).flatMap(
+    (preset) => preset.overrides ?? []
+  );
+  const vitestRules = vitestOverrides.flatMap((override) =>
+    Object.keys(override.rules ?? {}).filter((ruleName) =>
+      ruleName.startsWith("vitest/")
+    )
+  );
+
+  assert.ok(vitestRules.includes("vitest/no-focused-tests"));
+  assert.ok(vitestRules.length > 40);
+});
+
+test("core preset reports anti-slop and Vitest findings on real files", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`
+    );
+    await writeFixture(
+      root,
+      "src/parse.ts",
+      "export const parse = (input: string) => JSON.parse(input) as { id: string };\n"
+    );
+    await writeFixture(
+      root,
+      "src/parse.test.ts",
+      'import { describe, expect, it } from "vitest";\n\nimport { parse } from "./parse";\n\ndescribe("parse", () => {\n  it.only("reads an id", () => {\n    expect(parse(\'{"id":"a"}\')).toBeTruthy();\n  });\n});\n'
+    );
+
+    const result = await runOxlint(root);
+
+    assert.equal(
+      diagnosticsForRule(
+        result.stdout,
+        "anti-slop(require-safety-comment-for-type-assertion)"
+      ).length,
+      1
+    );
+    assert.equal(
+      diagnosticsForRule(result.stdout, "vitest(no-focused-tests)").length,
       1
     );
   } finally {
