@@ -118,6 +118,10 @@ export default {
 
 Playwright support adds the recommended `eslint-plugin-playwright` rules through Oxlint and promotes brittle E2E patterns to errors, including `playwright/no-wait-for-timeout`, `playwright/no-force-option`, `playwright/no-element-handle`, and `playwright/prefer-web-first-assertions`. Use the Playwright export as an overlay for app-level E2E tests, or as a standalone preset for dedicated E2E packages.
 
+The Playwright export also turns Ultracite's Vitest rules off across the lane it governs, because a Playwright spec is not a Vitest file. Ultracite scopes those rules to `*.test.*`, `*.spec.*`, and `__tests__`, which is how Playwright specs are named under either convention, so they apply to E2E tests and lint them against a runner that is not there. `vitest/prefer-importing-vitest-globals` is the one that bites: it matches the names `expect` and `test` rather than the import source, so it fires on a correctly imported Playwright `expect` and no call site can satisfy it. Aliasing the imports to silence it blinds `sonarjs/no-empty-test-file`, which then reports the spec has no tests — a worse finding than the one it bought off.
+
+The exemption is scoped by path: a Vitest test outside the Playwright globs keeps every one of those rules, and `sonarjs/no-empty-test-file` still reports a spec with no tests in it.
+
 Choose the closest preset:
 
 - `@howells/lint/oxlint/core` for Node or non-React TypeScript
@@ -163,20 +167,19 @@ Next.js app with Playwright E2E tests:
 import next from "@howells/lint/oxlint/next";
 import {
   playwrightJsPlugins,
-  playwrightRules,
+  playwrightOverride,
 } from "@howells/lint/oxlint/playwright";
 
 export default {
   extends: [next],
   jsPlugins: playwrightJsPlugins,
   overrides: [
-    {
-      files: ["**/*.spec.ts", "**/*.e2e.ts", "tests/**/*.{ts,tsx}"],
-      rules: playwrightRules,
-    },
+    playwrightOverride(["**/*.spec.ts", "**/*.e2e.ts", "tests/**/*.{ts,tsx}"]),
   ],
 };
 ```
+
+`playwrightOverride` returns a complete override entry: the Playwright rules, the Vitest rules off, and `plugins: ["vitest"]`. That last part is load-bearing and easy to lose. Oxlint resolves a rule entry against the plugin set in scope at that point, and `vitest` is not in the core preset's top-level `plugins` — Ultracite enables it inside its own override. An entry that says `"vitest/consistent-test-filename": "off"` without naming the plugin is discarded in silence, at top level and in an override alike. Compose the pieces yourself with `playwrightRules`, `vitestRulesOff`, and `playwrightPlugins` if you need to, but keep all three together.
 
 Dedicated Playwright E2E package:
 

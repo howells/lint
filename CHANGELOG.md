@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `playwrightOverride(files)`, `vitestRulesOff`, and `playwrightPlugins` on `@howells/lint/oxlint/playwright`. `playwrightOverride` returns a complete Oxlint override entry for an app's E2E globs — the Playwright rules, Ultracite's Vitest rules off, and `plugins: ["vitest"]` — and is now the documented overlay shape. `playwrightRules` and `playwrightJsPlugins` are unchanged and still exported.
+
+### Fixed
+
+- The Playwright lane no longer draws Vitest findings. **This is a 2.0.0 regression.** Before that release the core preset carried `vitest` in its top-level `plugins` and named twelve rules at top level, where a consumer's later `"vitest/x": "off"` could reach them. 2.0.0 replaced that with Ultracite's Vitest preset, which is a single `overrides` entry scoped to `*.test.*`, `*.spec.*`, and `__tests__` — and an override beats top level for the files it matches, so the disable stopped working. A Playwright spec is named the same way under either convention, so the whole Vitest set now applies to E2E tests and lints them against a runner that is not there.
+
+  `vitest/prefer-importing-vitest-globals` is the rule that bites in practice. It matches on the _names_ `expect` and `test` rather than on the import source, so it fires on a correctly imported Playwright `expect` and no call site can satisfy it; aliasing both imports silences it but blinds `sonarjs/no-empty-test-file`, which then reports the spec has no tests, trading one finding for a worse one. `vitest/consistent-test-filename` is the second — it demands `.spec.ts` be renamed to `.test.ts`. Playwright's own default `testMatch` accepts both spellings, so that one only conflicts in a repo whose config pins `.spec.ts` by name.
+
+  The exemption is read out of Ultracite's own preset rather than listed by hand, so a Vitest rule added upstream is covered without this package being touched. It is scoped by path: a Vitest test outside the Playwright globs keeps every rule, and `sonarjs/no-empty-test-file` still reports a genuinely empty spec. Both are held by tests.
+
+  The disable has to carry `plugins: ["vitest"]` wherever it lands. Oxlint resolves a rule entry against the plugin set in scope at that point, and `vitest` is absent from the core preset's top-level `plugins` — Ultracite enables it inside its own override. Without the plugin named, `"vitest/x": "off"` is discarded without a word, at top level and inside an override alike; that silence is why this looked unfixable from a consumer's config. A test holds the broken shape and asserts the findings survive it, so the fix cannot rot into a no-op.
+
+  Only a consumer on 2.0.0 that lints its E2E directory is affected. A repo still on 1.x or 0.x inherits this the moment it upgrades.
+
 ## 2.0.0 — 2026-08-15
 
 ### Removed

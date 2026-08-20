@@ -2,6 +2,28 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## The Playwright overlay changes shape
+
+Take this if your project is on 2.0.0 and lints its E2E directory. 2.0.0 moved the Vitest rules from the core preset's top level into Ultracite's override, and a Playwright spec matches that override's globs under either naming convention, so E2E tests started drawing Vitest findings that no call site can fix. A project still on 1.x or 0.x is not affected yet and will inherit it on upgrade.
+
+If your `oxlint.config.ts` carries a Playwright overlay written as
+
+```ts
+overrides: [{ files: ["e2e/**/*.{ts,tsx}"], rules: playwrightRules }],
+```
+
+replace it with
+
+```ts
+overrides: [playwrightOverride(["e2e/**/*.{ts,tsx}"])],
+```
+
+and change the import from `playwrightRules` to `playwrightOverride`. The old shape still works and still applies the Playwright rules; it just does not carry the Vitest exemption, because that exemption needs `plugins: ["vitest"]` in the same override entry and a bare rules object cannot supply it.
+
+Then delete any per-file or per-line suppression you added for a `vitest/*` rule in an E2E test, and undo any import aliasing you introduced to dodge `vitest/prefer-importing-vitest-globals` — aliasing `test` blinds `sonarjs/no-empty-test-file`, so the alias was costing you a real check. Naming makes no difference to this: the exemption covers `e2e/**/*.test.ts` and `e2e/**/*.spec.ts` alike, and you do not need to rename anything.
+
+A dedicated E2E package extending the preset directly (`extends: [playwright]`) needs no change; the exemption is inside the preset.
+
 ## 2.0.0 removes the Biome lane
 
 **If your project runs Biome, do not take 2.0.0.** Stay on the 1.x range you already have. It keeps working; it just stops receiving new policy. Take 2.0.0 when you are ready to move that project onto `howells-check`.
