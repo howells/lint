@@ -1,6 +1,6 @@
 {
   "name": "@howells/lint",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Pinned Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
   "keywords": [],
   "homepage": "https://github.com/howells/lint#readme",
