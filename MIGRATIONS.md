@@ -2,6 +2,22 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## The React Compiler rule becomes twenty-two rules
+
+Take this with the Oxlint 1.80.0, Ultracite 7.10.6, and Oxfmt 0.65.0 refresh. The React part only reaches projects on `@howells/lint/oxlint/react` or `/next`; the rest applies everywhere.
+
+1. **`react/react-compiler` no longer exists.** Oxlint 1.79.0 split that one nursery rule into per-category rules, and Ultracite 7.10.6 enables 22 of them at `error` in its place. If any config in your project names `react/react-compiler`, Oxlint now refuses to parse the whole file: `Rule 'react-compiler' not found in plugin 'react'`. Delete the entry. An `oxlint-disable` comment naming the old rule stops matching anything at all, so re-suppress the specific replacement rule if you still need the exemption.
+
+2. **Expect more React findings on first run, and expect them to be real.** The replacements report the React Compiler's bail-out conditions one at a time instead of as a single verdict, and several are coverage this package did not have: `react/set-state-in-effect`, `react/set-state-in-render`, `react/no-deriving-state-in-effects`, `react/exhaustive-effect-dependencies`, `react/purity`, `react/immutability`, `react/refs`, `react/static-components`, `react/preserve-manual-memoization`, `react/use-memo`, `react/memo-dependencies`, and `react/error-boundaries`. Each names a component the compiler cannot optimise, so fix them rather than suppressing them.
+
+3. **Ignored files you name explicitly are linted again.** Oxlint 1.79.0 applies `.gitignore` only to the directories it walks, not to a path passed on the command line. This reverses the first item under "2.0.0 toolchain refresh" below: a script that lints a generated or gitignored path by name now gets findings from it again. If you dropped such paths from your lint targets to work around 1.78.0, put them back and expect a backlog.
+
+4. **Core gains two rules.** Ultracite 7.10.6 adds `one-var` set to `never`, so a comma-separated `const a = 1, b = 2` has to become one declaration per binding, and `jsdoc/no-blank-blocks`, which rejects an empty `/** */` left behind by a deleted comment. Both are mechanical.
+
+Oxfmt moves from 0.63.0 to 0.65.0: comment placement around unions, an `EmptyStatement` fix, and class decorators before `export`. Run `lint:fix` once and commit the reflow before you read the lint findings, so the two do not mix.
+
+ESLint stays on 9.39.5 and TypeScript on 6.0.3. Both holds were rechecked against this refresh and both still stand for the reasons recorded under 1.2.0.
+
 ## The Playwright overlay changes shape
 
 Take this if your project is on 2.0.0 and lints its E2E directory. 2.0.0 moved the Vitest rules from the core preset's top level into Ultracite's override, and a Playwright spec matches that override's globs under either naming convention, so E2E tests started drawing Vitest findings that no call site can fix. A project still on 1.x or 0.x is not affected yet and will inherit it on upgrade.
