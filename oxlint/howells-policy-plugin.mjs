@@ -467,6 +467,8 @@ const DEFAULT_MATCH = [
   "text-8xl",
   "text-9xl",
   "text-[*]",
+  // v4's CSS-variable shorthand for a size: `text-(length:--my-size)`.
+  "text-(length:*)",
   "font-*",
   "leading-*",
   "tracking-*",
@@ -480,7 +482,26 @@ const DEFAULT_MATCH = [
 
 // Arbitrary `text-[…]` whose value reads as a colour (owned by the colour rule),
 // not a length — never governed even when `text-[*]` is in the namespace.
-const ARBITRARY_COLOUR_PATTERN = /^(?:#|var\(|rgb|hsl|okl(?:ch|ab)|color\()/u;
+// `color[-:(]` covers all three spellings at once: the functional `color(`, the
+// `color-mix(` blend, and the explicit `color:` type hint Tailwind accepts to
+// disambiguate a bare `var()`.
+const ARBITRARY_COLOUR_PATTERN =
+  /^(?:#|var\(|rgb|hsl|okl(?:ch|ab)|color[-:(])/u;
+
+// An arbitrary `text-[…]` carrying a length rather than a colour, which earns a
+// different fix from a named size: the scale, or a named `@theme` step.
+//
+// The colour test is unreachable from the current caller — `isBanned` already
+// drops arbitrary colours before anything is reported — and stays so the
+// predicate is right on its own terms if a second call site ever appears.
+const ARBITRARY_LENGTH_PATTERN = /^text-\[[^\]]+\]$/u;
+
+function isArbitraryLength(base) {
+  if (!ARBITRARY_LENGTH_PATTERN.test(base)) {
+    return false;
+  }
+  return !ARBITRARY_COLOUR_PATTERN.test(base.slice("text-[".length, -1));
+}
 
 /** Compile a glob (`*` = any run of chars) into an anchored, whole-string RegExp. */
 function globToRegExp(glob) {
@@ -492,24 +513,41 @@ function globToRegExp(glob) {
 
 /**
  * The base utility of a Tailwind token — everything after the last top-level
- * `:` (variant prefixes stripped), with a leading `!` (important) removed.
- * Colons inside `[…]` (arbitrary variants like `data-[state=open]:`) don't split.
+ * `:` (variant prefixes stripped), with the important marker and any modifier
+ * suffix removed.
+ *
+ * Depth counts both brackets and parentheses, so neither a `:` nor a `/` inside
+ * them splits: `data-[state=open]:text-lg`, `text-[calc(1rem/2)]`, and v4's
+ * CSS-variable shorthand `text-(length:--my-size)` all survive whole.
+ *
+ * The important marker is stripped in all three positions Tailwind allows it:
+ * v3's `!text-xl` and `hover:!text-xl` (the marker sits after the variant), and
+ * v4's `text-xl!`. So is the modifier a size carries for its leading
+ * (`text-sm/6`). A size is a size whatever it is shouted or paired with.
  */
 function baseUtility(token) {
-  const stripped = token.startsWith("!") ? token.slice(1) : token;
+  const stripped = token.endsWith("!") ? token.slice(0, -1) : token;
   let depth = 0;
   let lastColon = -1;
+  let lastSlash = -1;
   for (let index = 0; index < stripped.length; index += 1) {
     const character = stripped[index];
-    if (character === "[") {
+    if (character === "[" || character === "(") {
       depth += 1;
-    } else if (character === "]") {
+    } else if (character === "]" || character === ")") {
       depth -= 1;
-    } else if (character === ":" && depth === 0) {
+    } else if (depth === 0 && character === ":") {
       lastColon = index;
+      lastSlash = -1;
+    } else if (depth === 0 && character === "/") {
+      lastSlash = index;
     }
   }
-  return stripped.slice(lastColon + 1);
+  const base = stripped.slice(
+    lastColon + 1,
+    lastSlash === -1 ? undefined : lastSlash
+  );
+  return base.startsWith("!") ? base.slice(1) : base;
 }
 
 /** True when `declarator` is annotated `Record<…Size, string>` (a size ladder). */
@@ -576,7 +614,11 @@ function createNoRawTypeUtilitiesRule(context) {
     seen.add(base);
     context.report({
       node,
-      message: `Typographic utility "${base}" is not in the sanctioned set — only classes matched by this rule's \`allow\` option are permitted. Style through your design-system type tokens or component props instead.`,
+      message: `Typographic utility "${base}" is not in the sanctioned set — only classes matched by this rule's \`allow\` option are permitted. ${
+        isArbitraryLength(base)
+          ? "An arbitrary size is the last resort: use the nearest step on the scale, or add a named step to your `@theme` so the value has a name the next file can reuse."
+          : "Style through your design-system type tokens or component props instead."
+      }`,
     });
   }
 

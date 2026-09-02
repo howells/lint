@@ -550,6 +550,12 @@ test("opt-in no-raw-type-utilities rule bans raw typographic utilities and honor
         `      <p className="text-base text-[13px] text-[#fff] leading-none">{variants()}</p>`,
         `      <ToggleGroupItem value="italic" />`,
         `      <span className="text-caption font-semibold font-bold">ok</span>`,
+        `      {/* Important and modifier suffixes are the same utility shouted. */}`,
+        `      <b className="text-xl! text-2xl/8 !text-3xl">suffixes</b>`,
+        `      {/* v3 puts the important marker after the variant; v4's shorthand is a size. */}`,
+        `      <u className="hover:!text-5xl text-(length:--my-size)">v3 and v4 spellings</u>`,
+        `      {/* Arbitrary colours in every spelling stay the colour rule's. */}`,
+        `      <i className="text-[color:var(--ink)] text-[color-mix(in_oklch,red,blue)]">c</i>`,
         `    </div>`,
         `  );`,
         `}`,
@@ -581,11 +587,47 @@ test("opt-in no-raw-type-utilities rule bans raw typographic utilities and honor
     assert.match(messages, /Typographic utility "uppercase"/);
     assert.match(messages, /Typographic utility "font-bold"/);
 
+    // An arbitrary length gets its own fix — the scale, or a named `@theme` step —
+    // while a named size keeps the design-system-token wording. Asserted per
+    // diagnostic: across the joined messages the two would cross-match.
+    const messageFor = (utility) =>
+      ruleDiagnostics.find((diagnostic) =>
+        diagnostic.message.includes(`"${utility}"`)
+      )?.message ?? "";
+
+    assert.match(
+      messageFor("text-[13px]"),
+      /add a named step to your `@theme`/
+    );
+    assert.notEqual(messageFor("text-sm"), "");
+    assert.doesNotMatch(
+      messageFor("text-sm"),
+      /add a named step to your `@theme`/
+    );
+    assert.match(messageFor("text-sm"), /design-system type tokens/);
+
+    // A size is a size however it is shouted or paired with a leading modifier:
+    // v4's suffix `!`, v3's prefix `!`, and `/8` all reduce to the bare utility.
+    assert.match(messages, /Typographic utility "text-xl"/);
+    assert.match(messages, /Typographic utility "text-2xl"/);
+    assert.match(messages, /Typographic utility "text-3xl"/);
+
+    // v3 spells an important utility under a variant as `hover:!text-5xl`, so the
+    // marker has to come off after the colon split rather than before it.
+    assert.match(messages, /Typographic utility "text-5xl"/);
+    // `text-(length:--my-size)` is v4 shorthand for `text-[length:var(--my-size)]`.
+    // The colon lives inside parentheses, so depth has to count them too.
+    assert.match(messages, /Typographic utility "text-\(length:--my-size\)"/);
+
     // Sanctioned via `allow`, colour arbitrary (never governed), and — crucially —
     // a same-spelled word in a JSDoc @example or a non-className string prop
     // (Radix `value="italic"`) are all left alone.
     assert.doesNotMatch(messages, /"text-caption"/);
     assert.doesNotMatch(messages, /"text-\[#fff\]"/);
+    // Every spelling of an arbitrary colour: the `color:` type hint and
+    // `color-mix()` are the colour rule's, not this one's.
+    assert.doesNotMatch(messages, /"text-\[color:/);
+    assert.doesNotMatch(messages, /"text-\[color-mix/);
     assert.doesNotMatch(messages, /"font-(?:medium|semibold)"/);
     assert.doesNotMatch(messages, /"leading-none"/);
     assert.doesNotMatch(messages, /"(?:not-)?italic"/);

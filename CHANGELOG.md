@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `howells/no-raw-type-utilities` now governs a size written with the important marker after its variant. `baseUtility` stripped a leading `!` before splitting on the variant colon, so `hover:!text-xl` reduced to `!text-xl`, matched no glob, and was reported by nothing — while the bare `!text-xl` was caught. The marker now comes off after the split, covering all three positions Tailwind allows.
+
+- Tailwind v4's CSS-variable shorthand `text-(length:--my-size)` is now governed. It is shorthand for `text-[length:var(--my-size)]`, so it is always a size, but the colon inside its parentheses split the token because depth counted only brackets. Depth now counts parentheses too, which also keeps `text-[calc(1rem/2)]` whole.
+
+- `howells/no-raw-type-utilities` now governs a size carrying Tailwind v4's suffix `!` or a leading modifier. `baseUtility` stripped only v3's prefix `!`, so `text-xl!` and `text-2xl/8` reduced to themselves, matched no glob in the namespace, and were reported by nothing — while `!text-xl` was caught. A size is a size however it is shouted or paired with a leading, and both suffixes are now stripped at depth zero, leaving `text-[calc(1rem/2)]` intact.
+
+- Arbitrary colours written as `text-[color:var(--x)]` or `text-[color-mix(…)]` are no longer reported by this rule. `ARBITRARY_COLOUR_PATTERN` matched the functional `color(` but not the `color:` type hint or the `color-mix()` blend, so both fell through to the size namespace and drew a typography finding on a colour. Colour remains the colour rule's territory.
+
+### Changed
+
+- `howells/no-raw-type-utilities` now gives an arbitrary size (`text-[13px]`) its own fix, separate from a named one: use the nearest step on the scale, or add a named step to `@theme`. A one-off pixel value names nothing, so the next file writes its own and the ramp grows a step nobody chose. The escape hatch stays open via `allow`.
+
 ## 2.1.0 — 2026-08-20
 
 ### Added
