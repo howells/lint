@@ -56,6 +56,8 @@ Do not add `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-rea
 
 Use these presets for every Howells JavaScript and TypeScript project. React and Next presets stack the relevant Ultracite Ox rules with [React Doctor](https://react.doctor) rules in one config.
 
+Version 3 removes the GitHub and SonarJS plugins and their legacy TypeScript dependency. Type-aware checking runs through native oxlint-tsgolint. See [MIGRATIONS.md](./MIGRATIONS.md) for the deliberate coverage changes.
+
 React Doctor and native Oxlint Next.js rules now arrive through Ultracite's React and Next presets, which register the React Doctor plugin and enable its rules at error severity. `@howells/lint` adds canonical Howells policy on top for file naming, barrel files, env access, workspace boundaries, file size, function size, complexity, and tests.
 
 The core Oxlint preset enables type-aware linting and native Oxlint rules that keep code files navigable: `max-lines` errors above 600 non-comment, non-blank lines; `max-lines-per-function` warns above 120 non-comment, non-blank lines; `max-statements` warns above 45 statements per function; and `complexity` warns above cyclomatic complexity 15. It also rejects runtime `import()` expressions, including literal specifiers, so package loading stays statically traceable. Test files keep the file-level `max-lines` guard but disable function-size, statement-count, and complexity limits, because test framework callbacks naturally wrap many independent cases. Generated files should be ignored at the project level; rare intentional exceptions should use an exact-file override with a short refactor note.
@@ -120,9 +122,9 @@ export default {
 
 Playwright support adds the recommended `eslint-plugin-playwright` rules through Oxlint and promotes brittle E2E patterns to errors, including `playwright/no-wait-for-timeout`, `playwright/no-force-option`, `playwright/no-element-handle`, and `playwright/prefer-web-first-assertions`. Use the Playwright export as an overlay for app-level E2E tests, or as a standalone preset for dedicated E2E packages.
 
-The Playwright export also turns Ultracite's Vitest rules off across the lane it governs, because a Playwright spec is not a Vitest file. Ultracite scopes those rules to `*.test.*`, `*.spec.*`, and `__tests__`, which is how Playwright specs are named under either convention, so they apply to E2E tests and lint them against a runner that is not there. `vitest/prefer-importing-vitest-globals` is the one that bites: it matches the names `expect` and `test` rather than the import source, so it fires on a correctly imported Playwright `expect` and no call site can satisfy it. Aliasing the imports to silence it blinds `sonarjs/no-empty-test-file`, which then reports the spec has no tests — a worse finding than the one it bought off.
+The Playwright export also turns Ultracite's Vitest rules off across the lane it governs, because a Playwright spec is not a Vitest file. Ultracite scopes those rules to `*.test.*`, `*.spec.*`, and `__tests__`, which is how Playwright specs are named under either convention, so they apply to E2E tests and lint them against a runner that is not there. `vitest/prefer-importing-vitest-globals` is the one that bites: it matches the names `expect` and `test` rather than the import source, so it fires on a correctly imported Playwright `expect` and no call site can satisfy it.
 
-The exemption is scoped by path: a Vitest test outside the Playwright globs keeps every one of those rules, and `sonarjs/no-empty-test-file` still reports a spec with no tests in it.
+The exemption is scoped by path: a Vitest test outside the Playwright globs keeps every one of those rules.
 
 Choose the closest preset:
 
