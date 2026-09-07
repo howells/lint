@@ -2,6 +2,12 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## 3.0.0: native TypeScript tooling
+
+Oxlint remains the only lint engine. Remove consumer `github/*` and `sonarjs/*` rule overrides: their plugins are no longer installed or loaded. The latest versions still require the legacy TypeScript compiler API. Type-aware checks continue through oxlint-tsgolint, with no TypeScript 5/6 package in the graph.
+
+This intentionally removes the 188 GitHub/SonarJS-specific rules previously inherited by core. Native Ultracite/Oxlint rules, React Doctor, Playwright and Howells workspace rules remain. Coverage is not equivalent: SonarJS-only checks such as duplicate strings, function naming and empty test files are retired. Existing 2.x consumers stay on their previous coverage until they opt into 3.x.
+
 ## The React Compiler rule becomes twenty-two rules
 
 Take this with the Oxlint 1.80.0, Ultracite 7.10.6, and Oxfmt 0.65.0 refresh. The React part only reaches projects on `@howells/lint/oxlint/react` or `/next`; the rest applies everywhere.

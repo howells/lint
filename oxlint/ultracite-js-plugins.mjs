@@ -18,15 +18,6 @@ const rulesNamed = (preset, matches) =>
   );
 const prefixed = (prefix) => (ruleName) => ruleName.startsWith(prefix);
 
-export const ultraciteCoreJsPlugins = defineConfig({
-  jsPlugins: pluginsNamed(ultraciteJsPlugins, "github", "sonarjs"),
-  overrides: ultraciteJsPlugins.overrides,
-  rules: {
-    ...rulesNamed(ultraciteJsPlugins, prefixed("github/")),
-    ...rulesNamed(ultraciteJsPlugins, prefixed("sonarjs/")),
-  },
-});
-
 // Ultracite 7.10.0 split React Doctor's framework rules out of the base
 // JS-plugin preset because several of them fire on generic JSX and recommend a
 // framework's replacement. Its TanStack export mixes two kinds: the `query-*`

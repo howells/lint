@@ -6,7 +6,7 @@ The shared lint and format toolchain. It pins Oxlint, Oxfmt, Ultracite, React Do
 
 - Oxlint/Oxfmt is the only lane. 2.0.0 removed the Biome one; see `docs/adr/0003-remove-the-biome-lane.md`.
 - Don't reintroduce Biome, and don't describe it as frozen or retained. A repo that still needs it stays on 1.x.
-- ESLint is not a lane. It's the pinned runtime for the `eslint-plugin-github`, `eslint-plugin-sonarjs` and `eslint-plugin-playwright` rules that Oxlint loads through its JS-plugin bridge - 188 rules in core, all 36 in Playwright. Don't propose removing it.
+- Oxlint is the only lint engine. The Playwright plugin uses its JS bridge; ESLint is only that plugin's peer runtime. GitHub and SonarJS plugins were removed in 3.0.0 to eliminate the legacy TypeScript compiler dependency.
 
 ## What it exports
 
@@ -44,7 +44,7 @@ Type-aware Oxlint is on by default. `options: { typeAware: false }` is a migrati
 - Don't rename a public binary or preset export without migration docs, tests and a `MIGRATIONS.md` entry.
 - Workspace lint covers package manager, runtime and workspace configuration only. Don't grow it into general repo health. It may recognise more folder names than the boundary rule, because it assigns them no import meaning.
 - Keep output readable; hooks and agents parse it.
-- ESLint is held at 9.39.5 and TypeScript at 6.0.3 on purpose - `eslint-plugin-github` and `@typescript-eslint/utils` peer ranges block the next majors. Read `MIGRATIONS.md` before bumping either.
+- Do not add a legacy TypeScript compiler dependency. Verify the installed graph and real lint fixtures when updating plugins. See MIGRATIONS.md for the 3.0.0 coverage change.
 - Search `test/` before changing rule behaviour, and the README examples before changing an exported preset API.
 
 ## Commands

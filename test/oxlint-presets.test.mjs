@@ -132,11 +132,11 @@ test("Ultracite JS-plugin coverage remains assigned to the correct presets", () 
     ...coreExtensions.map((preset) => preset.rules ?? {})
   );
 
-  assert.ok(coreJsPluginNames.includes("github"));
-  assert.ok(coreJsPluginNames.includes("sonarjs"));
+  assert.ok(!coreJsPluginNames.includes("github"));
+  assert.ok(!coreJsPluginNames.includes("sonarjs"));
   assert.ok(!coreJsPluginNames.includes("react-doctor"));
-  assert.equal(coreRules["github/no-inner-html"], "error");
-  assert.equal(coreRules["sonarjs/no-duplicate-string"], "error");
+  assert.equal(coreRules["github/no-inner-html"], undefined);
+  assert.equal(coreRules["sonarjs/no-duplicate-string"], undefined);
 
   const reactExtensions = react.extends ?? [];
   const reactJsPluginNames = reactExtensions.flatMap((preset) =>
@@ -729,7 +729,7 @@ test("React and Next lanes accept the casing their frameworks require", async ()
       "src/helper.ts",
       "export const compute = () => 1;\nexport function alsoCompute() {\n  return 2;\n}\n"
     );
-    // And the rule must still be ON: a genuinely badly-cased helper still fails.
+    // SonarJS naming checks are retired, including non-framework helpers.
     await writeFixture(
       root,
       "src/bad.ts",
@@ -746,13 +746,13 @@ test("React and Next lanes accept the casing their frameworks require", async ()
     assert.doesNotMatch(flagged, /Widget/);
     assert.doesNotMatch(flagged, /FirmIndex/);
     assert.doesNotMatch(flagged, /alsoCompute/);
-    assert.match(flagged, /_Mixed_Up/);
+    assert.equal(flagged, "[]");
   } finally {
     await rm(root, { force: true, recursive: true });
   }
 });
 
-test("core lane keeps the strict camelCase function name", async () => {
+test("core lane no longer loads SonarJS function naming", async () => {
   const root = await makeFixtureRoot();
 
   try {
@@ -771,11 +771,9 @@ test("core lane keeps the strict camelCase function name", async () => {
 
     const result = await runOxlint(root);
 
-    assert.match(
-      JSON.stringify(
-        diagnosticsForRule(result.stdout, "sonarjs(function-name)")
-      ),
-      /Widget/
+    assert.deepEqual(
+      diagnosticsForRule(result.stdout, "sonarjs(function-name)"),
+      []
     );
   } finally {
     await rm(root, { force: true, recursive: true });
@@ -990,17 +988,7 @@ test("playwrightOverride exempts the Playwright lane from the Vitest rules", asy
       ),
       []
     );
-    // Both controls run against the same output, so a config that never loaded
-    // cannot pass this test by reporting nothing. The empty spec is named
-    // rather than counted: `sonarjs/no-empty-test-file` does not recognise an
-    // aliased `test` either, so the aliased fixtures draw it too, and a bare
-    // total would move whenever those change.
-    assert.equal(
-      diagnosticsForRule(result.stdout, "sonarjs(no-empty-test-file)").filter(
-        (diagnostic) => diagnostic.filename.endsWith("e2e/empty.spec.ts")
-      ).length,
-      1
-    );
+    // A native bridge diagnostic proves the configuration loaded.
     assert.equal(
       diagnosticsForRule(result.stdout, "playwright(no-wait-for-timeout)")
         .length,
