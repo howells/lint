@@ -1,6 +1,23 @@
 # Changelog
 
-## Unreleased
+## 3.1.0 — 2026-09-11
+
+### Removed
+
+- ESLint is no longer installed, here or in any consumer. The Playwright rules now load from a vendored copy of `eslint-plugin-playwright` 2.11.0, because the published package declares ESLint as a required peer and pnpm installs it automatically. The rules and the `@howells/lint/oxlint/playwright` exports are unchanged. See `docs/adr/0004-vendor-the-playwright-rules.md`.
+- The direct `oxc-parser` pin. Nothing imports it, and React Doctor now resolves its own copy.
+
+### Changed
+
+- Oxlint 1.80.0 to 1.82.0, Oxfmt 0.65.0 to 0.67.0, Ultracite 7.10.6 to 7.11.1, React Doctor 0.9.12 to 0.9.13, `@howells/neon` 0.1.1 to 0.2.0. Ultracite 7.11.1 needs Oxlint 1.82: it passes `checkConditionalExpressions` to `no-unmodified-loop-condition`, which older Oxlint refuses to parse.
+- The Next preset's route-export allowlist follows Next.js 16.3.4. It adds `instant` and `prefetch`, the route segment exports introduced in 16, and drops `experimental_ppr`, which 16 removed. `instant` needs the entry in its object form (`{ level: "warning" }`), which the constant-export allowance does not cover.
+- From Ultracite 7.11.1: `no-unmodified-loop-condition` now checks each branch of a ternary loop condition; `unicorn/no-nested-ternary` is off, because its fix fights Oxfmt, and core `no-nested-ternary` still reports the construct; `unicorn/prefer-reflect-apply` is off, because it contradicts `no-reflect-apply`; and the test-file globs now cover Vitest type tests (`*.test-d.*`, `*.spec-d.*`).
+
+## 3.0.0 — 2026-09-07
+
+### Removed
+
+- The GitHub and SonarJS JS plugins and the 188 rules they supplied to the core preset. Their latest versions still require the legacy TypeScript compiler API; type-aware checks continue through oxlint-tsgolint. See MIGRATIONS.md.
 
 ### Fixed
 

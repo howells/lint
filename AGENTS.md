@@ -6,7 +6,7 @@ The shared lint and format toolchain. It pins Oxlint, Oxfmt, Ultracite, React Do
 
 - Oxlint/Oxfmt is the only lane. 2.0.0 removed the Biome one; see `docs/adr/0003-remove-the-biome-lane.md`.
 - Don't reintroduce Biome, and don't describe it as frozen or retained. A repo that still needs it stays on 1.x.
-- Oxlint is the only lint engine. The Playwright plugin uses its JS bridge; ESLint is only that plugin's peer runtime. GitHub and SonarJS plugins were removed in 3.0.0 to eliminate the legacy TypeScript compiler dependency.
+- Oxlint is the only lint engine, and ESLint is not installed. The Playwright rules are vendored in `vendor/eslint-plugin-playwright` and load through Oxlint's JS-plugin bridge; see `docs/adr/0004-vendor-the-playwright-rules.md`. GitHub and SonarJS plugins were removed in 3.0.0 to eliminate the legacy TypeScript compiler dependency.
 
 ## What it exports
 
@@ -19,7 +19,7 @@ The shared lint and format toolchain. It pins Oxlint, Oxfmt, Ultracite, React Do
 
 ## Wiring a consumer repo
 
-1. Install `@howells/lint` as the only direct lint dependency. Don't add `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `eslint-plugin-playwright`, `oxc-parser` or `@manypkg/cli` directly; they're pinned transitively.
+1. Install `@howells/lint` as the only direct lint dependency. Don't add `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `eslint` or `@manypkg/cli` directly; they're pinned transitively.
 2. Set `engines.node` to `>=24.15.0`, `packageManager` to `pnpm@11.5.2`, and add a root `.node-version` of `24.15.0`.
 3. Add `oxlint.config.ts` extending the closest preset, and `oxfmt.config.ts` re-exporting `@howells/lint/oxfmt`.
 4. Scripts: `"lint": "howells-check ."` and `"lint:fix": "howells-fix ."`. Keep `lint` non-mutating; all writes go in `lint:fix` or `format`. The Oxlint lane has no `lint:strict` - type-aware linting, React Doctor, boundaries and Playwright overlays all belong in the normal check.
@@ -44,6 +44,8 @@ Type-aware Oxlint is on by default. `options: { typeAware: false }` is a migrati
 - Don't rename a public binary or preset export without migration docs, tests and a `MIGRATIONS.md` entry.
 - Workspace lint covers package manager, runtime and workspace configuration only. Don't grow it into general repo health. It may recognise more folder names than the boundary rule, because it assigns them no import meaning.
 - Keep output readable; hooks and agents parse it.
+- Don't add a dependency that declares ESLint as a required peer: pnpm installs it in every consumer. `test/consumer-install.test.mjs` fails if ESLint appears.
+- Refresh the vendored Playwright rules by copying `dist/index.cjs` and `LICENSE` from the new `eslint-plugin-playwright` tarball into `vendor/eslint-plugin-playwright/`, keeping the header comment and updating its version, then run `node bin/howells-oxfmt.mjs --write vendor` and `pnpm check`. Never edit the vendored code itself.
 - Do not add a legacy TypeScript compiler dependency. Verify the installed graph and real lint fixtures when updating plugins. See MIGRATIONS.md for the 3.0.0 coverage change.
 - Search `test/` before changing rule behaviour, and the README examples before changing an exported preset API.
 

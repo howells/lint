@@ -1,11 +1,14 @@
-import playwright from "eslint-plugin-playwright";
 import { defineConfig } from "oxlint";
 import ultraciteVitest from "ultracite/oxlint/vitest";
 
+import playwright from "../vendor/eslint-plugin-playwright/index.cjs";
 import core from "./core.mjs";
 
+// The rules are vendored rather than installed: the published plugin declares
+// ESLint as a required peer, so pnpm would put ESLint in every consumer even
+// though Oxlint is the only thing that ever runs these rules.
 const playwrightPluginSpecifier = import.meta
-  .resolve("eslint-plugin-playwright");
+  .resolve("../vendor/eslint-plugin-playwright/index.cjs");
 const { "no-empty-pattern": _noEmptyPattern, ...recommendedPlaywrightRules } =
   playwright.configs["flat/recommended"].rules;
 

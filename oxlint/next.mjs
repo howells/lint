@@ -40,6 +40,11 @@ export default defineConfig({
     // natively and takes an export allowlist as a rule option, and rule options
     // — unlike `settings` — do flow through `extends`. Ultracite turns the
     // native rule off in favour of the port; this lane swaps them back.
+    //
+    // The names follow Next.js 16.3.4: the route segment config (`instant` and
+    // `prefetch` are new in 16; `experimental_ppr` was removed), the metadata
+    // exports, and the image-metadata file exports. `dynamic`, `revalidate` and
+    // `fetchCache` stay for apps not yet on Cache Components.
     "react-doctor/only-export-components": "off",
     "react/only-export-components": [
       "error",
@@ -51,14 +56,15 @@ export default defineConfig({
           "contentType",
           "dynamic",
           "dynamicParams",
-          "experimental_ppr",
           "fetchCache",
           "generateImageMetadata",
           "generateMetadata",
           "generateStaticParams",
           "generateViewport",
+          "instant",
           "maxDuration",
           "metadata",
+          "prefetch",
           "preferredRegion",
           "revalidate",
           "runtime",
