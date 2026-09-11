@@ -50,7 +50,7 @@ Install the shared tooling:
 pnpm add -D @howells/lint
 ```
 
-Do not add `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, `eslint-plugin-playwright`, `oxc-parser`, or `@manypkg/cli` directly unless you are developing this package itself. They are pinned transitively here.
+Do not add `oxlint`, `oxfmt`, `oxlint-tsgolint`, `ultracite`, `oxlint-plugin-react-doctor`, or `@manypkg/cli` directly unless you are developing this package itself. They are pinned transitively here.
 
 ## Oxlint/Oxfmt Presets
 
@@ -120,7 +120,7 @@ export default {
 };
 ```
 
-Playwright support adds the recommended `eslint-plugin-playwright` rules through Oxlint and promotes brittle E2E patterns to errors, including `playwright/no-wait-for-timeout`, `playwright/no-force-option`, `playwright/no-element-handle`, and `playwright/prefer-web-first-assertions`. Use the Playwright export as an overlay for app-level E2E tests, or as a standalone preset for dedicated E2E packages.
+Playwright support adds the recommended `eslint-plugin-playwright` rules through Oxlint, from a copy vendored in this package so ESLint is never installed, and promotes brittle E2E patterns to errors, including `playwright/no-wait-for-timeout`, `playwright/no-force-option`, `playwright/no-element-handle`, and `playwright/prefer-web-first-assertions`. Use the Playwright export as an overlay for app-level E2E tests, or as a standalone preset for dedicated E2E packages.
 
 The Playwright export also turns Ultracite's Vitest rules off across the lane it governs, because a Playwright spec is not a Vitest file. Ultracite scopes those rules to `*.test.*`, `*.spec.*`, and `__tests__`, which is how Playwright specs are named under either convention, so they apply to E2E tests and lint them against a runner that is not there. `vitest/prefer-importing-vitest-globals` is the one that bites: it matches the names `expect` and `test` rather than the import source, so it fires on a correctly imported Playwright `expect` and no call site can satisfy it.
 

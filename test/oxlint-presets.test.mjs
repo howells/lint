@@ -833,7 +833,7 @@ test("Next preset accepts a route file's segment exports beside its component", 
     await writeFixture(
       root,
       "src/app/blog/page.tsx",
-      'export const dynamic = "force-dynamic";\n\nexport const metadata = { title: "Blog" };\n\nexport default function Page() {\n  return <main />;\n}\n'
+      'export const dynamic = "force-dynamic";\n\nexport const instant = { level: "warning" };\n\nexport const metadata = { title: "Blog" };\n\nexport default function Page() {\n  return <main />;\n}\n'
     );
 
     const result = await runOxlint(root);

@@ -2,6 +2,15 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## ESLint leaves the graph
+
+Take this with the Oxlint 1.82.0, Ultracite 7.11.1 and Oxfmt 0.67.0 refresh.
+
+1. **Remove any direct `eslint` dependency and any ESLint peer override.** Nothing in the toolchain needs ESLint now: the Playwright rules load from a copy vendored in this package. `playwrightOverride`, `playwrightJsPlugins` and `playwrightRules` are unchanged, so Playwright configs need no edits.
+2. **Remove a direct `oxc-parser` dependency** if one is left from an earlier migration.
+3. **Run `lint:fix` once and commit the reflow** before reading findings. Oxfmt moves two minor versions.
+4. **Expect a handful of new loop-condition findings.** `no-unmodified-loop-condition` now checks each branch of a ternary in a loop condition. Findings from `unicorn/no-nested-ternary` and `unicorn/prefer-reflect-apply` disappear, and their disable comments can go.
+
 ## 3.0.0: native TypeScript tooling
 
 Oxlint remains the only lint engine. Remove consumer `github/*` and `sonarjs/*` rule overrides: their plugins are no longer installed or loaded. The latest versions still require the legacy TypeScript compiler API. Type-aware checks continue through oxlint-tsgolint, with no TypeScript 5/6 package in the graph.

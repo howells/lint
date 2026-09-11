@@ -12,7 +12,7 @@ Shared code quality toolchain package for Howells projects. It centralizes the s
 
 **Retired Biome lane**: The Biome preset path that 2.0.0 removed. A project that still needs it stays on 1.x, which keeps working and receives nothing further. Do not describe it as supported, frozen, or retained. _Avoid_: Biome lane, frozen compatibility lane, compatibility path
 
-**Oxlint plugin bridge**: Oxlint loads Playwright, React Doctor and Howells rules through its JS-plugin mechanism. ESLint supplies Playwright's peer runtime; it is never invoked as a linter. GitHub and SonarJS plugins are retired as of 3.0.0.
+**Oxlint plugin bridge**: Oxlint loads Playwright, React Doctor and Howells rules through its JS-plugin mechanism. The Playwright rules are a vendored copy of `eslint-plugin-playwright`, so ESLint is not installed at all. GitHub and SonarJS plugins are retired as of 3.0.0.
 
 **Preferred command**: A package binary that names the recommended Oxlint/Oxfmt path without aliases or fallbacks. `howells-check` and `howells-fix` are the only high-level project check/fix commands. _Avoid_: alias command, fallback command, default command
 

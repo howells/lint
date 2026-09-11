@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -14,7 +14,7 @@ const repoRoot = path.resolve(
   ".."
 );
 
-test("packed package installs with a valid peer graph and loads the Next preset", async () => {
+test("packed package installs without ESLint and loads the Next and Playwright presets", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "howells-lint-consumer-"));
 
   try {
@@ -44,6 +44,10 @@ test("packed package installs with a valid peer graph and loads the Next preset"
       'export { default } from "@howells/lint/oxlint/next";\n'
     );
     await writeFile(
+      path.join(root, "playwright.oxlint.config.mjs"),
+      'export { default } from "@howells/lint/oxlint/playwright";\n'
+    );
+    await writeFile(
       path.join(root, "oxfmt.config.ts"),
       'export { default } from "@howells/lint/oxfmt";\n'
     );
@@ -63,6 +67,16 @@ test("packed package installs with a valid peer graph and loads the Next preset"
     assert.doesNotMatch(
       `${installResult.stdout}${installResult.stderr}`,
       /Issues with peer dependencies|unmet peer/i
+    );
+
+    // Oxlint is the only engine. A dependency that declares ESLint as a
+    // required peer would have pnpm install it here anyway.
+    const installedPackages = await readdir(
+      path.join(root, "node_modules", ".pnpm")
+    );
+    assert.deepEqual(
+      installedPackages.filter((entry) => entry.startsWith("eslint@")),
+      []
     );
 
     const packageJson = JSON.parse(
@@ -104,6 +118,16 @@ test("packed package installs with a valid peer graph and loads the Next preset"
     );
 
     assert.doesNotMatch(stderr, /Failed to (load|parse)/);
+
+    // The Playwright rules ship as a vendored file, so this proves it made it
+    // into the tarball and loads from there.
+    const { stderr: playwrightStderr } = await execFileAsync(
+      process.execPath,
+      [oxlintBin, "--config", "playwright.oxlint.config.mjs", "portrait.ts"],
+      { cwd: root }
+    );
+
+    assert.doesNotMatch(playwrightStderr, /Failed to (load|parse)/);
   } finally {
     await rm(root, { force: true, recursive: true });
   }
