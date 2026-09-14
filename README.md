@@ -120,6 +120,50 @@ export default {
 };
 ```
 
+The React and Next presets carry [`@shadcn/lint`](https://github.com/shadcn-ui/lint), an agent-first linter for Tailwind design systems, from a copy vendored in this package so ESLint is never installed. Its diagnostics name the fix from the project's own code: a `p-4` on a Button reports the sizes that Button declares and the file they live in. It reads `components.json` for a project's components and theme, and works without shadcn/ui.
+
+Two of its six rules are enabled, because neither needs project configuration:
+
+- `shadcn/no-arbitrary-values` rejects an off-token value such as `p-[13px]` and names the scale value that matches.
+- `shadcn/require-static-classes` rejects a `className` the linter cannot read, such as `` `mt-${size}` ``. A `cn("mt-2", active && "w-full")` call is readable and passes.
+
+Both report a malformed class rather than a disallowed one, so both stay silent in a project without Tailwind.
+
+The other four are opt-in, because each one enforces a policy only the project holds. Add them to your own config:
+
+- `shadcn/no-restyle` is the rule the plugin exists for: it decides which classes a call site may put on a component. With no `contracts` it reports every existing override at once, so adopt it per component, and pair it with `componentSourceOverride` so components can still style their own internals.
+- `shadcn/no-inline-styles` bans inline styles and hardcoded colours in custom properties. It reports Motion's `style={{ y }}`, so a project using Motion names its exceptions in `allow`.
+- `shadcn/no-unknown-classes` reports a class Tailwind cannot generate. It reads any hand-written class name as a misspelling, so enable it only where Tailwind is the whole styling story.
+- `shadcn/no-raw-colors` reports the raw palette (`bg-pink-500`) and suggests the project's own theme colours.
+
+```ts
+import next from "@howells/lint/oxlint/next";
+import { componentSourceOverride } from "@howells/lint/oxlint/shadcn";
+
+export default {
+  extends: [next],
+  rules: {
+    "shadcn/no-restyle": [
+      "error",
+      {
+        allow: ["layout"],
+        contracts: [{ pattern: "^Button$", allow: ["w-full", "mt-*", "mb-*"] }],
+      },
+    ],
+    "shadcn/no-raw-colors": "error",
+  },
+  overrides: [componentSourceOverride(["components/ui/**"])],
+};
+```
+
+Oxlint reads `settings` from the root config only and does not merge it through `extends`, so a repo whose components resolve through a workspace alias rather than a local `components.json` declares them itself:
+
+```ts
+settings: { shadcn: { ui: "@workspace/ui/components" } },
+```
+
+See [the plugin's rule documentation](https://github.com/shadcn-ui/lint/blob/main/docs/rules.md) for contracts, custom messages, and message placeholders, and [ADR 0005](./docs/adr/0005-vendor-the-shadcn-design-system-rules.md) for why the rules split this way.
+
 Playwright support adds the recommended `eslint-plugin-playwright` rules through Oxlint, from a copy vendored in this package so ESLint is never installed, and promotes brittle E2E patterns to errors, including `playwright/no-wait-for-timeout`, `playwright/no-force-option`, `playwright/no-element-handle`, and `playwright/prefer-web-first-assertions`. Use the Playwright export as an overlay for app-level E2E tests, or as a standalone preset for dedicated E2E packages.
 
 The Playwright export also turns Ultracite's Vitest rules off across the lane it governs, because a Playwright spec is not a Vitest file. Ultracite scopes those rules to `*.test.*`, `*.spec.*`, and `__tests__`, which is how Playwright specs are named under either convention, so they apply to E2E tests and lint them against a runner that is not there. `vitest/prefer-importing-vitest-globals` is the one that bites: it matches the names `expect` and `test` rather than the import source, so it fires on a correctly imported Playwright `expect` and no call site can satisfy it.
@@ -134,6 +178,7 @@ Choose the closest preset:
 - `@howells/lint/oxlint/playwright` as an overlay for Playwright E2E tests or as a preset for dedicated E2E packages
 - `@howells/lint/oxlint/boundaries` for composing only the default workspace boundary rule into custom configs
 - `@howells/lint/oxlint/react-doctor-rules` for composing or disabling React Doctor rules in mixed workspaces
+- `@howells/lint/oxlint/shadcn` for composing the shadcn design-system rules into custom configs, and for `componentSourceOverride`
 
 Node or non-React TypeScript:
 
@@ -376,3 +421,4 @@ This package wraps:
 - [Oxfmt configuration docs](https://oxc.rs/docs/guide/usage/formatter/config-file-reference)
 - [Ultracite configuration docs](https://www.ultracite.ai/configuration)
 - [React Doctor docs](https://react.doctor/docs)
+- [`@shadcn/lint` docs](https://github.com/shadcn-ui/lint/blob/main/docs/README.md)

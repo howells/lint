@@ -1,0 +1,5 @@
+{
+  "name": "@howells/lint-vendor-shadcn",
+  "private": true,
+  "type": "module"
+}
