@@ -14,7 +14,7 @@ const repoRoot = path.resolve(
   ".."
 );
 
-test("packed package installs without ESLint and loads the Next and Playwright presets", async () => {
+test("packed package installs without ESLint and loads the Next, Playwright and shadcn presets", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "howells-lint-consumer-"));
 
   try {
@@ -54,6 +54,10 @@ test("packed package installs without ESLint and loads the Next and Playwright p
     await writeFile(
       path.join(root, "portrait.ts"),
       "export const portrait = 1;\n"
+    );
+    await writeFile(
+      path.join(root, "portrait.tsx"),
+      'export const Portrait = () => <figure className="p-[13px]" />;\n'
     );
 
     const installResult = await execFileAsync(
@@ -128,6 +132,24 @@ test("packed package installs without ESLint and loads the Next and Playwright p
     );
 
     assert.doesNotMatch(playwrightStderr, /Failed to (load|parse)/);
+
+    // The shadcn rules are vendored too, and the bundle is ESM inside a
+    // CommonJS package, so it only loads if `vendor/shadcn-lint/package.json`
+    // reached the tarball alongside it. A finding proves both.
+    const shadcnResult = await execFileAsync(
+      process.execPath,
+      [oxlintBin, "--config", "oxlint.config.mjs", "portrait.tsx"],
+      { cwd: root }
+    ).catch((error) => error);
+
+    assert.doesNotMatch(
+      `${shadcnResult.stdout}${shadcnResult.stderr}`,
+      /Failed to (load|parse)/
+    );
+    assert.match(
+      `${shadcnResult.stdout}${shadcnResult.stderr}`,
+      /shadcn\(no-arbitrary-values\)/
+    );
   } finally {
     await rm(root, { force: true, recursive: true });
   }

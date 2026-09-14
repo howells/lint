@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.2.0 — 2026-09-15
+
+### Added
+
+- `@shadcn/lint` 0.1.0, an agent-first linter for Tailwind design systems, vendored into `vendor/shadcn-lint/` and loaded by the React and Next presets. Its diagnostics name the fix from the project's own code: a `p-4` on a Button reports the sizes that Button declares and the file they live in. It is vendored for the same reason the Playwright rules are: the published package depends on `@typescript-eslint/parser`, which declares ESLint as a required peer, and a fresh consumer install measured `eslint@10.10.0` and `typescript@6.0.3` because of it. See `docs/adr/0005-vendor-the-shadcn-design-system-rules.md`.
+- Two of its rules at error severity in the React and Next lanes: `shadcn/no-arbitrary-values`, which rejects an off-token value such as `p-[13px]` and names the scale value that matches, and `shadcn/require-static-classes`, which rejects a `className` the linter cannot read. Both report a malformed class rather than a disallowed one, so both stay silent in a project without Tailwind.
+- `@howells/lint/oxlint/shadcn`, exporting the plugin, the enabled rules, the names of the four opt-in ones, and `componentSourceOverride(files)`, which stops the call-site rules at the component directory so a component can style its own internals.
+- `cn` 0.2.6 and `oxc-parser` 0.148.0, the two dependencies the vendored bundle needs. Neither declares an ESLint peer. `oxc-parser` is what keeps the plugin off its `@typescript-eslint/parser` fallback.
+
+### Changed
+
+- The version pin in `package.json` only. No preset export, binary or existing rule changed.
+
 ## 3.1.0 — 2026-09-11
 
 ### Removed

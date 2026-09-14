@@ -32,6 +32,9 @@ const nextPresetUrl = pathToFileURL(
 const playwrightPresetUrl = pathToFileURL(
   path.join(repoRoot, "oxlint", "playwright.mjs")
 ).href;
+const shadcnPresetUrl = pathToFileURL(
+  path.join(repoRoot, "oxlint", "shadcn.mjs")
+).href;
 
 // Oxlint resolves bare jsPlugin specifiers (e.g. Ultracite's opt-in
 // github/sonarjs/react-doctor plugins) relative to the root config file's
@@ -104,6 +107,16 @@ function resolvedRules(preset, resolved = {}) {
   }
   Object.assign(resolved, preset.rules ?? {});
   return resolved;
+}
+
+function resolvedJsPluginNames(preset, names = []) {
+  for (const extended of preset.extends ?? []) {
+    resolvedJsPluginNames(extended, names);
+  }
+  for (const plugin of preset.jsPlugins ?? []) {
+    names.push(plugin.name);
+  }
+  return names;
 }
 
 function ruleNamesWithPrefix(preset, prefix) {
@@ -1125,4 +1138,146 @@ test("vitestRulesOff covers every Vitest rule Ultracite enables", async () => {
   assert.ok(
     Object.values(vitestRulesOff).every((severity) => severity === "off")
   );
+});
+
+test("the shadcn plugin reaches the React lane and not the core one", () => {
+  assert.ok(!resolvedJsPluginNames(core).includes("shadcn"));
+  assert.ok(resolvedJsPluginNames(react).includes("shadcn"));
+  assert.ok(resolvedJsPluginNames(next).includes("shadcn"));
+});
+
+test("the React lane enables only the shadcn rules that need no project policy", async () => {
+  const { designSystemRuleNames } = await import(shadcnPresetUrl);
+  const enabled = ruleNamesWithPrefix(react, "shadcn/");
+
+  assert.deepEqual(enabled.sort(), [
+    "shadcn/no-arbitrary-values",
+    "shadcn/require-static-classes",
+  ]);
+
+  // The design-system rules report a project's own policy, so a preset cannot
+  // choose them. Enabling one here would hand every consumer a backlog of
+  // existing call sites on the next upgrade.
+  for (const ruleName of designSystemRuleNames) {
+    assert.ok(
+      !enabled.includes(ruleName),
+      `${ruleName} must stay opt-in; see oxlint/shadcn.mjs`
+    );
+  }
+});
+
+test("React preset reports off-scale values and unreadable component classNames", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFixture(
+      root,
+      "oxlint.config.mjs",
+      `export { default } from "${reactPresetUrl}";\n`
+    );
+    await writeFixture(
+      root,
+      "components.json",
+      `${JSON.stringify({ aliases: { ui: "@/components/ui" } })}\n`
+    );
+    await writeFixture(
+      root,
+      "tsconfig.json",
+      `${JSON.stringify({
+        compilerOptions: { baseUrl: ".", paths: { "@/*": ["./*"] } },
+      })}\n`
+    );
+    await writeFixture(
+      root,
+      "components/ui/button.tsx",
+      "export const Button = (props: { className?: string }) => <button {...props} />;\n"
+    );
+    await writeFixture(
+      root,
+      "src/panel.tsx",
+      'import { Button } from "@/components/ui/button";\n\nexport const Panel = ({ step }: { step: number }) => (\n  <div className="p-[13px]">\n    <Button className={`mt-${step}`}>Save</Button>\n  </div>\n);\n'
+    );
+
+    const result = await runOxlint(root);
+
+    assert.equal(
+      diagnosticsForRule(result.stdout, "shadcn(no-arbitrary-values)").length,
+      1
+    );
+    assert.equal(
+      diagnosticsForRule(result.stdout, "shadcn(require-static-classes)")
+        .length,
+      1
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("React preset reports no shadcn finding in a project without Tailwind", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFixture(
+      root,
+      "oxlint.config.mjs",
+      `export { default } from "${reactPresetUrl}";\n`
+    );
+    // Hand-written class names are what `no-unknown-classes` and `no-raw-colors`
+    // misread as misspelled Tailwind, which is why neither is in the lane. The
+    // two rules that are must stay silent on them.
+    await writeFixture(
+      root,
+      "src/card.tsx",
+      'import styles from "./card.module.css";\n\nexport const Card = ({ tone }: { tone: string }) => (\n  <div className={styles.card}>\n    <span className="card-title is-active">Title</span>\n    <p className="prose lead">Body</p>\n    <b className={`badge badge--${tone}`}>Tag</b>\n  </div>\n);\n'
+    );
+
+    const result = await runOxlint(root);
+    const report = JSON.parse(result.stdout);
+
+    assert.deepEqual(
+      (report.diagnostics ?? report).filter((diagnostic) =>
+        diagnostic.code?.startsWith("shadcn(")
+      ),
+      []
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("componentSourceOverride stops the call-site rules at the component directory", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFixture(
+      root,
+      "oxlint.config.mjs",
+      `import { defineConfig } from "oxlint";\n\nimport react from "${reactPresetUrl}";\nimport { componentSourceOverride } from "${shadcnPresetUrl}";\n\nexport default defineConfig({\n  extends: [react],\n  overrides: [componentSourceOverride(["**/components/ui/**"])],\n});\n`
+    );
+    await writeFixture(
+      root,
+      "components/ui/badge.tsx",
+      'export const Badge = () => <span className="p-[13px]" />;\n'
+    );
+    await writeFixture(
+      root,
+      "src/page.tsx",
+      'export const Page = () => <section className="p-[13px]" />;\n'
+    );
+
+    const result = await runOxlint(root, ["components", "src"]);
+    const diagnostics = diagnosticsForRule(
+      result.stdout,
+      "shadcn(no-arbitrary-values)"
+    );
+
+    // The override carries no `plugins` key: an override inherits the JS
+    // plugins named at the config root, unlike the Playwright overlay's Vitest
+    // exemption, which needs the builtin plugin brought back into scope.
+    assert.equal(diagnostics.length, 1);
+    assert.match(diagnostics[0].filename, /src[/\\]page\.tsx$/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
 });
