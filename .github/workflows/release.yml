@@ -1,0 +1,71 @@
+# Publishing runs here rather than from a laptop, so a release needs no
+# interactive npm login and no long-lived token anywhere.
+#
+# Authentication is npm Trusted Publishing: GitHub mints a short-lived OIDC
+# token for this exact repository and workflow, and npm exchanges it for
+# publish rights. There is no secret to store, rotate or leak, and the account
+# stays on `auth-and-writes` two-factor. It also stamps the published tarball
+# with provenance, so the registry page links each version back to the commit
+# and the run that built it.
+#
+# One-time setup on npmjs.com, under the package's Settings > Trusted publisher:
+# GitHub Actions, organisation `howells`, repository `lint`, workflow
+# `release.yml`. Nothing else is needed and nothing expires.
+#
+# To release: bump the version, merge to main, then push a matching `vX.Y.Z`
+# tag. The tag is the trigger; the job refuses to publish if the tag and
+# `package.json` disagree.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  # Required for Trusted Publishing. Without it npm gets no OIDC token and
+  # falls back to looking for credentials that do not exist here.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted Publishing needs npm 11.5.1 or newer. The Node version here
+      # ships an older npm, so pin the one the release depends on.
+      - name: Use an npm that speaks Trusted Publishing
+        run: npm install --global npm@11
+
+      - run: pnpm install --frozen-lockfile
+
+      # The tag is the only thing a human types, so it is the thing to verify.
+      # A tag that disagrees with package.json would publish a version nobody
+      # asked for, under a tag that points somewhere else.
+      - name: Check the tag matches the version
+        run: |
+          tagged="${GITHUB_REF_NAME#v}"
+          declared="$(node -p 'require("./package.json").version')"
+          if [ "$tagged" != "$declared" ]; then
+            echo "tag v$tagged does not match package.json $declared" >&2
+            exit 1
+          fi
+
+      # The same gate that guards a pull request: format check, lint with
+      # warnings denied, the test suite, and the peer-dependency check that
+      # keeps ESLint out of the graph.
+      - run: pnpm check
+
+      - name: Publish
+        run: npm publish --access public --provenance
