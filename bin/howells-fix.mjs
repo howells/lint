@@ -5,6 +5,7 @@ import process from "node:process";
 import { exitFromStages, runStage } from "./empty-target-set.mjs";
 import { partitionOxlintArgs } from "./parse-oxlint-args.mjs";
 import { withOxfmtConfig } from "./resolve-oxfmt-config.mjs";
+import { withOxlintConfig } from "./resolve-oxlint-config.mjs";
 
 const args = process.argv.slice(2);
 const useDangerousFixes = args.includes("--unsafe");
@@ -19,10 +20,14 @@ const formatStage = runStage(
   "oxfmt",
   withOxfmtConfig(["--write", ...resolvedTargets])
 );
-const lintStage = runStage("oxlint", "oxlint", [
-  useDangerousFixes ? "--fix-dangerously" : "--fix",
-  ...oxlintOptions,
-  ...resolvedTargets,
-]);
+const lintStage = runStage(
+  "oxlint",
+  "oxlint",
+  withOxlintConfig([
+    useDangerousFixes ? "--fix-dangerously" : "--fix",
+    ...oxlintOptions,
+    ...resolvedTargets,
+  ])
+);
 
 exitFromStages("howells-fix", [formatStage, lintStage], targets);

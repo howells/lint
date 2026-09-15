@@ -2,6 +2,18 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## 3.3.0: a config Oxlint ignored is now applied
+
+Take this one on its own. It changes nothing for a repo whose config is `oxlint.config.ts`, and it can surface a large backlog in a repo whose config is `oxlint.config.mjs`, `.js`, `.cjs` or `.cts`, because that config was never being read.
+
+1. **Check which spelling you have.** `oxlint.config.ts` and `oxlint.config.mts` are discovered by Oxlint itself and are unaffected. The other four were silently ignored, so the package linted on Oxlint's defaults: no preset, no plugins, no rules, a quiet run and exit 0.
+
+2. **Rename it to `oxlint.config.ts`** rather than relying on the new behaviour. The binaries pass `--config` for an ignored spelling, and that pins one config for the whole run, which overrides a nested config belonging to a package. Renaming restores Oxlint's own per-directory handling. The run prints a warning naming this until you do.
+
+3. **Expect the backlog before you expect a clean run.** Lint once, read the count, and decide what to fix now against what to downgrade in your own config with a removal path. A repo that has never run its own rules will not be at zero.
+
+4. **A repo with no Oxlint config keeps Oxlint's defaults.** There is no packaged fallback on this side, unlike Oxfmt. Adding one would impose a preset on repos that never asked for it, which is a larger change than the one this fixes.
+
 ## The design-system rules arrive
 
 Take this with 3.2.0. It only changes projects on `@howells/lint/oxlint/react` or `/next`; a core-lane repo sees nothing.

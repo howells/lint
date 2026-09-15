@@ -5,6 +5,7 @@ import process from "node:process";
 import { exitFromStages, runStage } from "./empty-target-set.mjs";
 import { partitionOxlintArgs } from "./parse-oxlint-args.mjs";
 import { withOxfmtConfig } from "./resolve-oxfmt-config.mjs";
+import { withOxlintConfig } from "./resolve-oxlint-config.mjs";
 
 const args = process.argv.slice(2);
 const { options: oxlintOptions, targets } = partitionOxlintArgs(args);
@@ -19,9 +20,10 @@ const formatStage = runStage(
   "oxfmt",
   withOxfmtConfig(["--check", ...resolvedTargets])
 );
-const lintStage = runStage("oxlint", "oxlint", [
-  ...oxlintOptions,
-  ...resolvedTargets,
-]);
+const lintStage = runStage(
+  "oxlint",
+  "oxlint",
+  withOxlintConfig([...oxlintOptions, ...resolvedTargets])
+);
 
 exitFromStages("howells-check", [formatStage, lintStage], targets);

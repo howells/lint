@@ -236,3 +236,102 @@ test("a path that is not on disk still fails", async () => {
     await rm(root, { force: true, recursive: true });
   }
 });
+
+// Oxlint discovers `oxlint.config.ts` and `.mts` on its own, and ignores
+// `.cts`, `.js`, `.mjs` and `.cjs`. A project writing one of the latter got no
+// preset, no plugins and no rules, and the run stayed quiet and exited 0, so
+// nothing said the config had never been read. One consumer repo had 26 such
+// files and had been linting on Oxlint's defaults throughout.
+async function makeConfigFixture(extension) {
+  await mkdir(fixtureBase, { recursive: true });
+  const root = await mkdtemp(path.join(fixtureBase, `cfg-${extension}-`));
+
+  await symlink(
+    path.join(repoRoot, "node_modules"),
+    path.join(root, "node_modules"),
+    "dir"
+  );
+  await writeFile(
+    path.join(root, "package.json"),
+    JSON.stringify({ type: "module" })
+  );
+  await writeFile(
+    path.join(root, `oxlint.config.${extension}`),
+    `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`
+  );
+  await mkdir(path.join(root, "src"), { recursive: true });
+  // `debugger` is reported by the core preset and by nothing in Oxlint's
+  // defaults, so its presence is a direct read on whether the config loaded.
+  await writeFile(
+    path.join(root, "src", "a.ts"),
+    "export const f = () => {\n  debugger;\n  return 1;\n};\n"
+  );
+
+  return root;
+}
+
+test("a config Oxlint cannot discover is still applied", async () => {
+  // `.cjs` and `.cts` take the same code path and differ only by which string
+  // matches the list. They are not exercised here because a CommonJS file
+  // cannot hold the ESM `import` a preset config is written with, so the
+  // fixture would fail to load for a reason that has nothing to do with this.
+  for (const extension of ["mjs", "js"]) {
+    const root = await makeConfigFixture(extension);
+
+    try {
+      const result = await runBin("howells-oxlint", ["src"], root);
+
+      assert.match(
+        result.output,
+        /no-debugger/,
+        `oxlint.config.${extension} was not applied: ${result.output}`
+      );
+      assert.match(
+        result.output,
+        /Rename it to oxlint\.config\.ts/,
+        `oxlint.config.${extension} was applied without warning: ${result.output}`
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  }
+});
+
+// The flag pins one config for the whole run, which overrides a nested config
+// belonging to a package. Oxlint finds these spellings by itself and handles
+// nesting correctly, so they must be left alone.
+test("a config Oxlint discovers itself is left alone", async () => {
+  for (const extension of ["ts", "mts"]) {
+    const root = await makeConfigFixture(extension);
+
+    try {
+      const result = await runBin("howells-oxlint", ["src"], root);
+
+      assert.match(result.output, /no-debugger/);
+      assert.doesNotMatch(
+        result.output,
+        /Rename it to oxlint\.config\.ts/,
+        `oxlint.config.${extension} was needlessly pinned: ${result.output}`
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  }
+});
+
+test("an explicit --config still wins", async () => {
+  const root = await makeConfigFixture("mjs");
+
+  try {
+    const result = await runBin(
+      "howells-oxlint",
+      ["--config", "oxlint.config.mjs", "src"],
+      root
+    );
+
+    assert.match(result.output, /no-debugger/);
+    assert.doesNotMatch(result.output, /Rename it to oxlint\.config\.ts/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
