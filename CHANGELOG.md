@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.3.1 — 2026-09-15
+
+### Fixed
+
+- `howells-check`, `howells-fix`, `howells-oxlint` and `howells-oxfmt` no longer die with `ENOBUFS` on a large finding set. The binaries capture each tool's output through `spawnSync` to tell an empty path set apart from a real failure, and `spawnSync` kills the child once that capture exceeds `maxBuffer` - 1MB by default. A monorepo package carrying a lint backlog of tens of thousands of findings produces tens of megabytes of output, so the wrapper crashed precisely where a repo needed it working. The capture buffer is now 256MB, which holds any plausible finding set and still catches a runaway child.
+
 ## 3.3.0 — 2026-09-15
 
 ### Fixed
