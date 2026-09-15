@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.2.3 — 2026-09-15
+
+### Changed
+
+- `shadcn/no-arbitrary-values` now allows the `layout` category. The layout values repos actually write have no token to move to: a reading measure (`max-w-[68ch]`), a grid track (`grid-cols-[minmax(0,1fr)_392px]`), a fluid offset (`top-[clamp(1.5rem,5vw,5rem)]`). Tailwind has no scale for any of them, so the rule at error severity was unsatisfiable and blocked the upgrade instead of improving the design system. It is also the allowance upstream's own quickstart uses.
+
+  Appearance keeps every check, which is where an off-token value is a real problem. `rounded-[3px]`, `bg-[#ec4899]`, `text-[19px]` and `shadow-[inset_0_2px_6px_rgba(0,0,0,0.12)]` all still report, and the message still names the scale value or theme colour to use.
+
+  The cost is that a width with an exact scale equivalent, `w-[280px]` for `w-70`, now passes. A repo that wants those back drops `layout` from the allow list in its own config.
+
+  Measured: this takes quarry from 10 errors to 0, and clears the grid, clamp and measure findings that made up most of colorscope's 134.
+
 ## 3.2.2 — 2026-09-15
 
 ### Fixed

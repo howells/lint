@@ -1299,7 +1299,7 @@ test("React preset exempts a class whose arbitrary value is one variable referen
     await writeFixture(
       root,
       "src/tokens.tsx",
-      'export const Tokens = () => (\n  <div>\n    <p className="text-[var(--cs-text)]">token</p>\n    <p className="md:bg-[var(--cs-surface)]">token, variant</p>\n    <p className="text-(--cs-text)">token, v4 shorthand</p>\n    <p className="text-[length:var(--cs-small)]">token, type hint</p>\n    <p className="border-[color:var(--cs-border)]">token, type hint</p>\n    <p className="border-[color:color-mix(in_oklab,var(--cs-border)_60%,transparent)]">composite</p>\n    <p className="shadow-[0_0_0_1px_var(--cs-border)]">mixed</p>\n    <p className="p-[calc(var(--gap)*2)]">calc</p>\n    <p className="rounded-[3px]">hardcoded</p>\n  </div>\n);\n'
+      'export const Tokens = () => (\n  <div>\n    <p className="text-[var(--cs-text)]">token</p>\n    <p className="md:bg-[var(--cs-surface)]">token, variant</p>\n    <p className="text-(--cs-text)">token, v4 shorthand</p>\n    <p className="text-[length:var(--cs-small)]">token, type hint</p>\n    <p className="border-[color:var(--cs-border)]">token, type hint</p>\n    <p className="border-[color:color-mix(in_oklab,var(--cs-border)_60%,transparent)]">composite</p>\n    <p className="shadow-[0_0_0_1px_var(--cs-border)]">mixed</p>\n    <p className="p-[calc(var(--gap)*2)]">calc</p>\n    <p className="rounded-[3px]">hardcoded</p>\n    <p className="max-w-[68ch]">layout, no scale equivalent</p>\n    <p className="grid-cols-[minmax(0,1fr)_392px]">layout track</p>\n  </div>\n);\n'
     );
 
     const result = await runOxlint(root);
@@ -1317,6 +1317,11 @@ test("React preset exempts a class whose arbitrary value is one variable referen
     assert.ok(reported.some((message) => message.includes("p-[calc(")));
     assert.ok(reported.some((message) => message.includes("rounded-[3px]")));
     assert.ok(reported.some((message) => message.includes("color-mix(")));
+
+    // Layout values have no token to move to, so they are allowed and the
+    // appearance checks above are unaffected.
+    assert.ok(!reported.some((message) => message.includes("max-w-[68ch]")));
+    assert.ok(!reported.some((message) => message.includes("grid-cols-[")));
   } finally {
     await rm(root, { force: true, recursive: true });
   }

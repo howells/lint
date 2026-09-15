@@ -22,7 +22,7 @@ Take this with 3.2.0. It only changes projects on `@howells/lint/oxlint/react` o
 
 4. **Declare `settings.shadcn.ui` only if your components do not resolve from a local `components.json`.** A workspace alias such as `@workspace/ui/components` needs it, and it has to go in your own root config: Oxlint reads `settings` from the root config only and does not merge it through `extends`, so this package cannot ship it.
 
-5. **A repo with many arbitrary track expressions has one decision to make.** `grid-cols-[minmax(0,1fr)_20rem]` and `top-[clamp(1.5rem,5vw,5rem)]` have no scale equivalent, so they report. Either name the track in `@theme`, which is the rule working as intended, or pass `allow: ["layout"]` to `shadcn/no-arbitrary-values` in your own config and keep the appearance checks.
+5. **Arbitrary layout values are allowed from 3.2.3.** `max-w-[68ch]`, `grid-cols-[minmax(0,1fr)_20rem]` and `top-[clamp(1.5rem,5vw,5rem)]` have no scale to move to, so the rule no longer reports them. Appearance keeps every check. A repo that wants arbitrary widths policed drops `layout` from the allow list in its own config.
 
 6. **`cn` and `oxc-parser` join the dependency graph.** Both are transitive; don't add either to a consumer. ESLint stays out, and `test/consumer-install.test.mjs` still fails if it appears.
 
