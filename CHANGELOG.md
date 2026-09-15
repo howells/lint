@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.2.5 — 2026-09-15
+
+### Changed
+
+- Releases publish from GitHub Actions. Pushing a `vX.Y.Z` tag runs `pnpm check` and then `npm publish`, authenticating through npm Trusted Publishing: GitHub mints a short-lived OIDC token scoped to this repository and `.github/workflows/release.yml`, and npm exchanges it for publish rights. No token is stored in the repository or on any machine, the account keeps `auth-and-writes` two-factor, and no release waits on someone being at a browser to approve it.
+
+  Published tarballs now carry provenance, so each version on npmjs.com links back to the commit and the workflow run that built it.
+
+  3.2.3 and 3.2.4 were tagged but never reached the registry, because every publish needed an interactive confirmation. Their changes are in this release; going from 3.2.2 to 3.2.5 skips nothing.
+
 ## 3.2.4 — 2026-09-15
 
 ### Changed
