@@ -75,5 +75,22 @@ jobs:
       # keeps ESLint out of the graph.
       - run: pnpm check
 
+      # `pnpm pack` rather than publishing the directory. npm does not
+      # understand pnpm's `catalog:` and `workspace:` specifiers, so publishing
+      # a directory in a workspace that uses them ships them unexpanded and
+      # produces a tarball nobody can install. That bug reached the registry
+      # from a sibling repo once already. This package has no such specifier
+      # today, and the packed file list is identical either way, so the cost is
+      # nothing and the shape stays correct if one is ever added.
+      - name: Pack
+        run: pnpm pack --pack-destination /tmp
+
+      # Access comes from `publishConfig` in package.json rather than a flag
+      # here, so one declaration governs every publish of this package.
+      #
+      # `--provenance` is kept deliberately. Trusted Publishing is documented
+      # to attach provenance on its own, but that path is not measured here,
+      # and asking for it explicitly costs nothing while a silent loss would
+      # not be noticed until someone went looking for the attestation.
       - name: Publish
-        run: npm publish --access public --provenance
+        run: npm publish /tmp/howells-lint-*.tgz --provenance

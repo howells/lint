@@ -74,6 +74,9 @@
       "default": "./oxlint/shadcn.mjs"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "check": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin test oxlint oxfmt oxfmt.config.mjs && node --test && pnpm peers check",
     "test": "node --test"
