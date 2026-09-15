@@ -33,12 +33,21 @@ export const shadcnJsPlugins = [
 // design system is entirely `--cs-*` custom properties, this was 1,890 of 2,024
 // findings.
 //
-// The pattern is anchored on `[var(--`, so a value that merely contains a
-// variable still reports: `shadow-[0_0_0_1px_var(--cs-border)]` and
-// `p-[calc(var(--gap)*2)]` both carry hardcoded parts and both stay covered.
-// Variant and important forms of an exempt class are exempt with it.
+// The second entry covers the same reference written with one of Tailwind's
+// type hints, `text-[length:var(--cs-text-small)]`. The hint tells Tailwind how
+// to read the variable; it adds no value of its own.
+//
+// Both patterns are anchored so that the bracket holds a variable reference and
+// nothing else. A value that merely contains one still reports, because it
+// still carries hardcoded parts:
+// `shadow-[inset_0_0_0_1px_var(--cs-text)]`, `p-[calc(var(--gap)*2)]` and
+// `border-[color:color-mix(in_oklab,var(--cs-border)_60%,transparent)]` are all
+// covered. Variant and important forms of an exempt class are exempt with it.
 export const shadcnRules = {
-  "shadcn/no-arbitrary-values": ["error", { allow: ["*-[var(--*)]"] }],
+  "shadcn/no-arbitrary-values": [
+    "error",
+    { allow: ["*-[var(--*)]", "*-[*:var(--*)]"] },
+  ],
   "shadcn/require-static-classes": "error",
 };
 

@@ -53,7 +53,8 @@ test("exits 0 when the passed paths hold nothing lintable", async () => {
   );
 
   assert.equal(result.status, 0);
-  assert.match(result.output, /nothing to fix/u);
+  // The four binaries share one exit path, so they share one message.
+  assert.match(result.output, /nothing to do/u);
 });
 
 test("exits non-zero when an explicitly-named path does not exist", async () => {

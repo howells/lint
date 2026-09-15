@@ -168,3 +168,71 @@ test("howells-check forwards space-form value flags to Oxlint", async () => {
     await rm(root, { force: true, recursive: true });
   }
 });
+
+// A commit whose staged files are all generated data that the tools ignore
+// resolved to an empty path set, which every binary but `howells-fix` treated
+// as a failure. That blocked any regenerate-only commit in a pre-commit hook,
+// forcing `--no-verify` and switching off every other check with it.
+async function runBin(binName, args, root) {
+  const binPath = path.join(repoRoot, "bin", `${binName}.mjs`);
+
+  try {
+    const { stdout, stderr } = await execFileAsync(
+      process.execPath,
+      [binPath, ...args],
+      { cwd: root }
+    );
+    return { output: `${stdout}${stderr}`, status: 0 };
+  } catch (error) {
+    return {
+      output: `${error.stdout ?? ""}${error.stderr ?? ""}`,
+      status: error.code,
+    };
+  }
+}
+
+test("an empty path set succeeds for every binary", async () => {
+  const root = await mkdtemp(path.join(fixtureBase, "empty-"));
+
+  await mkdir(path.join(root, "data"), { recursive: true });
+  await writeFile(path.join(root, "data", "snapshot.bin"), "not lintable\n");
+
+  try {
+    for (const [binName, args] of [
+      ["howells-oxfmt", ["--check", "data"]],
+      ["howells-oxlint", ["data"]],
+      ["howells-check", ["data"]],
+      ["howells-fix", ["data"]],
+    ]) {
+      const result = await runBin(binName, args, root);
+
+      assert.equal(
+        result.status,
+        0,
+        `${binName} failed on an empty path set: ${result.output}`
+      );
+      assert.match(result.output, /nothing to do/);
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("a path that is not on disk still fails", async () => {
+  const root = await mkdtemp(path.join(fixtureBase, "missing-"));
+
+  try {
+    for (const [binName, args] of [
+      ["howells-oxfmt", ["--check", "no-such-dir"]],
+      ["howells-check", ["no-such-dir"]],
+      ["howells-fix", ["no-such-dir"]],
+    ]) {
+      const result = await runBin(binName, args, root);
+
+      assert.notEqual(result.status, 0, `${binName} passed on a missing path`);
+      assert.match(result.output, /no such path/);
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});

@@ -124,7 +124,7 @@ The React and Next presets carry [`@shadcn/lint`](https://github.com/shadcn-ui/l
 
 Two of its six rules are enabled, because neither needs project configuration:
 
-- `shadcn/no-arbitrary-values` rejects an off-token value such as `p-[13px]` and names the scale value that matches. A bracket holding one CSS variable reference is exempt, because `text-[var(--cs-text)]` reads a design token rather than hardcoding a value. A value that merely contains a variable, such as `shadow-[0_0_0_1px_var(--cs-border)]`, still reports. If your repo carries many arbitrary track expressions, pass `allow: ["layout"]` to the rule in your own config.
+- `shadcn/no-arbitrary-values` rejects an off-token value such as `p-[13px]` and names the scale value that matches. A bracket holding one CSS variable reference is exempt, with or without a Tailwind type hint, because `text-[var(--cs-text)]` and `text-[length:var(--cs-small)]` read a design token rather than hardcoding a value. A value that merely contains a variable, such as `shadow-[0_0_0_1px_var(--cs-border)]`, still reports. If your repo carries many arbitrary track expressions, pass `allow: ["layout"]` to the rule in your own config.
 - `shadcn/require-static-classes` rejects a `className` the linter cannot read, such as `` `mt-${size}` ``. A `cn("mt-2", active && "w-full")` call is readable and passes.
 
 Both report a malformed class rather than a disallowed one, so both stay silent in a project without Tailwind.
