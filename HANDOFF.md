@@ -6,6 +6,14 @@ Last updated 2026-09-15.
 
 3.2.5 is on npm with provenance, published by `.github/workflows/release.yml` from a pushed `v3.2.5` tag. Authentication is npm Trusted Publishing, so there is no token anywhere and the account keeps `auth-and-writes` two-factor. See the Releasing section of `AGENTS.md`. 3.2.3 and 3.2.4 were tagged but never reached the registry; their changes ship in 3.2.5.
 
+## Publishing the other packages
+
+The colorscope session is rolling one npm-publishing standard across roughly 17 repos. Lint's workflow now matches what it proposed: pack with `pnpm pack` and publish the tarball, with access declared in `publishConfig` rather than a flag. Publishing a directory ships pnpm's `catalog:` and `workspace:` specifiers unexpanded and produces an uninstallable tarball, which has already reached the registry once from another repo.
+
+The gating item for that rollout is not the workflow file. Each package needs a one-time trusted publisher registered in the npmjs.com web UI, naming the organisation, repository and the exact workflow filename. Seventeen packages means seventeen registrations, each needing a browser, and the page sits behind a Cloudflare challenge that an agent cannot clear.
+
+`@howells/neon` is the proof. Its release workflow has run once, on `v0.1.3`, and failed with `404 PUT https://registry.npmjs.org/@howells%2fneon`: the token was minted but carried no publish rights, because no trusted publisher is registered for that package. All five published versions of it were pushed by hand, which is why none carries provenance.
+
 ## Rollout state
 
 Seven of eight repos are on 3.2.5 with no `eslint` entry in their lockfile. Each was verified with `pnpm lint` and `pnpm typecheck` before merge.
