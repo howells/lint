@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.3.0 — 2026-09-15
+
+### Fixed
+
+- `howells-check`, `howells-fix` and `howells-oxlint` now apply an `oxlint.config.*` that Oxlint does not discover on its own. Measured against the pinned Oxlint, `oxlint.config.ts` and `oxlint.config.mts` are found; `oxlint.config.cts`, `.js`, `.mjs` and `.cjs` are not. A project writing one of the latter got no preset, no plugins and no rules, and the run stayed quiet and exited 0, so nothing announced that the config had never been read. One consumer repo had 26 such files and had been linting on Oxlint's defaults throughout.
+
+  The binaries now walk up from the working directory the way the Oxfmt side already did, and pass `--config` only for a spelling Oxlint ignores. A spelling Oxlint finds is left alone deliberately: Oxlint applies a nested config to the directory it sits in, and `--config` pins one config for the whole run, which would flatten a monorepo where each package configures itself. An explicit `--config` still wins, and a project with no config at all keeps Oxlint's defaults.
+
+  Passing the flag costs that nested behaviour, so the run prints a one-line warning naming the rename to `oxlint.config.ts` that restores it.
+
+  **Expect new findings.** A repo whose config was never read has a backlog it has never seen. Take this upgrade on its own, with someone watching it.
+
 ## 3.2.5 — 2026-09-15
 
 ### Changed
