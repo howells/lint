@@ -88,9 +88,14 @@ jobs:
       # Access comes from `publishConfig` in package.json rather than a flag
       # here, so one declaration governs every publish of this package.
       #
-      # `--provenance` is kept deliberately. Trusted Publishing is documented
-      # to attach provenance on its own, but that path is not measured here,
-      # and asking for it explicitly costs nothing while a silent loss would
-      # not be noticed until someone went looking for the attestation.
+      # `--provenance` is required, despite npm documenting Trusted Publishing
+      # as attaching provenance by itself. Measured as a controlled pair:
+      # `@instruments/colorscope@9.1.0` published from a trusted-publishing
+      # workflow without the flag and its attestations endpoint answers
+      # `{"error":"Not found"}` long after the release became installable;
+      # `@howells/lint@3.2.5` and `@3.3.0` published the same way with the flag
+      # and each carries two attestations, the npm publish one and SLSA
+      # provenance. Same mechanism, same account, different flag, different
+      # outcome. Dropping it loses provenance silently.
       - name: Publish
         run: npm publish /tmp/howells-lint-*.tgz --provenance
