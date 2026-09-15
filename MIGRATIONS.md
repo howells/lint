@@ -26,6 +26,18 @@ Take this with 3.2.0. It only changes projects on `@howells/lint/oxlint/react` o
 
 6. **`cn` and `oxc-parser` join the dependency graph.** Both are transitive; don't add either to a consumer. ESLint stays out, and `test/consumer-install.test.mjs` still fails if it appears.
 
+7. **Name a custom class-merging helper.** The rules recognise `cn`, `clsx`, `classNames`, `twMerge` and `cva`. A repo whose helper is called something else has every call reported under `require-static-classes`, because the linter treats the result as a `className` it cannot read. Declare it alongside `settings.shadcn.ui`, in the same root-config block and for the same reason:
+
+   ```ts
+   settings: { shadcn: { mergeFunctions: ["joinClassNames"] } },
+   ```
+
+   `variantFunctions` does the same for a `cva` wrapper.
+
+8. **A forwarding wrapper reports, and the report is wrong.** `require-static-classes` flags the rest element in `const { className, ...rest } = props` followed by `<Badge {...rest} />`, because it does not see that `className` was destructured out and so cannot reach the component through `rest`. The rule is unsatisfiable for that shape, which is the shape of every wrapper in a design-system package. Scope it off for that tree and keep it at call sites, where a `className` the linter cannot read is a real problem.
+
+9. **The settings and the version bump land in the same commit.** A config that names the `shadcn` plugin fails to build on an earlier version with `Plugin 'shadcn' not found`, so a repo cannot stage its settings ahead of the upgrade. Change the pin and the config together.
+
 ## ESLint leaves the graph
 
 Take this with the Oxlint 1.82.0, Ultracite 7.11.1 and Oxfmt 0.67.0 refresh.

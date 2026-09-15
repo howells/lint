@@ -162,6 +162,14 @@ Oxlint reads `settings` from the root config only and does not merge it through 
 settings: { shadcn: { ui: "@workspace/ui/components" } },
 ```
 
+The same block names a class-merging helper the plugin does not already know. It recognises `cn`, `clsx`, `classNames`, `twMerge` and `cva`; a repo with its own wrapper has to say so, or `shadcn/require-static-classes` reports every call as a className it cannot read:
+
+```ts
+settings: { shadcn: { mergeFunctions: ["joinClassNames"] } },
+```
+
+`variantFunctions` does the same for a `cva` wrapper, and `componentImports` and `ignoreImports` for component recognition. All four are equally valid as a rule option, which is the spelling to reach for when only one rule should see them.
+
 See [the plugin's rule documentation](https://github.com/shadcn-ui/lint/blob/main/docs/rules.md) for contracts, custom messages, and message placeholders, and [ADR 0005](./docs/adr/0005-vendor-the-shadcn-design-system-rules.md) for why the rules split this way.
 
 Playwright support adds the recommended `eslint-plugin-playwright` rules through Oxlint, from a copy vendored in this package so ESLint is never installed, and promotes brittle E2E patterns to errors, including `playwright/no-wait-for-timeout`, `playwright/no-force-option`, `playwright/no-element-handle`, and `playwright/prefer-web-first-assertions`. Use the Playwright export as an overlay for app-level E2E tests, or as a standalone preset for dedicated E2E packages.
