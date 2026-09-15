@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.2.2 — 2026-09-15
+
+### Fixed
+
+- `howells-oxfmt`, `howells-oxlint` and `howells-check` no longer fail when the path set resolves to nothing after ignore rules. A commit whose staged files are all generated data that the tools ignore made every one of them exit non-zero, so a pre-commit hook blocked any regenerate-only commit and the only way through was `--no-verify`, which switches off every other check with it. `howells-fix` already treated an empty set as success; that logic now lives in `bin/empty-target-set.mjs` and all four share it.
+
+  A path named on the command line that is not on disk still fails, so a typo is still an error rather than a silent pass. A genuine formatting or lint failure is unchanged.
+
+- `shadcn/no-arbitrary-values` no longer reports a variable reference written with one of Tailwind's type hints, `text-[length:var(--cs-text-small)]`. The hint tells Tailwind how to read the variable and adds no value of its own, so it is the same token reference 3.2.1 exempted in its bare spelling.
+
+  A composite still reports: `border-[color:color-mix(in_oklab,var(--cs-border)_60%,transparent)]`, `bg-[color-mix(…)]` and `shadow-[inset_0_0_0_1px_var(--cs-text)]` all carry hardcoded parts.
+
+### Changed
+
+- The four binaries share one exit path, so the message printed when a path set is empty is now `nothing to do` in all of them. `howells-fix` previously said `nothing to fix`. Adjust anything that greps for the old wording.
+
 ## 3.2.1 — 2026-09-15
 
 ### Fixed

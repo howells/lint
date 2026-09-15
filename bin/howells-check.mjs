@@ -2,34 +2,26 @@
 
 import process from "node:process";
 
+import { exitFromStages, runStage } from "./empty-target-set.mjs";
 import { partitionOxlintArgs } from "./parse-oxlint-args.mjs";
 import { withOxfmtConfig } from "./resolve-oxfmt-config.mjs";
-import { spawnPackageBin } from "./run-package-bin.mjs";
 
 const args = process.argv.slice(2);
 const { options: oxlintOptions, targets } = partitionOxlintArgs(args);
 const resolvedTargets = targets.length > 0 ? targets : ["."];
 
 // Run the formatter check and the linter unconditionally so a single pass
-// surfaces every problem, then fail with the first non-zero status.
-const run = (packageName, binName, commandArgs) => {
-  const result = spawnPackageBin(packageName, binName, commandArgs);
-
-  if (result.error) {
-    throw result.error;
-  }
-
-  return result.status ?? 1;
-};
-
-const formatStatus = run(
+// surfaces every problem, then fail with the first genuine non-zero status. A
+// path set that resolves to nothing after ignore rules passes: a check with
+// nothing to check has found nothing wrong. See `empty-target-set.mjs`.
+const formatStage = runStage(
   "oxfmt",
   "oxfmt",
   withOxfmtConfig(["--check", ...resolvedTargets])
 );
-const lintStatus = run("oxlint", "oxlint", [
+const lintStage = runStage("oxlint", "oxlint", [
   ...oxlintOptions,
   ...resolvedTargets,
 ]);
 
-process.exit(formatStatus || lintStatus);
+exitFromStages("howells-check", [formatStage, lintStage], targets);

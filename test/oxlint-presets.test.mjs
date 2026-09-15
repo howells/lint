@@ -1299,7 +1299,7 @@ test("React preset exempts a class whose arbitrary value is one variable referen
     await writeFixture(
       root,
       "src/tokens.tsx",
-      'export const Tokens = () => (\n  <div>\n    <p className="text-[var(--cs-text)]">token</p>\n    <p className="md:bg-[var(--cs-surface)]">token, variant</p>\n    <p className="text-(--cs-text)">token, v4 shorthand</p>\n    <p className="shadow-[0_0_0_1px_var(--cs-border)]">mixed</p>\n    <p className="p-[calc(var(--gap)*2)]">calc</p>\n    <p className="rounded-[3px]">hardcoded</p>\n  </div>\n);\n'
+      'export const Tokens = () => (\n  <div>\n    <p className="text-[var(--cs-text)]">token</p>\n    <p className="md:bg-[var(--cs-surface)]">token, variant</p>\n    <p className="text-(--cs-text)">token, v4 shorthand</p>\n    <p className="text-[length:var(--cs-small)]">token, type hint</p>\n    <p className="border-[color:var(--cs-border)]">token, type hint</p>\n    <p className="border-[color:color-mix(in_oklab,var(--cs-border)_60%,transparent)]">composite</p>\n    <p className="shadow-[0_0_0_1px_var(--cs-border)]">mixed</p>\n    <p className="p-[calc(var(--gap)*2)]">calc</p>\n    <p className="rounded-[3px]">hardcoded</p>\n  </div>\n);\n'
     );
 
     const result = await runOxlint(root);
@@ -1310,12 +1310,13 @@ test("React preset exempts a class whose arbitrary value is one variable referen
 
     // A value that merely contains a variable keeps its hardcoded parts, so it
     // stays covered.
-    assert.equal(reported.length, 3);
+    assert.equal(reported.length, 4);
     assert.ok(
       reported.some((message) => message.includes("shadow-[0_0_0_1px"))
     );
     assert.ok(reported.some((message) => message.includes("p-[calc(")));
     assert.ok(reported.some((message) => message.includes("rounded-[3px]")));
+    assert.ok(reported.some((message) => message.includes("color-mix(")));
   } finally {
     await rm(root, { force: true, recursive: true });
   }
