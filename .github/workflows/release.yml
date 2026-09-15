@@ -43,10 +43,18 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      # Trusted Publishing needs npm 11.5.1 or newer. The Node version here
-      # ships an older npm, so pin the one the release depends on.
-      - name: Use an npm that speaks Trusted Publishing
-        run: npm install --global npm@11
+      # Trusted Publishing needs npm 11.5.1 or newer. The pinned Node ships
+      # 11.12.1, so there is nothing to install. Assert it rather than let a
+      # future Node downgrade surface as an unexplained auth failure.
+      - name: Check npm can do Trusted Publishing
+        run: |
+          have="$(npm --version)"
+          need=11.5.1
+          if [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -1)" != "$need" ]; then
+            echo "npm $have predates Trusted Publishing (need >= $need)" >&2
+            exit 1
+          fi
+          echo "npm $have"
 
       - run: pnpm install --frozen-lockfile
 
