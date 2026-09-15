@@ -14,6 +14,12 @@ The gating item for that rollout is not the workflow file. Each package needs a 
 
 `@howells/neon` is the proof. Its release workflow has run once, on `v0.1.3`, and failed with `404 PUT https://registry.npmjs.org/@howells%2fneon`: the token was minted but carried no publish rights, because no trusted publisher is registered for that package. All five published versions of it were pushed by hand, which is why none carries provenance.
 
+## 3.3.0 is published and NOT rolled out
+
+`howells-check`, `howells-fix` and `howells-oxlint` now apply an `oxlint.config.*` that Oxlint does not discover on its own. Oxlint finds `oxlint.config.ts` and `.mts`; it ignores `.cts`, `.js`, `.mjs` and `.cjs`, and a project writing one of those linted on defaults, quietly and exiting 0. The materialgraph session found 26 such files in one repo.
+
+Deliberately not rolled to consumers. It surfaces backlogs a repo has never seen, and wants someone watching. Every repo listed below writes `oxlint.config.ts`, so none of them is affected and today's verification stands. Lint itself and neon have no Oxlint config at all and lint on Oxlint's defaults; worth fixing, separately.
+
 ## Rollout state
 
 Seven of eight repos are on 3.2.5 with no `eslint` entry in their lockfile. Each was verified with `pnpm lint` and `pnpm typecheck` before merge.
