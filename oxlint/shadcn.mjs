@@ -43,10 +43,27 @@ export const shadcnJsPlugins = [
 // `shadow-[inset_0_0_0_1px_var(--cs-text)]`, `p-[calc(var(--gap)*2)]` and
 // `border-[color:color-mix(in_oklab,var(--cs-border)_60%,transparent)]` are all
 // covered. Variant and important forms of an exempt class are exempt with it.
+// `layout` is allowed because the layout values repos actually write have no
+// token to move to. Measured across the consumer repos, the arbitrary values
+// that survive review are `max-w-[68ch]`, `grid-cols-[minmax(0,1fr)_392px]`,
+// `top-[clamp(1.5rem,5vw,5rem)]` and their relatives: a reading measure, a grid
+// track, a fluid offset. Tailwind has no scale for any of them, so the rule at
+// error severity was unsatisfiable and blocked the upgrade rather than
+// improving the design system. It is also the allowance upstream's own
+// quickstart uses.
+//
+// Appearance keeps every check, which is where an off-token value is a real
+// design-system problem: `rounded-[3px]`, `bg-[#ec4899]`, `text-[19px]` and
+// `shadow-[inset_0_2px_6px_rgba(0,0,0,0.12)]` all still report, and the message
+// names the scale value or theme colour to use instead.
+//
+// The cost is that a width with an exact scale equivalent, `w-[280px]` for
+// `w-70`, now passes. A repo that wants those back drops `layout` from the
+// allow list in its own config.
 export const shadcnRules = {
   "shadcn/no-arbitrary-values": [
     "error",
-    { allow: ["*-[var(--*)]", "*-[*:var(--*)]"] },
+    { allow: ["layout", "*-[var(--*)]", "*-[*:var(--*)]"] },
   ],
   "shadcn/require-static-classes": "error",
 };
