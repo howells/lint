@@ -6,6 +6,8 @@ Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Ox
 
 Take this with 3.2.0. It only changes projects on `@howells/lint/oxlint/react` or `/next`; a core-lane repo sees nothing.
 
+0. **Take 3.2.1, not 3.2.0.** 3.2.0 reported every `text-[var(--token)]` as an off-token value, which is wrong in any repo whose design system is CSS custom properties. 3.2.1 exempts a bracket holding one variable reference and nothing else.
+
 1. **Expect findings from two new rules, and expect them to be few.** `shadcn/no-arbitrary-values` reports an off-token Tailwind value such as `p-[13px]` and names the scale value that matches, so most are a one-token edit. `shadcn/require-static-classes` reports a `className` on a design-system component that the linter cannot read, such as `` `mt-${size}` ``; rewrite it as a `cn()` call with static strings, which the rule reads happily. Neither rule reports anything in a project without Tailwind.
 
 2. **Nothing else is on.** `no-restyle`, `no-inline-styles`, `no-unknown-classes` and `no-raw-colors` ship loaded but disabled, because each enforces a policy only your repo holds. Turning on `no-restyle` with no `contracts` reports every existing `className` override on a recognised component at once, which in the larger UI repos here is four figures. Adopt it one component at a time.
@@ -20,7 +22,9 @@ Take this with 3.2.0. It only changes projects on `@howells/lint/oxlint/react` o
 
 4. **Declare `settings.shadcn.ui` only if your components do not resolve from a local `components.json`.** A workspace alias such as `@workspace/ui/components` needs it, and it has to go in your own root config: Oxlint reads `settings` from the root config only and does not merge it through `extends`, so this package cannot ship it.
 
-5. **`cn` and `oxc-parser` join the dependency graph.** Both are transitive; don't add either to a consumer. ESLint stays out, and `test/consumer-install.test.mjs` still fails if it appears.
+5. **A repo with many arbitrary track expressions has one decision to make.** `grid-cols-[minmax(0,1fr)_20rem]` and `top-[clamp(1.5rem,5vw,5rem)]` have no scale equivalent, so they report. Either name the track in `@theme`, which is the rule working as intended, or pass `allow: ["layout"]` to `shadcn/no-arbitrary-values` in your own config and keep the appearance checks.
+
+6. **`cn` and `oxc-parser` join the dependency graph.** Both are transitive; don't add either to a consumer. ESLint stays out, and `test/consumer-install.test.mjs` still fails if it appears.
 
 ## ESLint leaves the graph
 

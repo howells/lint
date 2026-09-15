@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.2.1 — 2026-09-15
+
+### Fixed
+
+- `shadcn/no-arbitrary-values` no longer reports a class whose arbitrary value is one CSS variable reference. `text-[var(--cs-text)]` reads a design token, so calling it an off-token value inverted the rule, and its suggested fix, to use a theme token, was what the class already did. Upstream passes Tailwind v4's `text-(--cs-text)` shorthand for the same thing, which makes the bracket form an inconsistency rather than a policy. Measured in a repo whose design system is entirely `--cs-*` custom properties, this was 1,890 of 2,024 findings, and it took a clean package to 2,062 errors on upgrade.
+
+  A value that merely contains a variable still reports, because it still carries hardcoded parts: `shadow-[0_0_0_1px_var(--cs-border)]` and `p-[calc(var(--gap)*2)]` are both unchanged. Variant and important forms follow the class they qualify.
+
+  A repo with many arbitrary track expressions (`grid-cols-[minmax(0,1fr)_20rem]`, `top-[clamp(…)]`) still sees those. They are real findings with two real fixes: name the track in `@theme`, or pass `allow: ["layout"]` to the rule in your own config.
+
 ## 3.2.0 — 2026-09-15
 
 ### Added
