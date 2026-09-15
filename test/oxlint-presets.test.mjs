@@ -1155,6 +1155,14 @@ test("the React lane enables only the shadcn rules that need no project policy",
     "shadcn/require-static-classes",
   ]);
 
+  // `no-arbitrary-values` warns: what survives its allowances needs a
+  // judgement call, so at error severity it gates every upgrade. A className
+  // no rule can read is unambiguous, so that one errors.
+  const resolved = resolvedRules(react);
+
+  assert.equal(resolved["shadcn/no-arbitrary-values"][0], "warn");
+  assert.equal(resolved["shadcn/require-static-classes"], "error");
+
   // The design-system rules report a project's own policy, so a preset cannot
   // choose them. Enabling one here would hand every consumer a backlog of
   // existing call sites on the next upgrade.

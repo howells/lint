@@ -60,9 +60,26 @@ export const shadcnJsPlugins = [
 // The cost is that a width with an exact scale equivalent, `w-[280px]` for
 // `w-70`, now passes. A repo that wants those back drops `layout` from the
 // allow list in its own config.
+// `no-arbitrary-values` warns rather than errors. What survives the allowances
+// above is a real signal with legitimate exceptions: `rounded-[3px]` is a
+// mechanical fix, `rounded-[min(1vw,12px)]` is a fluid radius with no scale to
+// move to, and `transition-[outline-color]` names a CSS property rather than a
+// design value at all. A repo cannot reach zero without either a judgement call
+// or a suppression, so at error severity the rule gates every upgrade behind
+// unrelated work. Core already takes this position for `complexity`,
+// `max-lines-per-function` and `max-statements`.
+//
+// Consumers run `howells-check`, which does not pass `--deny-warnings`, so a
+// warning prints with its suggested replacement and exits 0. Add
+// `--deny-warnings` in CI to make it blocking, or raise the rule to `error` in
+// a repo whose design system is tight enough to hold it.
+//
+// `require-static-classes` stays at error. It reports a className no rule can
+// read, there are roughly 50 across every consumer repo, and each has a
+// mechanical fix in `cn()`.
 export const shadcnRules = {
   "shadcn/no-arbitrary-values": [
-    "error",
+    "warn",
     { allow: ["layout", "*-[var(--*)]", "*-[*:var(--*)]"] },
   ],
   "shadcn/require-static-classes": "error",
