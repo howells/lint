@@ -64,17 +64,27 @@ export const runStage = (packageName, binName, commandArgs) => {
 // The shared exit path for every binary here. A named path that is not on disk
 // fails; a genuine tool failure fails; an empty path set says so on stdout and
 // succeeds, so a hook or a CI step is never blocked by having nothing to do.
+//
+// `process.exitCode` rather than `process.exit()`. These commands capture each
+// tool's output and re-emit it, and a write to a pipe is asynchronous, so
+// `process.exit()` discards whatever has not drained — measured at a 64KB
+// truncation, and in practice it dropped Oxlint's findings entirely while
+// keeping Oxfmt's. Oxlint writes findings to stderr, so the loss was silent and
+// the command still reported the right status. Setting the code and returning
+// lets Node flush both streams before it exits.
 export const exitFromStages = (commandName, stages, targets = []) => {
   const missing = missingTargets(targets);
   const firstStatus = stages.find((stage) => stage.status !== 0)?.status ?? 0;
 
   if (missing.length > 0) {
     console.error(`${commandName}: no such path(s): ${missing.join(", ")}`);
-    process.exit(firstStatus || 1);
+    process.exitCode = firstStatus || 1;
+    return;
   }
 
   if (stages.some((stage) => stage.kind === "fail")) {
-    process.exit(firstStatus || 1);
+    process.exitCode = firstStatus || 1;
+    return;
   }
 
   if (stages.some((stage) => stage.kind === "empty")) {
@@ -83,5 +93,5 @@ export const exitFromStages = (commandName, stages, targets = []) => {
     );
   }
 
-  process.exit(0);
+  process.exitCode = 0;
 };

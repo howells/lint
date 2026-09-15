@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.2.4 — 2026-09-15
+
+### Changed
+
+- `shadcn/no-arbitrary-values` warns rather than errors. What survives the layout and variable allowances is a real signal with legitimate exceptions: `rounded-[3px]` is a mechanical fix, `rounded-[min(1vw,12px)]` is a fluid radius with no scale to move to, and `transition-[outline-color]` names a CSS property rather than a design value. A repo cannot reach zero without a judgement call or a suppression, so at error severity the rule gated every upgrade behind unrelated work, including the upgrade that removes ESLint. Core already takes this position for `complexity`, `max-lines-per-function` and `max-statements`.
+
+  `howells-check` does not pass `--deny-warnings`, so a warning prints with its suggested replacement and exits 0. Add `--deny-warnings` in CI to make it blocking, or raise the rule to `error` in a repo whose design system is tight enough to hold it.
+
+  `shadcn/require-static-classes` stays at error. It reports a className no rule can read, there are roughly 50 across every consumer repo, and each has a mechanical fix.
+
+### Fixed
+
+- The binaries set `process.exitCode` instead of calling `process.exit()`. They capture each tool's output and re-emit it, and a write to a pipe is asynchronous, so `process.exit()` discards whatever has not drained: measured at a 64KB truncation. No finding was observed lost in practice, since Oxlint's output is well under that in the repos checked, but a large enough finding set would have lost the tail silently, and Oxlint writes findings to stderr where the loss would not have changed the reported status.
+
 ## 3.2.3 — 2026-09-15
 
 ### Changed
