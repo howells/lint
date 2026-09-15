@@ -99,6 +99,15 @@ export const spawnPackageBin = (packageName, binName, args) => {
   });
 };
 
+// spawnSync buffers the child's output in memory and kills the child once it
+// exceeds maxBuffer, reporting the failure as ENOBUFS. The default is 1MB, and
+// a monorepo package with a lint backlog can exceed that: oxlint prints one
+// block per finding, so a package with tens of thousands of findings produces
+// tens of megabytes. A repo fixing a backlog is exactly when the wrapper must
+// keep working, so the cap is raised high enough for any plausible finding set
+// while still catching a runaway child.
+const CAPTURE_MAX_BUFFER_BYTES = 256 * 1024 * 1024;
+
 // Same resolution and environment as spawnPackageBin, but captures stdout and
 // stderr as strings instead of inheriting the parent's streams. Callers that
 // need to inspect a tool's output (e.g. to tell an empty path set apart from a
@@ -108,6 +117,7 @@ export const spawnPackageBinCapture = (packageName, binName, args) => {
   return spawnSync(process.execPath, [binPath, ...args], {
     env: spawnEnv(packageName),
     encoding: "utf-8",
+    maxBuffer: CAPTURE_MAX_BUFFER_BYTES,
   });
 };
 
