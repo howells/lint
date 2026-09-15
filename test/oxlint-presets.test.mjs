@@ -1281,3 +1281,42 @@ test("componentSourceOverride stops the call-site rules at the component directo
     await rm(root, { force: true, recursive: true });
   }
 });
+
+// `text-[var(--token)]` reads a design token, so reporting it as an off-token
+// value inverts the rule. Upstream passes Tailwind v4's `text-(--token)`
+// shorthand for the same thing, which is why this is a defect rather than a
+// policy. Measured at 1,890 of 2,024 findings in a repo whose design system is
+// entirely CSS custom properties.
+test("React preset exempts a class whose arbitrary value is one variable reference", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFixture(
+      root,
+      "oxlint.config.mjs",
+      `export { default } from "${reactPresetUrl}";\n`
+    );
+    await writeFixture(
+      root,
+      "src/tokens.tsx",
+      'export const Tokens = () => (\n  <div>\n    <p className="text-[var(--cs-text)]">token</p>\n    <p className="md:bg-[var(--cs-surface)]">token, variant</p>\n    <p className="text-(--cs-text)">token, v4 shorthand</p>\n    <p className="shadow-[0_0_0_1px_var(--cs-border)]">mixed</p>\n    <p className="p-[calc(var(--gap)*2)]">calc</p>\n    <p className="rounded-[3px]">hardcoded</p>\n  </div>\n);\n'
+    );
+
+    const result = await runOxlint(root);
+    const reported = diagnosticsForRule(
+      result.stdout,
+      "shadcn(no-arbitrary-values)"
+    ).map((diagnostic) => diagnostic.message);
+
+    // A value that merely contains a variable keeps its hardcoded parts, so it
+    // stays covered.
+    assert.equal(reported.length, 3);
+    assert.ok(
+      reported.some((message) => message.includes("shadow-[0_0_0_1px"))
+    );
+    assert.ok(reported.some((message) => message.includes("p-[calc(")));
+    assert.ok(reported.some((message) => message.includes("rounded-[3px]")));
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});

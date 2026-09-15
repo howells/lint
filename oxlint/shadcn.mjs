@@ -22,8 +22,23 @@ export const shadcnJsPlugins = [
 // matches. `require-static-classes` rejects a className the linter cannot read,
 // such as `` `mt-${size}` ``; `cn("mt-2", active && "w-full")` is readable and
 // passes, so the fix is the shape the codebase already uses.
+//
+// The `allow` entry exempts a bracket that holds one CSS variable reference and
+// nothing else. `text-[var(--cs-text)]` reads a design token, so reporting it as
+// an off-token value inverts the rule's own intent, and the suggested fix — use
+// a theme token — is what the class already does. Upstream agrees in one of the
+// two spellings: Tailwind v4's shorthand `text-(--cs-text)` is documented as a
+// variable shorthand rather than an arbitrary value and passes untouched, while
+// the older bracket form of the same thing errors. Measured in a repo whose
+// design system is entirely `--cs-*` custom properties, this was 1,890 of 2,024
+// findings.
+//
+// The pattern is anchored on `[var(--`, so a value that merely contains a
+// variable still reports: `shadow-[0_0_0_1px_var(--cs-border)]` and
+// `p-[calc(var(--gap)*2)]` both carry hardcoded parts and both stay covered.
+// Variant and important forms of an exempt class are exempt with it.
 export const shadcnRules = {
-  "shadcn/no-arbitrary-values": "error",
+  "shadcn/no-arbitrary-values": ["error", { allow: ["*-[var(--*)]"] }],
   "shadcn/require-static-classes": "error",
 };
 
