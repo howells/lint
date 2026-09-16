@@ -18,12 +18,16 @@ test("packed package installs without ESLint and loads the Next, Playwright and 
   const root = await mkdtemp(path.join(tmpdir(), "howells-lint-consumer-"));
 
   try {
-    const { stdout: packOutput } = await execFileAsync(
-      "pnpm",
-      ["pack", "--pack-destination", root, "--json"],
-      { cwd: repoRoot }
-    );
-    const { filename } = JSON.parse(packOutput);
+    // The destination is a fresh directory, so the tarball is whatever lands in
+    // it. Reading the name from disk rather than from `pnpm pack --json` keeps
+    // the test immune to anything a lifecycle script writes to stdout.
+    await execFileAsync("pnpm", ["pack", "--pack-destination", root], {
+      cwd: repoRoot,
+    });
+    const packed = await readdir(root);
+    const tarballs = packed.filter((entry) => entry.endsWith(".tgz"));
+    assert.equal(tarballs.length, 1, `expected one tarball, got ${tarballs}`);
+    const filename = path.join(root, tarballs[0]);
 
     await writeFile(
       path.join(root, "package.json"),

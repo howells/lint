@@ -79,7 +79,10 @@
   },
   "scripts": {
     "check": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin test oxlint oxfmt oxfmt.config.mjs && node --test && pnpm peers check",
-    "test": "node --test"
+    "test": "node --test",
+    "lint": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin test oxlint oxfmt oxfmt.config.mjs",
+    "prepush": "pnpm check",
+    "prepare": "howells-husky"
   },
   "dependencies": {
     "@howells/neon": "^0.2.0",
@@ -92,6 +95,13 @@
     "oxlint-plugin-react-doctor": "0.9.13",
     "oxlint-tsgolint": "7.0.2001",
     "ultracite": "7.11.1"
+  },
+  "devDependencies": {
+    "@howells/husky": "^0.2.3",
+    "lint-staged": "^17.5.1"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,tsx,json,jsonc,css,md}": "node bin/howells-oxfmt.mjs --write"
   },
   "engines": {
     "node": ">=24.15.0"
