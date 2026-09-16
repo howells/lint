@@ -319,6 +319,29 @@ test("a config Oxlint discovers itself is left alone", async () => {
   }
 });
 
+// A project that depends on this package and never wrote a config is in the
+// same state as one whose config never loads: Oxlint's defaults, a quiet run,
+// exit 0. Ten such repos were found on one machine on 2026-09-16.
+test("no config anywhere is reported", async () => {
+  const root = await makeConfigFixture("ts");
+  await rm(path.join(root, "oxlint.config.ts"), { force: true });
+
+  try {
+    const result = await runBin("howells-oxlint", ["src"], root);
+
+    // Oxlint's own default reports `debugger` as a warning; the preset raises
+    // it to an error, so the severity word is the read on which one ran.
+    assert.match(result.output, /warning eslint\(no-debugger\)/);
+    assert.match(
+      result.output,
+      /No oxlint\.config\.ts found/,
+      `a missing config went unreported: ${result.output}`
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("an explicit --config still wins", async () => {
   const root = await makeConfigFixture("mjs");
 

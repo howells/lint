@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.3.3 — 2026-09-16
+
+### Changed
+
+- `howells-check`, `howells-fix` and `howells-oxlint` print a one-line warning when no `oxlint.config.*` exists in the working directory or any parent. The run still uses Oxlint's defaults, as before; nothing is imposed. A sweep of one machine on 2026-09-16 found ten repos depending on this package with no config anywhere, each linting on the defaults and each looking, from its green `pnpm lint`, exactly like a repo on the preset. The same sweep found five repos on `oxlint.config.mjs`, which 3.3.0 already reports. Covered by a binary test.
+
 ## 3.3.2 — 2026-09-16
 
 ### Changed

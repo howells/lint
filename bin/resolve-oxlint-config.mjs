@@ -70,14 +70,24 @@ export function findOxlintConfig(cwd = process.cwd()) {
 
 // There is no packaged fallback here, unlike the Oxfmt side. A project with no
 // config at all keeps Oxlint's defaults; quietly imposing a preset on it would
-// be a larger change than the one this fixes.
+// be a larger change than the one this fixes. It does get told, though: a
+// sweep of one machine on 2026-09-16 found ten repos depending on this package
+// with no oxlint config anywhere, each linting on the defaults and each
+// looking, from its green `pnpm lint`, exactly like a repo on the preset.
+export const noConfigWarning =
+  "No oxlint.config.ts found in this directory or any parent, so this run uses Oxlint's defaults and no @howells/lint preset applies. Add an oxlint.config.ts that extends @howells/lint/oxlint/core, react or next.";
+
 export function withOxlintConfig(args, cwd = process.cwd()) {
   if (hasExplicitConfig(args)) {
     return args;
   }
 
   const config = findOxlintConfig(cwd);
-  if (!config?.requiresFlag) {
+  if (!config) {
+    console.error(noConfigWarning);
+    return args;
+  }
+  if (!config.requiresFlag) {
     return args;
   }
 
