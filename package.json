@@ -101,7 +101,7 @@
     "lint-staged": "^17.5.1"
   },
   "lint-staged": {
-    "*.{js,mjs,cjs,ts,tsx,json,jsonc,css,md}": "node bin/howells-oxfmt.mjs --write"
+    "*.{js,ts,jsx,tsx,json,jsonc,css,md,mdx}": "node bin/howells-oxfmt.mjs --write"
   },
   "engines": {
     "node": ">=24.15.0"
