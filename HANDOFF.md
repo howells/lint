@@ -1,6 +1,6 @@
 # Handoff: 3.2.5 release and the ESLint-removal rollout
 
-Last updated 2026-09-15.
+Last updated 2026-09-16.
 
 ## Releasing works now
 
@@ -13,6 +13,12 @@ The colorscope session is rolling one npm-publishing standard across roughly 17 
 The gating item for that rollout is not the workflow file. Each package needs a one-time trusted publisher registered in the npmjs.com web UI, naming the organisation, repository and the exact workflow filename. Seventeen packages means seventeen registrations, each needing a browser, and the page sits behind a Cloudflare challenge that an agent cannot clear.
 
 `@howells/neon` is the proof. Its release workflow has run once, on `v0.1.3`, and failed with `404 PUT https://registry.npmjs.org/@howells%2fneon`: the token was minted but carried no publish rights, because no trusted publisher is registered for that package. All five published versions of it were pushed by hand, which is why none carries provenance.
+
+## 3.3.1 and 3.3.2
+
+3.3.1 raised the capture buffer in the wrappers so a large finding set no longer kills them. 3.3.2 makes `componentSourceOverride` also turn off `shadcn/require-static-classes` in the component directory: a forwarding wrapper that destructures `className` out and spreads `rest` is reported although `rest` cannot carry a class, and patternmode needed a hand-written override for exactly that. Published from `v3.3.2` by the release workflow with provenance. Neither has been rolled to consumers; patternmode's own override in `apps/preview/oxlint.config.ts` becomes redundant on 3.3.2 and can go when that repo next bumps.
+
+Ultracite 7.12 ships `ultracite/oxlint/shadcn`. It does not replace the vendoring: its preset imports the bare `@shadcn/lint` and tells the consumer to install it, and `@shadcn/lint@0.1.0` requires `@typescript-eslint/parser`, which brings ESLint back. Upstream issue shadcn-ui/lint#1 tracks that dependency; the vendoring is temporary pending it.
 
 ## 3.3.0 is published and NOT rolled out
 
