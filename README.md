@@ -132,7 +132,7 @@ Both report a malformed class rather than a disallowed one, so both stay silent 
 
 The other four are opt-in, because each one enforces a policy only the project holds. Add them to your own config:
 
-- `shadcn/no-restyle` is the rule the plugin exists for: it decides which classes a call site may put on a component. With no `contracts` it reports every existing override at once, so adopt it per component, and pair it with `componentSourceOverride` so components can still style their own internals.
+- `shadcn/no-restyle` is the rule the plugin exists for: it decides which classes a call site may put on a component. With no `contracts` it reports every existing override at once, so adopt it per component, and pair it with `componentSourceOverride` so components can still style their own internals. The override also turns off `require-static-classes` there: a wrapper that forwards `...rest` after destructuring `className` out trips the rule, which cannot see the destructure, and that is the shape of every component in a design-system directory.
 - `shadcn/no-inline-styles` bans inline styles and hardcoded colours in custom properties. It reports Motion's `style={{ y }}`, so a project using Motion names its exceptions in `allow`.
 - `shadcn/no-unknown-classes` reports a class Tailwind cannot generate. It reads any hand-written class name as a misspelling, so enable it only where Tailwind is the whole styling story.
 - `shadcn/no-raw-colors` reports the raw palette (`bg-pink-500`) and suggests the project's own theme colours.

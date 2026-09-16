@@ -106,6 +106,18 @@ export const designSystemRuleNames = [
 // root — an override entry inherits it, so this needs no `plugins` key of its
 // own, unlike the Playwright overlay's Vitest exemption.
 //
+// `require-static-classes` is off here because the rule cannot read a
+// forwarding wrapper. A component that does `const { className, ...rest } =
+// props` and then `<Badge {...rest} />` reports on the rest element: the rule
+// does not see that `className` was destructured out, so it treats `rest` as a
+// path an unchecked class could take. That is the shape of every component in
+// a design-system directory, so the rule is unsatisfiable there. Measured in
+// patternmode, where it was the one finding blocking the 3.2.5 upgrade and
+// needed a bespoke override. Upstream's own Oxlint preset (via Ultracite 7.12)
+// turns it off in the component directory for the same reason, citing variant
+// functions passed as class values. Call sites keep the rule, which is where a
+// className the linter cannot read is a real problem.
+//
 // `no-inline-styles` is deliberately absent: it is the one design-system rule
 // the plugin's own documentation says to keep enabled inside the component
 // directory, because a component has no more right to a hardcoded colour than
@@ -117,6 +129,7 @@ export const componentSourceOverride = (files) => ({
     "shadcn/no-raw-colors": "off",
     "shadcn/no-restyle": "off",
     "shadcn/no-unknown-classes": "off",
+    "shadcn/require-static-classes": "off",
   },
 });
 
