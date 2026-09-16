@@ -1263,28 +1263,50 @@ test("componentSourceOverride stops the call-site rules at the component directo
       "oxlint.config.mjs",
       `import { defineConfig } from "oxlint";\n\nimport react from "${reactPresetUrl}";\nimport { componentSourceOverride } from "${shadcnPresetUrl}";\n\nexport default defineConfig({\n  extends: [react],\n  overrides: [componentSourceOverride(["**/components/ui/**"])],\n});\n`
     );
+    // With no components.json, the plugin finds `components/ui` relative to
+    // the nearest package.json. The fixture base has none above it, so
+    // without this file no import resolves to a design-system component and
+    // require-static-classes has nothing to report.
+    await writeFixture(root, "package.json", '{ "type": "module" }\n');
     await writeFixture(
       root,
       "components/ui/badge.tsx",
-      'export const Badge = () => <span className="p-[13px]" />;\n'
+      'export const Badge = (props: { className?: string }) => <span className={props.className ?? "p-[13px]"} />;\n'
+    );
+    // A forwarding wrapper: `className` is destructured out, so `rest` cannot
+    // carry a class, but the rule does not see that and reports the rest
+    // element. This is every component in a design-system directory.
+    await writeFixture(
+      root,
+      "components/ui/tag.tsx",
+      'import { Badge } from "./badge";\nexport const Tag = (props: { className?: string; size?: string }) => {\n  const { className, ...rest } = props;\n  return <Badge {...rest} className={className} />;\n};\n'
     );
     await writeFixture(
       root,
       "src/page.tsx",
-      'export const Page = () => <section className="p-[13px]" />;\n'
+      'import { Badge } from "../components/ui/badge";\nexport const Page = ({ size }: { size: string }) => (\n  <section className="p-[13px]"><Badge className={`mt-${size}`} /></section>\n);\n'
     );
 
     const result = await runOxlint(root, ["components", "src"]);
-    const diagnostics = diagnosticsForRule(
+    const arbitrary = diagnosticsForRule(
       result.stdout,
       "shadcn(no-arbitrary-values)"
+    );
+    const dynamic = diagnosticsForRule(
+      result.stdout,
+      "shadcn(require-static-classes)"
     );
 
     // The override carries no `plugins` key: an override inherits the JS
     // plugins named at the config root, unlike the Playwright overlay's Vitest
     // exemption, which needs the builtin plugin brought back into scope.
-    assert.equal(diagnostics.length, 1);
-    assert.match(diagnostics[0].filename, /src[/\\]page\.tsx$/);
+    assert.equal(arbitrary.length, 1);
+    assert.match(arbitrary[0].filename, /src[/\\]page\.tsx$/);
+
+    // The forwarding wrapper inside the component directory is exempt; the
+    // template-literal className at the call site still reports.
+    assert.equal(dynamic.length, 1);
+    assert.match(dynamic[0].filename, /src[/\\]page\.tsx$/);
   } finally {
     await rm(root, { force: true, recursive: true });
   }

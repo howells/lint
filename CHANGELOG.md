@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.3.2 — 2026-09-16
+
+### Changed
+
+- `componentSourceOverride` also turns off `shadcn/require-static-classes` inside the component directory. The rule cannot read a forwarding wrapper: `const { className, ...rest } = props` followed by `<Badge {...rest} />` reports on the rest element, because the rule does not see that `className` was destructured out. That is the shape of every component in a design-system directory, so the rule is unsatisfiable there. Measured in patternmode, where it was the single finding blocking the 3.2.5 upgrade and needed a bespoke override. Upstream's own Oxlint preset, shipped in Ultracite 7.12, turns it off in the component directory for the same reason. Call sites keep the rule.
+
+### Notes
+
+- Ultracite 7.12 ships `ultracite/oxlint/shadcn`. It does not replace the vendored copy here: it names `@shadcn/lint` by package and expects the consumer to install it, and that package hard-depends on `@typescript-eslint/parser`, whose required peer is ESLint. A fresh install still lands ESLint 10.10.0 and TypeScript 6.0.3. The parser is only a fallback the plugin reaches when `oxc-parser` is absent, so the upstream fix is small and is tracked at shadcn-ui/lint#1. When it lands, the vendored copy can go.
+
 ## 3.3.1 — 2026-09-15
 
 ### Fixed
