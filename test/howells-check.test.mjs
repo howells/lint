@@ -330,8 +330,11 @@ test("no config anywhere is reported", async () => {
     const result = await runBin("howells-oxlint", ["src"], root);
 
     // Oxlint's own default reports `debugger` as a warning; the preset raises
-    // it to an error, so the severity word is the read on which one ran.
-    assert.match(result.output, /warning eslint\(no-debugger\)/);
+    // it to an error, so the severity word is the read on which one ran. On
+    // GitHub Actions Oxlint switches to its `::warning file=...,title=rule::`
+    // format, so the word and the rule name are matched on the same line
+    // rather than adjacent.
+    assert.match(result.output, /warning[^\n]*eslint\(no-debugger\)/);
     assert.match(
       result.output,
       /No oxlint\.config\.ts found/,
