@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.3.4 — 2026-09-17
+
+### Fixed
+
+- The core preset turns off `vitest/prefer-to-be-truthy` and `vitest/prefer-to-be-falsy`. Their autofixes rewrite `toBe(true)` to `toBeTruthy()` and `toBe(false)` to `toBeFalsy()`, which is a different assertion: `toBe(true)` fails on the string `"yes"` and on `1`, and `toBeTruthy()` passes both. A test that pinned an exact boolean came out of `howells-fix` accepting anything truthy, and because consumers run `howells-fix` from a pre-commit hook, the rewrite landed in a commit nobody reviewed. Measured: 276 assertions rewritten in colorscope, 121 in motif, one of which broke an env test. Severity was no defence - motif had both rules at `warn` and its tests were rewritten anyway - and Oxlint classes both fixes as safe, so `--fix` applies them and only `--fix-dangerously` is gated. Covered by a preset test that asserts the fixer's output rather than the rule table, so a later Ultracite bump cannot reintroduce it quietly.
+
+### Notes
+
+- Consumers that hand-patched around this can drop their local overrides once they are on 3.3.4: candor turned both rules off in `oxlint.compatibility.config.mjs`, motif downgraded them to `warn` in its root `oxlint.config.ts`.
+
 ## 3.3.3 — 2026-09-16
 
 ### Changed

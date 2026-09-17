@@ -26,6 +26,36 @@ export default defineConfig({
         "max-statements": "off",
       },
     },
+    // `vitest/prefer-to-be-truthy` and `vitest/prefer-to-be-falsy` autofix
+    // `toBe(true)` to `toBeTruthy()` and `toBe(false)` to `toBeFalsy()`. Those
+    // are not the same assertion: `toBe(true)` fails on the string "yes" and on
+    // 1, and `toBeTruthy()` passes both. A test that pinned an exact boolean
+    // comes out of the fixer accepting anything truthy, and because the rewrite
+    // happens inside `howells-fix` it usually happens during a pre-commit hook,
+    // where nobody reads the diff. Measured: 276 assertions rewritten in
+    // colorscope, 121 in motif, one of which broke an env test.
+    //
+    // There is no way to keep the rule and drop its fix — Oxlint classes both
+    // fixes as safe, so `--fix` applies them and only `--fix-dangerously` is
+    // gated. Severity does not help either: motif had them at "warn" and the
+    // fixer still rewrote its tests. So the rules are off, and `toBe(true)`
+    // stays the assertion the author wrote.
+    //
+    // The file globs match Ultracite's own Vitest override, so the `__tests__`
+    // and type-test spellings are covered too. `vitest` is named in `plugins`
+    // because Oxlint resolves a rule entry against the plugin set in scope at
+    // that point.
+    {
+      files: [
+        "**/*.{test,spec,test-d,spec-d}.{ts,tsx,js,jsx}",
+        "**/__tests__/**/*.{ts,tsx,js,jsx}",
+      ],
+      plugins: ["vitest"],
+      rules: {
+        "vitest/prefer-to-be-falsy": "off",
+        "vitest/prefer-to-be-truthy": "off",
+      },
+    },
   ],
   plugins: ultraciteCore.plugins,
   rules: {
