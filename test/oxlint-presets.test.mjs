@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -896,6 +903,52 @@ test("core preset carries anti-slop and the Vitest rules", () => {
 
   assert.ok(vitestRules.includes("vitest/no-focused-tests"));
   assert.ok(vitestRules.length > 40);
+});
+
+// RUL-251. `vitest/prefer-to-be-truthy` and `vitest/prefer-to-be-falsy` carry
+// autofixes that change what a test asserts: `toBe(true)` fails on "yes" and on
+// 1, `toBeTruthy()` passes both. Because `howells-fix` runs from a pre-commit
+// hook in every consumer, the rewrite lands in a commit nobody reviewed — 276
+// assertions in colorscope, 121 in motif, one of which broke an env test.
+//
+// This asserts the fixer's output, not the rule table, because severity does
+// not stop a fix: motif had both rules at "warn" and its tests were rewritten
+// anyway. Whatever a later Ultracite bump does to the defaults, the only
+// question that matters is whether a `toBe(true)` survives the fixer.
+test("the fixer leaves an exact boolean assertion alone", async () => {
+  const root = await makeFixtureRoot();
+  const source =
+    'import { expect, test } from "vitest";\n\nconst isEnabled = (): boolean => true;\n\ntest("strict boolean contract", () => {\n  expect(isEnabled()).toBe(true);\n  expect(isEnabled()).toBe(false);\n});\n';
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`
+    );
+    await writeFixture(root, "src/contract.test.ts", source);
+
+    await execFileAsync(
+      oxlintBin,
+      [
+        "--config",
+        path.join(root, "oxlint.config.mjs"),
+        "--fix",
+        path.join(root, "src"),
+      ],
+      { cwd: root, env: { ...process.env, OXLINT_TSGOLINT_PATH: tsgolintPath } }
+    ).catch((error) => error);
+
+    const fixed = await readFile(
+      path.join(root, "src/contract.test.ts"),
+      "utf8"
+    );
+
+    assert.match(fixed, /toBe\(true\)/u);
+    assert.match(fixed, /toBe\(false\)/u);
+    assert.doesNotMatch(fixed, /toBeTruthy|toBeFalsy/u);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
 });
 
 test("core preset reports anti-slop and Vitest findings on real files", async () => {
