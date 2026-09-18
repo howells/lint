@@ -1,6 +1,10 @@
 # Handoff: 3.2.5 release and the ESLint-removal rollout
 
-Last updated 2026-09-16.
+Last updated 2026-09-18.
+
+## 3.3.5 is bumped and NOT yet tagged
+
+Two fixes from last week's audit: the core preset scopes `howells/no-runtime-dynamic-imports` off for test files, where it deadlocked against `vitest/prefer-import-in-mock` and produced the 1,013 unclearable findings; and `howells-fix` no longer applies lint autofixes to `*.test.*` or `*.spec.*` files at all, generalising the 3.3.4 rule-by-rule patch. Not rolled to consumers.
 
 ## Releasing works now
 

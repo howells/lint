@@ -324,6 +324,45 @@ test("core preset rejects runtime dynamic imports", async () => {
   }
 });
 
+// `vitest/prefer-import-in-mock` demands that the module named in `vi.mock` be
+// written as `import("./dep")` so the factory's `importOriginal()` is typed,
+// and `howells/no-runtime-dynamic-imports` reports every import expression.
+// Before 3.3.5 that made a `vi.mock` call report under one rule or the other
+// whichever way it was written, and neither report was clearable — 1,013 of
+// them across the fleet. The core preset now scopes the dynamic-import ban off
+// for test files, so the fixture below is the form `prefer-import-in-mock`
+// asks for and neither rule has anything to say about it.
+test("core preset lets a test file mock through a dynamic import", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`
+    );
+    await writeFixture(root, "src/dep.ts", "export const value = 1;\n");
+    await writeFixture(
+      root,
+      "src/dep.test.ts",
+      'import { describe, expect, test, vi } from "vitest";\n\nvi.mock(import("./dep"), async (importOriginal) => {\n  const actual = await importOriginal();\n  return { ...actual, value: 2 };\n});\n\ndescribe("dep", () => {\n  test("mocks", () => {\n    expect(1).toBe(1);\n  });\n});\n'
+    );
+
+    const result = await runOxlint(root);
+    const stdout = result.stdout ?? "[]";
+
+    assert.deepEqual(
+      diagnosticsForRule(stdout, "howells(no-runtime-dynamic-imports)"),
+      []
+    );
+    assert.deepEqual(
+      diagnosticsForRule(stdout, "vitest(prefer-import-in-mock)"),
+      []
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("core preset lets promise-typed stubs be async without awaiting", async () => {
   const root = await makeFixtureRoot();
 
