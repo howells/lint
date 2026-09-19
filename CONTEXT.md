@@ -16,7 +16,7 @@ Shared code quality toolchain package for Howells projects. It centralizes the s
 
 **Preferred command**: A package binary that names the recommended Oxlint/Oxfmt path without aliases or fallbacks. `howells-check` and `howells-fix` are the only high-level project check/fix commands. _Avoid_: alias command, fallback command, default command
 
-**Howells policy plugin**: The single Oxlint plugin entrypoint for local Howells rules that extend Ultracite. Rule implementations can stay together while the set is small, but should split by domain when the next local rule is added. _Avoid_: custom lint framework
+**Howells policy plugin**: The single Oxlint plugin entrypoint for local Howells rules that extend Ultracite. `oxlint/howells-policy-plugin.mjs` holds the plugin object and the component and workspace rules; the rest split by domain into sibling modules (`howells-policy-tailwind.mjs`, `howells-policy-imports.mjs`, `howells-policy-motion.mjs`), with the class-string AST scoping shared from `howells-policy-class-strings.mjs`. A new rule joins the module for its domain or starts one. _Avoid_: custom lint framework
 
 **Design-system rules**: The four `@shadcn/lint` rules that enforce a project's own policy about how its components may be restyled: `no-restyle`, `no-inline-styles`, `no-unknown-classes` and `no-raw-colors`. They are loaded by the React and Next lanes and enabled by the consumer, never by a preset. _Avoid_: shadcn preset, design lint lane
 

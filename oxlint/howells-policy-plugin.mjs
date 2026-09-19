@@ -1,6 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import {
+  createNoDeepPackageImportsRule,
+  createNoOutOfBoundsPackageImportsRule,
+} from "./howells-policy-imports.mjs";
+import { createNoRawMotionNamespaceRule } from "./howells-policy-motion.mjs";
+import {
+  createDesignTokenAlphaRule,
+  createNoAvoidableArbitrarySpacingRule,
+  createNoRawTypeUtilitiesRule,
+  createTransitionAfterFocusHelperRule,
+} from "./howells-policy-tailwind.mjs";
+
 const BANNED_SUFFIXES = [
   { kebab: "wrapper", pascal: "Wrapper" },
   { kebab: "client", pascal: "Client" },
@@ -417,334 +429,6 @@ function createNoRawJsxElementsRule(context) {
   };
 }
 
-// Generic, cross-project ban on Tailwind *typographic* utilities in class
-// strings: any class in the governed typographic namespace is banned UNLESS it
-// is sanctioned via the `allow` option. The rule carries no project-specific
-// token table — a project passes its own design-system type classes in `allow`,
-// and everything else typographic (raw `text-sm`, `font-*`, `leading-*`,
-// `tracking-*`, `uppercase`, arbitrary `text-[13px]`, …) is reported.
-//
-// Both axes are configurable via params:
-//   - `allow`: glob patterns (`*` wildcard) for the sanctioned classes.
-//   - `match`: glob patterns for the governed namespace (defaults to standard
-//     Tailwind typography; override to widen/narrow what the rule polices).
-// Colour (`text-[#…]`/`text-[var…]`), alignment (`text-center`), and wrapping
-// (`text-balance`) are NOT in the default namespace — they aren't type-ramp
-// choices — but a project can add them to `match` if it wants them governed.
-//
-// OPT-IN, like `no-raw-jsx-elements` — enabled by no preset. Real AST scoping
-// (className/class attributes, `cn|cva|tv|…` call arguments, and
-// `Record<*Size, string>` size-ladder objects) is the whole point: it never
-// fires on a same-spelled word in a comment, a JSDoc `@example`, or an unrelated
-// string prop (a Radix `value="italic"` is untouched).
-
-const CLASS_HELPER_NAMES = new Set([
-  "cn",
-  "cx",
-  "clsx",
-  "cva",
-  "tv",
-  "twMerge",
-  "twJoin",
-  "classNames",
-]);
-
-// The governed typographic namespace when no `match` is configured — standard
-// Tailwind typography only (font, size, leading, tracking, transform, style),
-// deliberately excluding colour/alignment/wrapping. Not project-specific.
-const DEFAULT_MATCH = [
-  "text-xs",
-  "text-sm",
-  "text-base",
-  "text-lg",
-  "text-xl",
-  "text-2xl",
-  "text-3xl",
-  "text-4xl",
-  "text-5xl",
-  "text-6xl",
-  "text-7xl",
-  "text-8xl",
-  "text-9xl",
-  "text-[*]",
-  // v4's CSS-variable shorthand for a size: `text-(length:--my-size)`.
-  "text-(length:*)",
-  "font-*",
-  "leading-*",
-  "tracking-*",
-  "uppercase",
-  "lowercase",
-  "capitalize",
-  "normal-case",
-  "italic",
-  "not-italic",
-];
-
-// Arbitrary `text-[…]` whose value reads as a colour (owned by the colour rule),
-// not a length — never governed even when `text-[*]` is in the namespace.
-// `color[-:(]` covers all three spellings at once: the functional `color(`, the
-// `color-mix(` blend, and the explicit `color:` type hint Tailwind accepts to
-// disambiguate a bare `var()`.
-const ARBITRARY_COLOUR_PATTERN =
-  /^(?:#|var\(|rgb|hsl|okl(?:ch|ab)|color[-:(])/u;
-
-// An arbitrary `text-[…]` carrying a length rather than a colour, which earns a
-// different fix from a named size: the scale, or a named `@theme` step.
-//
-// The colour test is unreachable from the current caller — `isBanned` already
-// drops arbitrary colours before anything is reported — and stays so the
-// predicate is right on its own terms if a second call site ever appears.
-const ARBITRARY_LENGTH_PATTERN = /^text-\[[^\]]+\]$/u;
-
-function isArbitraryLength(base) {
-  if (!ARBITRARY_LENGTH_PATTERN.test(base)) {
-    return false;
-  }
-  return !ARBITRARY_COLOUR_PATTERN.test(base.slice("text-[".length, -1));
-}
-
-/** Compile a glob (`*` = any run of chars) into an anchored, whole-string RegExp. */
-function globToRegExp(glob) {
-  const source = glob.replace(/[.*+?^${}()|[\]\\]/gu, (character) =>
-    character === "*" ? ".*" : `\\${character}`
-  );
-  return new RegExp(`^${source}$`, "u");
-}
-
-/**
- * The base utility of a Tailwind token — everything after the last top-level
- * `:` (variant prefixes stripped), with the important marker and any modifier
- * suffix removed.
- *
- * Depth counts both brackets and parentheses, so neither a `:` nor a `/` inside
- * them splits: `data-[state=open]:text-lg`, `text-[calc(1rem/2)]`, and v4's
- * CSS-variable shorthand `text-(length:--my-size)` all survive whole.
- *
- * The important marker is stripped in all three positions Tailwind allows it:
- * v3's `!text-xl` and `hover:!text-xl` (the marker sits after the variant), and
- * v4's `text-xl!`. So is the modifier a size carries for its leading
- * (`text-sm/6`). A size is a size whatever it is shouted or paired with.
- */
-function baseUtility(token) {
-  const stripped = token.endsWith("!") ? token.slice(0, -1) : token;
-  let depth = 0;
-  let lastColon = -1;
-  let lastSlash = -1;
-  for (let index = 0; index < stripped.length; index += 1) {
-    const character = stripped[index];
-    if (character === "[" || character === "(") {
-      depth += 1;
-    } else if (character === "]" || character === ")") {
-      depth -= 1;
-    } else if (depth === 0 && character === ":") {
-      lastColon = index;
-      lastSlash = -1;
-    } else if (depth === 0 && character === "/") {
-      lastSlash = index;
-    }
-  }
-  const base = stripped.slice(
-    lastColon + 1,
-    lastSlash === -1 ? undefined : lastSlash
-  );
-  return base.startsWith("!") ? base.slice(1) : base;
-}
-
-/** True when `declarator` is annotated `Record<…Size, string>` (a size ladder). */
-function isRecordSizeStringAnnotation(declarator) {
-  const annotation = declarator?.id?.typeAnnotation?.typeAnnotation;
-  if (!annotation || annotation.type !== "TSTypeReference") {
-    return false;
-  }
-  if (annotation.typeName?.name !== "Record") {
-    return false;
-  }
-  const params =
-    (annotation.typeArguments ?? annotation.typeParameters)?.params ?? [];
-  if (params.length < 2) {
-    return false;
-  }
-  const [keyType, valueType] = params;
-  const keyName = keyType?.typeName?.name;
-  return (
-    typeof keyName === "string" &&
-    keyName.endsWith("Size") &&
-    valueType?.type === "TSStringKeyword"
-  );
-}
-
-/**
- * ESLint-style rule factory for `no-raw-type-utilities`. Scans class strings in
- * `className`/`class` attributes, class-helper call arguments, and
- * `Record<*Size, string>` size ladders, reporting each governed typographic
- * class not sanctioned by `allow`, once per string node.
- *
- * @param {{ options?: Array<{ allow?: string[], match?: string[] }>, report: Function }} context
- */
-function createNoRawTypeUtilitiesRule(context) {
-  const options = context.options?.[0] ?? {};
-  const allowMatchers = (options.allow ?? []).map(globToRegExp);
-  const matchMatchers = (options.match ?? DEFAULT_MATCH).map(globToRegExp);
-  const reportedByNode = new WeakMap();
-
-  // A base utility is governed (matches the namespace), not sanctioned (matches
-  // no `allow` glob), and — for arbitrary `text-[…]` — not a colour value.
-  function isBanned(base) {
-    if (allowMatchers.some((matcher) => matcher.test(base))) {
-      return false;
-    }
-    if (base.startsWith("text-[") && base.endsWith("]")) {
-      const inner = base.slice("text-[".length, -1);
-      if (ARBITRARY_COLOUR_PATTERN.test(inner)) {
-        return false;
-      }
-    }
-    return matchMatchers.some((matcher) => matcher.test(base));
-  }
-
-  function reportToken(node, base) {
-    let seen = reportedByNode.get(node);
-    if (seen === undefined) {
-      seen = new Set();
-      reportedByNode.set(node, seen);
-    }
-    if (seen.has(base)) {
-      return;
-    }
-    seen.add(base);
-    context.report({
-      node,
-      message: `Typographic utility "${base}" is not in the sanctioned set — only classes matched by this rule's \`allow\` option are permitted. ${
-        isArbitraryLength(base)
-          ? "An arbitrary size is the last resort: use the nearest step on the scale, or add a named step to your `@theme` so the value has a name the next file can reuse."
-          : "Style through your design-system type tokens or component props instead."
-      }`,
-    });
-  }
-
-  function checkClassString(value, node) {
-    if (typeof value !== "string") {
-      return;
-    }
-    for (const token of value.split(/\s+/u)) {
-      if (token === "") {
-        continue;
-      }
-      const base = baseUtility(token);
-      if (isBanned(base)) {
-        reportToken(node, base);
-      }
-    }
-  }
-
-  // Walk an expression subtree that is known to carry class strings, checking
-  // every string literal / template quasi and recursing only into class-helper
-  // calls (never arbitrary calls — their string args aren't class names).
-  function scanClassExpression(node) {
-    if (!node) {
-      return;
-    }
-    switch (node.type) {
-      case "Literal":
-        if (typeof node.value === "string") {
-          checkClassString(node.value, node);
-        }
-        break;
-      case "TemplateLiteral":
-        for (const quasi of node.quasis) {
-          checkClassString(
-            quasi.value?.cooked ?? quasi.value?.raw ?? "",
-            quasi
-          );
-        }
-        for (const expression of node.expressions) {
-          scanClassExpression(expression);
-        }
-        break;
-      case "ConditionalExpression":
-        scanClassExpression(node.consequent);
-        scanClassExpression(node.alternate);
-        break;
-      case "LogicalExpression":
-      case "BinaryExpression":
-        scanClassExpression(node.left);
-        scanClassExpression(node.right);
-        break;
-      case "ArrayExpression":
-        for (const element of node.elements) {
-          scanClassExpression(element);
-        }
-        break;
-      case "ObjectExpression":
-        for (const property of node.properties) {
-          if (property.type === "Property") {
-            if (property.key?.type === "Literal") {
-              scanClassExpression(property.key);
-            }
-            scanClassExpression(property.value);
-          } else if (property.type === "SpreadElement") {
-            scanClassExpression(property.argument);
-          }
-        }
-        break;
-      case "CallExpression":
-        if (
-          node.callee?.type === "Identifier" &&
-          CLASS_HELPER_NAMES.has(node.callee.name)
-        ) {
-          for (const argument of node.arguments) {
-            scanClassExpression(argument);
-          }
-        }
-        break;
-      case "SpreadElement":
-        scanClassExpression(node.argument);
-        break;
-      case "ParenthesizedExpression":
-      case "TSAsExpression":
-      case "TSSatisfiesExpression":
-      case "TSNonNullExpression":
-        scanClassExpression(node.expression);
-        break;
-      default:
-        break;
-    }
-  }
-
-  return {
-    JSXAttribute(node) {
-      const attributeName = node.name?.name;
-      if (attributeName !== "className" && attributeName !== "class") {
-        return;
-      }
-      const value = node.value;
-      if (!value) {
-        return;
-      }
-      if (value.type === "Literal") {
-        checkClassString(value.value, value);
-      } else if (value.type === "JSXExpressionContainer") {
-        scanClassExpression(value.expression);
-      }
-    },
-    CallExpression(node) {
-      if (
-        node.callee?.type === "Identifier" &&
-        CLASS_HELPER_NAMES.has(node.callee.name)
-      ) {
-        for (const argument of node.arguments) {
-          scanClassExpression(argument);
-        }
-      }
-    },
-    VariableDeclarator(node) {
-      if (isRecordSizeStringAnnotation(node)) {
-        scanClassExpression(node.init);
-      }
-    },
-  };
-}
-
 const plugin = {
   meta: {
     name: "howells",
@@ -837,6 +521,157 @@ const plugin = {
         ],
       },
       create: createNoRawTypeUtilitiesRule,
+    },
+    "no-raw-motion-namespace": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "Disallow the full animation namespace (`motion.*`) in favour of the lazy primitives (`m.*`), which keep the animation engine out of every consumer's bundle. Namespace, replacement and exempt paths are all param-driven. Opt-in; not enabled by any preset.",
+        },
+        messages: {},
+        schema: [
+          {
+            type: "object",
+            properties: {
+              allowIn: { type: "array", items: { type: "string" } },
+              namespace: { type: "string" },
+              replacement: { type: "string" },
+            },
+            additionalProperties: false,
+          },
+        ],
+      },
+      create: createNoRawMotionNamespaceRule,
+    },
+    "no-avoidable-arbitrary-spacing": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "Disallow an arbitrary spacing value that lands on a clean step of the spacing scale, because it has an exact standard equivalent. Governed utilities and the step are param-driven. Opt-in; not enabled by any preset.",
+        },
+        messages: {},
+        schema: [
+          {
+            type: "object",
+            properties: {
+              allowHalfSteps: { type: "boolean" },
+              step: { type: "number" },
+              utilities: { type: "array", items: { type: "string" } },
+            },
+            additionalProperties: false,
+          },
+        ],
+      },
+      create: createNoAvoidableArbitrarySpacingRule,
+    },
+    "design-token-alpha": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "Pin a utility that mirrors a design token inline to the token's alpha, so an inline mirror cannot drift from the token. The pins are supplied by the consumer; with none the rule is inert. Opt-in; not enabled by any preset.",
+        },
+        messages: {},
+        schema: [
+          {
+            type: "object",
+            properties: {
+              requireAlphaSuffix: { type: "boolean" },
+              tokens: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    alpha: { type: "number" },
+                    utility: { type: "string" },
+                  },
+                  required: ["utility", "alpha"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            additionalProperties: false,
+          },
+        ],
+      },
+      create: createDesignTokenAlphaRule,
+    },
+    "transition-after-focus-helper": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "Disallow an unprefixed transition literal before a helper that emits its own transition value inside one merge call, because tailwind-merge keeps the last class in the group and the helper deletes the earlier one. Merge functions, helpers and the conflict group are param-driven; with no helpers the rule is inert. Opt-in; not enabled by any preset.",
+        },
+        messages: {},
+        schema: [
+          {
+            type: "object",
+            properties: {
+              conflictPrefix: { type: "string" },
+              helpers: { type: "array", items: { type: "string" } },
+              mergeFunctions: { type: "array", items: { type: "string" } },
+            },
+            additionalProperties: false,
+          },
+        ],
+      },
+      create: createTransitionAfterFocusHelperRule,
+    },
+    "no-deep-package-imports": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "Disallow reaching past a package's published shim into its internal file layout. Governed subpath roots and their allowed depth are supplied by the consumer; with none the rule is inert. Opt-in; not enabled by any preset.",
+        },
+        messages: {},
+        schema: [
+          {
+            type: "object",
+            properties: {
+              prefixes: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    allow: { type: "array", items: { type: "string" } },
+                    depth: { type: "number" },
+                    prefix: { type: "string" },
+                  },
+                  required: ["prefix", "depth"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            additionalProperties: false,
+          },
+        ],
+      },
+      create: createNoDeepPackageImportsRule,
+    },
+    "no-out-of-bounds-package-imports": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "Confine a dependency namespace to the directory that owns it, so every other file reaches it through that package's own exports. Restricted specifiers and owning directories are supplied by the consumer; with either list empty the rule is inert. Opt-in; not enabled by any preset.",
+        },
+        messages: {},
+        schema: [
+          {
+            type: "object",
+            properties: {
+              packages: { type: "array", items: { type: "string" } },
+              within: { type: "array", items: { type: "string" } },
+            },
+            additionalProperties: false,
+          },
+        ],
+      },
+      create: createNoOutOfBoundsPackageImportsRule,
     },
   },
 };

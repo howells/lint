@@ -1,10 +1,15 @@
 # Changelog
 
-## Unreleased
+## 3.4.0 — 2026-09-19
 
 ### Added
 
+- Six opt-in policy rules, each param-driven and enabled by no preset. `howells/no-raw-motion-namespace` bans the full animation namespace (`motion.*`) in favour of the lazy primitives, so the animation engine stays out of every consumer's bundle; it reads JSX member names, call callees and `typeof` type queries, so the namespace's name in a comment or a string is not a finding. `howells/no-avoidable-arbitrary-spacing` reports an arbitrary spacing value only where it lands on a clean step of the scale and therefore has an exact standard equivalent; `w-[13px]` is not on a step and stays quiet. `howells/design-token-alpha` pins a utility that mirrors a design token inline to the token's alpha, anchored to the whole utility so a different shade or a longer utility containing the same text is not a match. `howells/transition-after-focus-helper` reports an unprefixed transition literal that sits before a helper emitting its own transition value in the same merge call, because tailwind-merge keeps the last class in the group and the helper silently deletes the earlier one. `howells/no-deep-package-imports` stops a consumer reaching past a package's published shim into its file layout, and reads the target package's own `exports` map so a subpath the package declares literally is never reported. `howells/no-out-of-bounds-package-imports` confines a dependency namespace to the directory that owns it. Each rule replaces a hand-rolled script in a consumer repo; together they retire six. Covered by a test per rule, with the positive and negative fixtures each spec names, and each test was confirmed to fail with its rule stubbed out.
 - `howells-oxfmt --write` and `howells-fix` warn when the config they pin would bypass nested oxfmt configs, naming each one. A pinned `--config` applies to the whole run, so formatting a directory that holds its own configs deeper down formatted those packages to the outer settings and read nothing of theirs. Three consumer repos carried that as prose telling agents never to run the formatter from the repo root. The warning fires only where a nested config exists below a directory target, and formatting still proceeds, because failing would break `howells-fix .` at every monorepo root. Covered by a test asserting which configs are named and that an explicit file path names none.
+
+### Fixed
+
+- Every Oxlint preset carries the policy plugin in `jsPlugins`, so extending any one of them is enough for a consumer to name a `howells/*` rule. The `shadcn` and `neon` presets extend no other preset and so carried no entry for it: a config extending either and enabling a `howells/*` rule was refused outright with "Plugin 'howells' not found", which aborts the whole run, so nothing in the config was linted and the rule looked as though it had simply found nothing. Covered by an assertion over every preset's resolved plugin list and a fixture that extends `shadcn` alone.
 
 ## 3.3.5 — 2026-09-18
 

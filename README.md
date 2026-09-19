@@ -121,6 +121,46 @@ export default {
 };
 ```
 
+Six further opt-in `howells/*` rules each replace a hand-rolled script in a consumer repo. None is enabled by a preset, and none carries a project's strings in a default: the governed namespace, utilities, tokens, helpers and directories are all parameters. The `howells` plugin is loaded by every preset through `jsPlugins`, so a consumer adds only the rule entry.
+
+- `howells/no-raw-motion-namespace` bans the full animation namespace (`motion.*`) so components render the lazy `m.*` primitives, which is what keeps the animation engine out of every consumer's bundle. It matches a JSX member name (`<motion.div>`), a member expression called as a function (`motion.create(...)`), and a `typeof` type query (`typeof motion.button`). Hooks and providers (`useScroll`, `AnimatePresence`, …) are bare identifiers, never members of the namespace, so they are untouched without an allow-list, and the namespace's name in a comment or a string is not a finding. Options: `namespace` (default `motion`), `replacement` (default `m`), `allowIn` for the paths that own the namespace.
+- `howells/no-avoidable-arbitrary-spacing` reports an arbitrary spacing value only where it lands on a clean step of the scale and so has an exact standard equivalent: Tailwind v4 generates spacing from `--spacing`, so `w-[320px]` is `w-80`. `w-[13px]` is not on a step, has nothing to convert to, and stays quiet. Options: `utilities` (the spacing family), `step` (default `0.25`rem), `allowHalfSteps` (default `true`). A CSS variable, a `calc()`, a viewport unit, an arbitrary variant and every non-spacing scale are outside the rule.
+- `howells/design-token-alpha` pins a utility that mirrors a design token inline to the token's alpha, so an inline mirror cannot drift below the contrast the token was raised to. The match is anchored to a whole utility at both ends, so a different shade (`ring-gray-400/30`) and a longer utility containing the same text (`ring-offset-gray-500/30`) both stay quiet. Options: `tokens` as `{ utility, alpha }` pins, and `requireAlphaSuffix` to also report a bare token with no alpha.
+- `howells/transition-after-focus-helper` reports an unprefixed `transition-*` literal written before a helper that emits its own transition value in the same merge call. tailwind-merge keeps the last class in a conflicting group, so the helper's narrower `transition-[…]` silently deletes the earlier explicit list; the sanctioned order is helper first, superset after. Variant-prefixed tokens (`hover:transition-colors`) are a different group and never match, a nested merge call is its own scope, and a helper named in a comment is not a call. Options: `mergeFunctions` (default `["cn"]`), `helpers` (required), `conflictPrefix` (default `transition`).
+- `howells/no-deep-package-imports` keeps a consumer on the flat shim a package publishes rather than its internal file layout, across imports, re-exports, `import()` and `require()`. It reads the target package's own `exports` map, so a subpath the package declares literally is public by the package's own account and is never reported; a wildcard pattern is deliberately not a declaration, since it would match every depth. Options: `prefixes` as `{ prefix, depth, allow }`.
+- `howells/no-out-of-bounds-package-imports` confines a dependency namespace to the one directory that owns it, which re-exports what the rest of the workspace needs. Options: `packages` (exact names, or a `*`-suffixed prefix such as `@mastra/*`) and `within` (the owning directories, matched at any depth). With either list empty the rule reports nothing, so a half-configured rule is inert rather than repo-wide.
+
+```ts
+import react from "@howells/lint/oxlint/react";
+
+export default {
+  extends: [react],
+  rules: {
+    "howells/no-raw-motion-namespace": [
+      "error",
+      { allowIn: ["motion-config", "motion-tokens"] },
+    ],
+    "howells/no-avoidable-arbitrary-spacing": "error",
+    "howells/design-token-alpha": [
+      "error",
+      { tokens: [{ utility: "ring-gray-500", alpha: 80 }] },
+    ],
+    "howells/transition-after-focus-helper": [
+      "error",
+      { helpers: ["focusInput", "focusRing"] },
+    ],
+    "howells/no-deep-package-imports": [
+      "error",
+      { prefixes: [{ prefix: "@acme/ui/components", depth: 1 }] },
+    ],
+    "howells/no-out-of-bounds-package-imports": [
+      "error",
+      { packages: ["@mastra/*", "mastra"], within: ["packages/mastra"] },
+    ],
+  },
+};
+```
+
 The React and Next presets carry [`@shadcn/lint`](https://github.com/shadcn-ui/lint), an agent-first linter for Tailwind design systems, from a copy vendored in this package so ESLint is never installed. Its diagnostics name the fix from the project's own code: a `p-4` on a Button reports the sizes that Button declares and the file they live in. It reads `components.json` for a project's components and theme, and works without shadcn/ui.
 
 Two of its six rules are enabled, because neither needs project configuration:

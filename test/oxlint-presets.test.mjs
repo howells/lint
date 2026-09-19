@@ -16,10 +16,14 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { resolvePackageBin } from "../bin/run-package-bin.mjs";
+import boundaries from "../oxlint/boundaries.mjs";
 import core from "../oxlint/core.mjs";
+import neon from "../oxlint/neon.mjs";
 import next from "../oxlint/next.mjs";
+import playwright from "../oxlint/playwright.mjs";
 import { disabledReactDoctorRules } from "../oxlint/react-doctor-rules.mjs";
 import react from "../oxlint/react.mjs";
+import shadcn from "../oxlint/shadcn.mjs";
 
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(
@@ -1444,6 +1448,613 @@ test("React preset exempts a class whose arbitrary value is one variable referen
     // appearance checks above are unaffected.
     assert.ok(!reported.some((message) => message.includes("max-w-[68ch]")));
     assert.ok(!reported.some((message) => message.includes("grid-cols-[")));
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+// Extending a preset has to be enough to name a `howells/*` rule. Oxlint
+// resolves a rule entry against the plugin set in scope, and a config that
+// extends a preset carrying no `jsPlugins` entry for the policy plugin is
+// refused outright — "Plugin 'howells' not found" aborts the run, so the rule
+// never gets to report and nothing else in the config is linted either. Both
+// halves are asserted: the plugin rides on every preset, and a consumer that
+// extends the one preset that used to lack it gets diagnostics without
+// re-declaring `jsPlugins` itself.
+test("every Oxlint preset puts the policy plugin in scope", () => {
+  for (const [name, preset] of [
+    ["boundaries", boundaries],
+    ["core", core],
+    ["neon", neon],
+    ["next", next],
+    ["playwright", playwright],
+    ["react", react],
+    ["shadcn", shadcn],
+  ]) {
+    assert.ok(
+      resolvedJsPluginNames(preset).includes("howells"),
+      `${name} preset does not load the howells plugin`
+    );
+  }
+});
+
+test("a consumer enabling a howells rule needs no jsPlugins of its own", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import shadcn from ${JSON.stringify(shadcnPresetUrl)};\n\nexport default {\n  extends: [shadcn],\n  rules: {\n    "howells/no-raw-jsx-elements": ["error", { allow: ["html"] }],\n  },\n};\n`
+    );
+    await writeFixture(
+      root,
+      "src/shell.tsx",
+      "export const Shell = () => (\n  <html>\n    <div>hi</div>\n  </html>\n);\n"
+    );
+
+    const result = await runOxlint(root);
+    // A refused config exits 1 with no JSON at all, so parsing is the assertion
+    // that the plugin resolved.
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(no-raw-jsx-elements)"
+    );
+    assert.equal(ruleDiagnostics.length, 1);
+    assert.match(JSON.stringify(ruleDiagnostics), /Raw <div> is banned/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("opt-in no-raw-motion-namespace rule bans the full animation namespace", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import react from ${JSON.stringify(reactPresetUrl)};\n\nexport default {\n  extends: [react],\n  rules: {\n    "howells/no-raw-motion-namespace": ["error", { allowIn: ["motion-config"] }],\n  },\n};\n`
+    );
+    // JSX member name.
+    await writeFixture(
+      root,
+      "src/panel.tsx",
+      [
+        'import { motion } from "motion/react";',
+        "",
+        "export const Panel = () => <motion.div animate={{ opacity: 1 }} />;",
+        "",
+      ].join("\n")
+    );
+    // Member expression as a call callee.
+    await writeFixture(
+      root,
+      "src/factory.tsx",
+      [
+        'import { motion } from "motion/react";',
+        "",
+        "const Trigger = () => null;",
+        "",
+        "export const Styled = motion.create(Trigger);",
+        "",
+      ].join("\n")
+    );
+    // `typeof` on the same member expression, which parses as a type query
+    // rather than a member expression and so needs its own visitor.
+    await writeFixture(
+      root,
+      "src/element-type.ts",
+      [
+        'import { motion } from "motion/react";',
+        "",
+        "export type El = typeof motion.button;",
+        "",
+      ].join("\n")
+    );
+    // Hooks and providers are bare identifiers, never members of the namespace.
+    await writeFixture(
+      root,
+      "src/hooks.tsx",
+      [
+        'import { AnimatePresence, useScroll } from "motion/react";',
+        "",
+        "export const Reveal = () => {",
+        "  useScroll();",
+        "  return <AnimatePresence>{null}</AnimatePresence>;",
+        "};",
+        "",
+      ].join("\n")
+    );
+    // The lazy primitives are the sanctioned form.
+    await writeFixture(
+      root,
+      "src/lazy.tsx",
+      [
+        'import * as m from "motion/react-m";',
+        "",
+        "export const Fade = () => <m.div animate={{ opacity: 1 }} />;",
+        "",
+      ].join("\n")
+    );
+    // The regression fixture that proves the rule is not textual: the script it
+    // replaces scanned source text and needed an explicit comment check.
+    await writeFixture(
+      root,
+      "src/note.ts",
+      [
+        "// A motion.div here would defeat the code-split.",
+        'export const note = "motion.div";',
+        "",
+      ].join("\n")
+    );
+    // `allowIn` exempts the module that owns the namespace.
+    await writeFixture(
+      root,
+      "src/motion-config.tsx",
+      [
+        'import { motion } from "motion/react";',
+        "",
+        "export const Root = () => <motion.div />;",
+        "",
+      ].join("\n")
+    );
+
+    const result = await runOxlint(root);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(no-raw-motion-namespace)"
+    );
+    const messages = ruleDiagnostics
+      .map((diagnostic) => diagnostic.message)
+      .join("\n");
+    const files = ruleDiagnostics
+      .map((diagnostic) => diagnostic.filename)
+      .join("\n");
+
+    assert.equal(ruleDiagnostics.length, 3);
+    assert.match(messages, /Render `m\.div` instead of `motion\.div`/);
+    assert.match(messages, /Render `m\.create` instead of `motion\.create`/);
+    assert.match(messages, /Render `m\.button` instead of `motion\.button`/);
+    assert.match(messages, /pulls the animation engine/);
+    for (const quiet of ["hooks", "lazy", "note", "motion-config"]) {
+      assert.doesNotMatch(files, new RegExp(quiet, "u"));
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("opt-in no-avoidable-arbitrary-spacing rule reports only clean steps", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import react from ${JSON.stringify(reactPresetUrl)};\n\nexport default {\n  extends: [react],\n  rules: {\n    "howells/no-avoidable-arbitrary-spacing": "error",\n  },\n};\n`
+    );
+    await writeFixture(
+      root,
+      "src/box.tsx",
+      [
+        'const extra = "shrink-0";',
+        "",
+        "export const Box = () => (",
+        '  <div className="w-[320px]">',
+        '    <div className="gap-[1.5rem] px-[8px]" />',
+        "    <span className={`mt-[2px] ${extra}`} />",
+        '    <div className="w-[13px]" />',
+        '    <div className="w-[var(--panel)] max-w-[calc(100%-2rem)] h-[50vh]" />',
+        '    <div className="data-[state=open]:w-80 [&>svg]:size-4 text-[13px]" />',
+        "  </div>",
+        ");",
+        "",
+      ].join("\n")
+    );
+
+    const result = await runOxlint(root);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(no-avoidable-arbitrary-spacing)"
+    );
+    const messages = ruleDiagnostics
+      .map((diagnostic) => diagnostic.message)
+      .join("\n");
+
+    // 320px = 80 steps, 1.5rem = 6, 8px = 2, 2px = half a step.
+    assert.equal(ruleDiagnostics.length, 4);
+    assert.match(messages, /`w-\[320px\]` has an exact standard equivalent/);
+    assert.match(messages, /`gap-\[1\.5rem\]`/);
+    assert.match(messages, /`px-\[8px\]`/);
+    assert.match(messages, /`mt-\[2px\]`/);
+    // 13px is not a step, so there is nothing to convert to.
+    assert.doesNotMatch(messages, /13px/);
+    // A variable, a calc(), a viewport unit, an arbitrary variant and a
+    // non-spacing scale are all outside the rule.
+    assert.doesNotMatch(messages, /var\(--panel\)|calc|50vh|state=open|text-/);
+    // The span is reported at the token inside the template, not the whole node.
+    const [inTemplate] = ruleDiagnostics.filter((diagnostic) =>
+      diagnostic.message.includes("mt-[2px]")
+    );
+    assert.equal(inTemplate.labels[0].span.length, "mt-[2px]".length);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("opt-in design-token-alpha rule pins a token's alpha", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    const tokens = [{ alpha: 80, utility: "ring-gray-500" }];
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import react from ${JSON.stringify(reactPresetUrl)};\n\nexport default {\n  extends: [react],\n  rules: {\n    "howells/design-token-alpha": ["error", { tokens: ${JSON.stringify(tokens)} }],\n  },\n};\n`
+    );
+    await writeFixture(
+      root,
+      "src/ring.tsx",
+      [
+        'import { cn } from "cn";',
+        "",
+        'export const ring = "ring-gray-500/100";',
+        "",
+        "export const Field = () => (",
+        '  <div className={cn("focus-visible:ring-gray-500/30")}>',
+        '    <div className="data-[focused=true]:ring-gray-500/50" />',
+        '    <div className={cn("focus-visible:ring-gray-500/80")} />',
+        '    <div className="ring-gray-400/30 ring-offset-gray-500/30" />',
+        '    <div className="ring-gray-500" />',
+        "  </div>",
+        ");",
+        "",
+      ].join("\n")
+    );
+
+    const result = await runOxlint(root);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(design-token-alpha)"
+    );
+    const messages = ruleDiagnostics
+      .map((diagnostic) => diagnostic.message)
+      .join("\n");
+
+    assert.equal(ruleDiagnostics.length, 3);
+    assert.match(
+      messages,
+      /`ring-gray-500\/30` drifts from the token alpha; use `ring-gray-500\/80`/
+    );
+    assert.match(messages, /`ring-gray-500\/50` drifts/);
+    assert.match(messages, /`ring-gray-500\/100` drifts/);
+    // The pinned alpha, a different shade, a different utility that merely
+    // contains the token's text, and a bare token all stay quiet.
+    assert.doesNotMatch(messages, /`ring-gray-500\/80` drifts/);
+    assert.doesNotMatch(messages, /ring-gray-400/);
+    assert.doesNotMatch(messages, /ring-offset/);
+    assert.doesNotMatch(messages, /`ring-gray-500` carries no alpha/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("design-token-alpha reports a bare token when requireAlphaSuffix is set", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    const tokens = [{ alpha: 80, utility: "ring-gray-500" }];
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import react from ${JSON.stringify(reactPresetUrl)};\n\nexport default {\n  extends: [react],\n  rules: {\n    "howells/design-token-alpha": ["error", { requireAlphaSuffix: true, tokens: ${JSON.stringify(tokens)} }],\n  },\n};\n`
+    );
+    await writeFixture(
+      root,
+      "src/bare.tsx",
+      [
+        "export const Field = () => (",
+        '  <div className="ring-gray-500">',
+        '    <div className="ring-gray-500/80" />',
+        "  </div>",
+        ");",
+        "",
+      ].join("\n")
+    );
+
+    const result = await runOxlint(root);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(design-token-alpha)"
+    );
+
+    assert.equal(ruleDiagnostics.length, 1);
+    assert.match(
+      ruleDiagnostics[0].message,
+      /`ring-gray-500` carries no alpha; use `ring-gray-500\/80`/
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("opt-in transition-after-focus-helper rule reads the merge call's argument order", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    const helpers = ["focusInput", "focusRing"];
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import react from ${JSON.stringify(reactPresetUrl)};\n\nexport default {\n  extends: [react],\n  rules: {\n    "howells/transition-after-focus-helper": ["error", { helpers: ${JSON.stringify(helpers)} }],\n  },\n};\n`
+    );
+    await writeFixture(
+      root,
+      "src/field.ts",
+      [
+        'import { cn } from "cn";',
+        "",
+        'const focusInput = () => "transition-[color,box-shadow]";',
+        'const focusRing = () => "transition-[box-shadow]";',
+        'const className = "";',
+        'const extra = "";',
+        "",
+        "// Reported: the literal transition list is deleted by the helper's.",
+        'export const one = cn("transition-all", focusInput());',
+        "export const two = cn(",
+        '  "border transition-[color,box-shadow]",',
+        "  focusRing(),",
+        "  className",
+        ");",
+        "export const three = cn(`transition-colors ${extra}`, focusInput());",
+        "",
+        "// Not reported: the sanctioned order, a comment naming the helper, and",
+        "// variant-prefixed tokens, which are a different merge group.",
+        'export const four = cn(focusInput(), "transition-all");',
+        'export const five = cn("transition-all", /* mirrors focusInput() */ "border");',
+        "export const six = cn(",
+        '  "motion-reduce:transition-none hover:transition-colors",',
+        "  focusInput()",
+        ");",
+        "",
+      ].join("\n")
+    );
+
+    const result = await runOxlint(root);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(transition-after-focus-helper)"
+    );
+    const messages = ruleDiagnostics
+      .map((diagnostic) => diagnostic.message)
+      .join("\n");
+
+    assert.equal(ruleDiagnostics.length, 3);
+    assert.match(
+      messages,
+      /Move `transition-all` after `focusInput\(\)`; tailwind-merge keeps the last class in the transition group/
+    );
+    assert.match(
+      messages,
+      /Move `transition-\[color,box-shadow\]` after `focusRing\(\)`/
+    );
+    assert.match(messages, /Move `transition-colors` after `focusInput\(\)`/);
+    // A variant-prefixed token is never the same conflict group.
+    assert.doesNotMatch(messages, /transition-none/);
+    assert.doesNotMatch(messages, /hover:/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("opt-in no-deep-package-imports rule stops at the package's own shim", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    const prefixes = [
+      { depth: 1, prefix: "@instruments/materia-ui/components" },
+    ];
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\n\nexport default {\n  extends: [core],\n  rules: {\n    "howells/no-deep-package-imports": ["error", { prefixes: ${JSON.stringify(prefixes)} }],\n  },\n};\n`
+    );
+    // The target package's own manifest decides which deep paths are public. A
+    // wildcard pattern is deliberately not a declaration: it would match every
+    // depth and neuter the rule for the whole namespace.
+    await writeFixture(
+      root,
+      "src/node_modules/@instruments/materia-ui/package.json",
+      `${JSON.stringify(
+        {
+          name: "@instruments/materia-ui",
+          version: "0.0.0",
+          exports: {
+            "./components/*": "./dist/components/*/index.js",
+            "./components/sidebar/sidebar-constants":
+              "./dist/components/sidebar/sidebar-constants.js",
+            "./utils/cn": "./dist/utils/cn.js",
+          },
+        },
+        null,
+        2
+      )}\n`
+    );
+    await writeFixture(
+      root,
+      "src/deep-named.ts",
+      'export { ButtonRoot } from "@instruments/materia-ui/components/button/button-root";\n'
+    );
+    await writeFixture(
+      root,
+      "src/deep-import.ts",
+      [
+        'import { SidebarNav } from "@instruments/materia-ui/components/sidebar/sidebar-nav";',
+        "",
+        "export const nav = SidebarNav;",
+        "",
+      ].join("\n")
+    );
+    await writeFixture(
+      root,
+      "src/deep-dynamic.ts",
+      [
+        "export const load = () =>",
+        '  import("@instruments/materia-ui/components/chart/chart-root");',
+        "",
+      ].join("\n")
+    );
+    await writeFixture(
+      root,
+      "src/deep-require.ts",
+      [
+        "declare const require: (id: string) => unknown;",
+        "",
+        "export const chart = require(",
+        '  "@instruments/materia-ui/components/chart/chart-root"',
+        ");",
+        "",
+      ].join("\n")
+    );
+    await writeFixture(
+      root,
+      "src/shim.ts",
+      [
+        'import { Button } from "@instruments/materia-ui/components/button";',
+        "",
+        "export const trigger = Button;",
+        "",
+      ].join("\n")
+    );
+    await writeFixture(
+      root,
+      "src/outside-prefix.ts",
+      [
+        'import { cn } from "@instruments/materia-ui/utils/cn";',
+        "",
+        "export const join = cn;",
+        "",
+      ].join("\n")
+    );
+    await writeFixture(
+      root,
+      "src/declared-export.ts",
+      [
+        'import { sidebarConstants } from "@instruments/materia-ui/components/sidebar/sidebar-constants";',
+        "",
+        "export const constants = sidebarConstants;",
+        "",
+      ].join("\n")
+    );
+
+    const result = await runOxlint(root);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(no-deep-package-imports)"
+    );
+    const messages = ruleDiagnostics
+      .map((diagnostic) => diagnostic.message)
+      .join("\n");
+    const files = ruleDiagnostics
+      .map((diagnostic) => diagnostic.filename)
+      .join("\n");
+
+    assert.equal(ruleDiagnostics.length, 4);
+    assert.match(
+      messages,
+      /Import from `@instruments\/materia-ui\/components\/button`; `@instruments\/materia-ui\/components\/button\/button-root` reaches into the package's internals/
+    );
+    assert.match(
+      messages,
+      /Import from `@instruments\/materia-ui\/components\/sidebar`/
+    );
+    assert.equal(
+      ruleDiagnostics.filter((diagnostic) =>
+        diagnostic.message.includes("chart/chart-root")
+      ).length,
+      2
+    );
+    // The shim, a subpath outside the governed prefix, and the deep path the
+    // package declares literally in its own `exports` map all stay quiet.
+    assert.doesNotMatch(files, /shim|outside-prefix|declared-export/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("opt-in no-out-of-bounds-package-imports rule confines a namespace to its owner", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\n\nexport default {\n  extends: [core],\n  rules: {\n    "howells/no-out-of-bounds-package-imports": [\n      "error",\n      { packages: ["@mastra/*", "mastra"], within: ["packages/mastra"] },\n    ],\n  },\n};\n`
+    );
+    await writeFixture(
+      root,
+      "packages/utils/index.ts",
+      [
+        'import { Agent } from "@mastra/core";',
+        "",
+        "export const agent = Agent;",
+        "",
+      ].join("\n")
+    );
+    await writeFixture(
+      root,
+      "apps/web/page.ts",
+      'export { workflow } from "mastra/workflows";\n'
+    );
+    await writeFixture(
+      root,
+      "apps/web/lib/deep/nested.ts",
+      'import "@mastra/loggers";\n'
+    );
+    await writeFixture(
+      root,
+      "packages/mastra/src/agent.ts",
+      [
+        'import { Agent } from "@mastra/core";',
+        'import { build } from "mastra";',
+        "",
+        "export const owned = [Agent, build];",
+        "",
+      ].join("\n")
+    );
+    await writeFixture(
+      root,
+      "apps/admin/page.ts",
+      [
+        'import { helper } from "mastrado";',
+        "",
+        "export const aid = helper;",
+        "",
+      ].join("\n")
+    );
+    await writeFixture(
+      root,
+      "packages/utils/other.ts",
+      ['import { z } from "zod";', "", "export const schema = z;", ""].join(
+        "\n"
+      )
+    );
+
+    const result = await runOxlint(root, ["apps", "packages"]);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(no-out-of-bounds-package-imports)"
+    );
+    const files = ruleDiagnostics
+      .map((diagnostic) => diagnostic.filename)
+      .join("\n");
+
+    assert.equal(ruleDiagnostics.length, 3);
+    assert.match(
+      ruleDiagnostics[0].message,
+      /may only be imported inside packages\/mastra\. Reach it through that package's own exports instead\./
+    );
+    assert.match(files, /packages\/utils\/index\.ts/);
+    assert.match(files, /apps\/web\/page\.ts/);
+    assert.match(files, /apps\/web\/lib\/deep\/nested\.ts/);
+    // The owning package at any depth, a package that merely shares a prefix
+    // with an exact entry, and an unrestricted specifier are all left alone.
+    assert.doesNotMatch(files, /packages\/mastra/);
+    assert.doesNotMatch(files, /apps\/admin/);
+    assert.doesNotMatch(files, /other\.ts/);
   } finally {
     await rm(root, { force: true, recursive: true });
   }

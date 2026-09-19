@@ -1,5 +1,7 @@
 import { defineConfig } from "oxlint";
 
+import { boundaryJsPlugins } from "./boundaries.mjs";
+
 // The rules are vendored rather than installed: the published plugin depends on
 // `@typescript-eslint/parser`, which declares ESLint as a required peer, so
 // pnpm would put ESLint and a legacy TypeScript compiler in every consumer even
@@ -133,7 +135,12 @@ export const componentSourceOverride = (files) => ({
   },
 });
 
+// The policy plugin rides along even though this preset enables none of its
+// rules. A consumer that extends only this preset and turns on a `howells/*`
+// rule would otherwise fail config parsing with "Plugin 'howells' not found",
+// which takes the whole lint run down; every preset carries the plugin so that
+// extending any one of them is enough to name a `howells/*` rule.
 export default defineConfig({
-  jsPlugins: shadcnJsPlugins,
+  jsPlugins: [...boundaryJsPlugins, ...shadcnJsPlugins],
   rules: shadcnRules,
 });
