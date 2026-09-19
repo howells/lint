@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.4.1 — 2026-09-19
+
+### Fixed
+
+- An exclude pattern is no longer read as a path that does not exist. Both tools take a `!`-prefixed exclude and a quoted glob as positional arguments, and `missingTargets` checked every positional with `existsSync`, so a pattern could never exist and `howells-check`, `howells-fix` and `howells-oxfmt` printed `no such path(s): !…` and exited non-zero after both tools had run clean. Reported from samplize, where a package whose lint script excludes one generated JSON file could not go green: oxfmt had correctly excluded the file and reported all 196 remaining files well formatted, and the wrapper failed afterwards on its own check. A pattern is now exempt from the disk check, and a genuine typo still fails.
+- An exclude now reaches Oxlint as well as Oxfmt. Oxfmt honours a `!pattern` positional natively; Oxlint, measured on 1.82.0, neither errors nor excludes - it lints the file anyway - so one argument meant two different things across the two stages of a single command, and the file a consumer had excluded was still linted. `howells-check`, `howells-fix` and `howells-oxlint` translate an exclude into the `--ignore-pattern` flag Oxlint does honour. Covered by a test asserting that the excluded file's finding is absent with the exclude and present without it, so the assertion reads an exclusion rather than a rule that never fires.
+
 ## 3.4.0 — 2026-09-19
 
 ### Added

@@ -9,7 +9,13 @@ import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
-import { partitionOxlintArgs } from "../bin/parse-oxlint-args.mjs";
+import {
+  isPatternTarget,
+  oxlintExcludeArgs,
+  partitionOxlintArgs,
+  pathTargets,
+  withOxlintExcludes,
+} from "../bin/parse-oxlint-args.mjs";
 
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(
@@ -357,6 +363,101 @@ test("an explicit --config still wins", async () => {
 
     assert.match(result.output, /no-debugger/);
     assert.doesNotMatch(result.output, /Rename it to oxlint\.config\.ts/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("a pattern target is not a path, so nothing checks it on disk", () => {
+  // An exclude and a glob are both documented positional patterns, and neither
+  // can exist on disk.
+  assert.equal(isPatternTarget("!src/generated/font.json"), true);
+  assert.equal(isPatternTarget("src/**/*.ts"), true);
+  assert.equal(isPatternTarget("src/a?.ts"), true);
+  assert.equal(isPatternTarget("src/{a,b}.ts"), true);
+  assert.equal(isPatternTarget("src"), false);
+  assert.equal(isPatternTarget("src/a.ts"), false);
+});
+
+test("an exclude reaches Oxlint as the flag it honours", () => {
+  // Oxfmt takes `!pattern` as written; Oxlint ignores it silently, so the same
+  // argument would mean two different things across one command's two stages.
+  assert.deepEqual(oxlintExcludeArgs(["src", "!src/skip.ts"]), [
+    "--ignore-pattern",
+    "src/skip.ts",
+  ]);
+  assert.deepEqual(pathTargets(["src", "!src/skip.ts"]), ["src"]);
+  assert.deepEqual(withOxlintExcludes(["src", "!src/skip.ts"]), [
+    "src",
+    "--ignore-pattern",
+    "src/skip.ts",
+  ]);
+  // A value that follows a space-form flag is never mistaken for a target, so a
+  // config path that happens to start with `!` is left alone.
+  assert.deepEqual(withOxlintExcludes(["--config", "!odd.config.ts", "src"]), [
+    "--config",
+    "!odd.config.ts",
+    "src",
+  ]);
+});
+
+test("an exclude pattern passes, excludes, and still leaves a typo failing", async () => {
+  const root = await makeConsumerFixture({
+    "src/keep.ts": "export const keep = 1;\n",
+    // `debugger` is reported by the core preset and by nothing in Oxlint's
+    // defaults, so it reads directly on whether the file was linted.
+    "src/skip.ts": "export const f = () => {\n  debugger;\n  return 1;\n};\n",
+  });
+
+  try {
+    for (const binName of ["howells-check", "howells-oxlint", "howells-fix"]) {
+      const excluded = await runBin(binName, ["src", "!src/skip.ts"], root);
+
+      assert.equal(
+        excluded.status,
+        0,
+        `${binName} failed on an exclude pattern: ${excluded.output}`
+      );
+      // The false failure this replaces: the tools ran clean and the wrapper
+      // failed afterwards on its own path check.
+      assert.doesNotMatch(excluded.output, /no such path/);
+      // The exclude has to reach Oxlint, not just Oxfmt.
+      assert.doesNotMatch(excluded.output, /debugger/);
+    }
+
+    // Without the exclude the same file is linted, so the assertion above is
+    // reading an exclusion rather than a rule that never fires.
+    const included = await runBin("howells-check", ["src"], root);
+    assert.notEqual(included.status, 0);
+    assert.match(included.output, /debugger/);
+
+    // A genuine typo alongside an exclude still fails, and names only the typo.
+    const typo = await runBin(
+      "howells-check",
+      ["src", "!src/skip.ts", "nope.ts"],
+      root
+    );
+    assert.notEqual(typo.status, 0);
+    assert.match(typo.output, /no such path\(s\): nope\.ts/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("a quoted glob target does not fail as a missing path", async () => {
+  const root = await makeConsumerFixture({
+    "src/keep.ts": "export const keep = 1;\n",
+  });
+
+  try {
+    const result = await runBin(
+      "howells-oxfmt",
+      ["--check", "src/**/*.ts"],
+      root
+    );
+
+    assert.equal(result.status, 0, result.output);
+    assert.doesNotMatch(result.output, /no such path/);
   } finally {
     await rm(root, { force: true, recursive: true });
   }

@@ -5,7 +5,12 @@ import path from "node:path";
 import process from "node:process";
 
 import { exitFromStages, runStage } from "./empty-target-set.mjs";
-import { partitionOxlintArgs } from "./parse-oxlint-args.mjs";
+import {
+  isPatternTarget,
+  oxlintExcludeArgs,
+  partitionOxlintArgs,
+  pathTargets,
+} from "./parse-oxlint-args.mjs";
 import {
   warnOnShadowedOxfmtConfigs,
   withOxfmtConfig,
@@ -43,6 +48,11 @@ const testFileTargets = (targets) => {
   const found = new Set();
 
   for (const target of targets) {
+    // A pattern is not a path to walk, and an exclude must not become a target.
+    if (isPatternTarget(target)) {
+      continue;
+    }
+
     if (!isDirectory(target)) {
       if (TEST_FILE_PATTERN.test(target)) {
         found.add(target);
@@ -85,8 +95,9 @@ const lintFixStage = runStage(
   withOxlintConfig([
     useDangerousFixes ? "--fix-dangerously" : "--fix",
     ...TEST_FILE_GLOBS.flatMap((glob) => ["--ignore-pattern", glob]),
+    ...oxlintExcludeArgs(resolvedTargets),
     ...oxlintOptions,
-    ...resolvedTargets,
+    ...pathTargets(resolvedTargets),
   ])
 );
 const stages = [formatStage, lintFixStage];
@@ -96,7 +107,11 @@ if (testTargets.length > 0) {
     runStage(
       "oxlint",
       "oxlint",
-      withOxlintConfig([...oxlintOptions, ...testTargets])
+      withOxlintConfig([
+        ...oxlintExcludeArgs(resolvedTargets),
+        ...oxlintOptions,
+        ...testTargets,
+      ])
     )
   );
 }

@@ -3,7 +3,11 @@
 import process from "node:process";
 
 import { exitFromStages, runStage } from "./empty-target-set.mjs";
-import { partitionOxlintArgs } from "./parse-oxlint-args.mjs";
+import {
+  oxlintExcludeArgs,
+  partitionOxlintArgs,
+  pathTargets,
+} from "./parse-oxlint-args.mjs";
 import { withOxfmtConfig } from "./resolve-oxfmt-config.mjs";
 import { withOxlintConfig } from "./resolve-oxlint-config.mjs";
 
@@ -20,10 +24,16 @@ const formatStage = runStage(
   "oxfmt",
   withOxfmtConfig(["--check", ...resolvedTargets])
 );
+// Oxfmt takes the exclude as written; Oxlint only honours it as a flag. See
+// `oxlintExcludeArgs` in `parse-oxlint-args.mjs`.
 const lintStage = runStage(
   "oxlint",
   "oxlint",
-  withOxlintConfig([...oxlintOptions, ...resolvedTargets])
+  withOxlintConfig([
+    ...oxlintOptions,
+    ...oxlintExcludeArgs(resolvedTargets),
+    ...pathTargets(resolvedTargets),
+  ])
 );
 
 exitFromStages("howells-check", [formatStage, lintStage], targets);

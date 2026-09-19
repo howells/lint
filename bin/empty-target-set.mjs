@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import process from "node:process";
 
+import { isPatternTarget } from "./parse-oxlint-args.mjs";
 import { spawnPackageBinCapture } from "./run-package-bin.mjs";
 
 // Messages the tools print when the resolved path set is empty after ignore
@@ -46,8 +47,13 @@ export const classify = (result) => {
 // An explicitly-named path that does not exist on disk is a genuine user error
 // (a typo), distinct from a path that exists but holds nothing lintable. Only
 // the former should fail the command.
+//
+// A pattern is not a path and never exists on disk, so an exclude or a glob is
+// exempt from the check entirely. Both tools take them as positional arguments,
+// and checking them here failed a command whose tools had both run clean - a
+// package whose lint script excluded one generated JSON file could not go green.
 export const missingTargets = (targets) =>
-  targets.filter((target) => !existsSync(target));
+  targets.filter((target) => !isPatternTarget(target) && !existsSync(target));
 
 export const runStage = (packageName, binName, commandArgs) => {
   const result = spawnPackageBinCapture(packageName, binName, commandArgs);
