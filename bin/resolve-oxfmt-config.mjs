@@ -111,7 +111,9 @@ export function warnOnShadowedOxfmtConfigs(targets, cwd = process.cwd()) {
       shadowed.length === 1 ? "" : "s"
     } will not be read:\n${shadowed
       .map((entry) => `  ${entry}\n`)
-      .join("")}Run the formatter from each package directory, or name explicit paths, to use their settings.\n`
+      .join(
+        ""
+      )}Run the formatter from each package directory, or name explicit paths, to use their settings.\n`
   );
 
   return shadowed;

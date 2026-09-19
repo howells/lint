@@ -87,10 +87,7 @@ test("shadowedOxfmtConfigs names nested configs a pinned config would bypass", a
       "export default {};\n"
     );
     await mkdir(path.join(root, "apps", "web"), { recursive: true });
-    await writeFile(
-      path.join(root, "apps", "web", ".oxfmtrc.json"),
-      "{}\n"
-    );
+    await writeFile(path.join(root, "apps", "web", ".oxfmtrc.json"), "{}\n");
     await mkdir(path.join(root, "node_modules", "dep"), { recursive: true });
     await writeFile(
       path.join(root, "node_modules", "dep", "oxfmt.config.ts"),
