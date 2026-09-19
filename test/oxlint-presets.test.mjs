@@ -2197,15 +2197,25 @@ test("a within entry is the same directory written with a slash or a dot slash",
   }
 });
 
-// The SonarJS plugin was retired in 3.0.0. Its dependency-manifest resolver
-// reads a package manifest per directory and writes a `console.debug` line for
-// every `catalog:` reference it cannot resolve against the catalog source, which
-// in a catalogued monorepo is one line per catalogued dependency per lint run -
-// measured at 265 lines in one repo and 184 in another, both still on 2.2.0,
-// while a repo on 3.3.3 is silent. Nothing in this lane reads a manifest any
-// more; these two assertions are what keeps it that way, because the plugin
-// would come back through an Ultracite JS-plugin preset rather than through a
-// change here.
+// The SonarJS plugin was retired in 3.0.0. Six of its rules read a dependency
+// manifest per directory through the resolver that writes a `console.debug`
+// line for every `catalog:` reference it cannot resolve against the catalog
+// source; in a catalogued monorepo that is one line per catalogued dependency
+// per lint run. Two of the six were on at error in the 2.2.0 lane
+// (`stable-tests` and `no-skipped-tests`; `no-implicit-dependencies`, the
+// obvious suspect, was off), which is why repos still on that version are noisy
+// and a repo on 3.3.3 is silent. Nothing in this lane reads a manifest any more;
+// these assertions are what keeps it that way, because the plugin would come
+// back through an Ultracite JS-plugin preset rather than through a change here.
+const MANIFEST_READING_RULES = [
+  "sonarjs/no-default-utility-imports",
+  "sonarjs/no-forced-browser-interaction",
+  "sonarjs/no-implicit-dependencies",
+  "sonarjs/no-skipped-tests",
+  "sonarjs/prefer-specific-assertions",
+  "sonarjs/stable-tests",
+];
+
 test("no preset loads a manifest-reading plugin", () => {
   for (const [name, preset] of [
     ["core", core],
@@ -2223,6 +2233,13 @@ test("no preset loads a manifest-reading plugin", () => {
       [],
       `${name} preset enables sonarjs rules`
     );
+    const resolved = resolvedRules(preset);
+    for (const rule of MANIFEST_READING_RULES) {
+      assert.ok(
+        !(rule in resolved),
+        `${name} preset enables ${rule}, which reads a dependency manifest`
+      );
+    }
   }
 });
 
