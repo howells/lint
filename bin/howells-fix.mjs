@@ -6,7 +6,10 @@ import process from "node:process";
 
 import { exitFromStages, runStage } from "./empty-target-set.mjs";
 import { partitionOxlintArgs } from "./parse-oxlint-args.mjs";
-import { withOxfmtConfig } from "./resolve-oxfmt-config.mjs";
+import {
+  warnOnShadowedOxfmtConfigs,
+  withOxfmtConfig,
+} from "./resolve-oxfmt-config.mjs";
 import { withOxlintConfig } from "./resolve-oxlint-config.mjs";
 
 // A lint autofix is never applied to a test file. Oxlint calls a fix safe when
@@ -66,6 +69,8 @@ const filteredArgs = args.filter((arg) => arg !== "--unsafe");
 const { options: oxlintOptions, targets } = partitionOxlintArgs(filteredArgs);
 const resolvedTargets = targets.length > 0 ? targets : ["."];
 const testTargets = testFileTargets(resolvedTargets);
+
+warnOnShadowedOxfmtConfigs(resolvedTargets);
 
 // Format first so the linter fixes clean input, but run both stages and report
 // the first genuine failure rather than stopping after the formatter.

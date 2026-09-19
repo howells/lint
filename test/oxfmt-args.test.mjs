@@ -5,7 +5,10 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { withOxfmtConfig } from "../bin/resolve-oxfmt-config.mjs";
+import {
+  shadowedOxfmtConfigs,
+  withOxfmtConfig,
+} from "../bin/resolve-oxfmt-config.mjs";
 
 test("withOxfmtConfig passes an explicit config through unchanged", () => {
   assert.deepEqual(withOxfmtConfig(["--config", "custom.mjs", "src"]), [
@@ -70,5 +73,36 @@ test("withOxfmtConfig preserves Oxfmt's auto-discovered JSON config", async () =
     ]);
   } finally {
     await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("shadowedOxfmtConfigs names nested configs a pinned config would bypass", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "howells-oxfmt-shadow-"));
+
+  try {
+    await writeFile(path.join(root, "oxfmt.config.ts"), "export default {};\n");
+    await mkdir(path.join(root, "packages", "ui"), { recursive: true });
+    await writeFile(
+      path.join(root, "packages", "ui", "oxfmt.config.ts"),
+      "export default {};\n"
+    );
+    await mkdir(path.join(root, "apps", "web"), { recursive: true });
+    await writeFile(
+      path.join(root, "apps", "web", ".oxfmtrc.json"),
+      "{}\n"
+    );
+    await mkdir(path.join(root, "node_modules", "dep"), { recursive: true });
+    await writeFile(
+      path.join(root, "node_modules", "dep", "oxfmt.config.ts"),
+      "export default {};\n"
+    );
+
+    assert.deepEqual(shadowedOxfmtConfigs(["."], root), [
+      path.join("apps", "web", ".oxfmtrc.json"),
+      path.join("packages", "ui", "oxfmt.config.ts"),
+    ]);
+    assert.deepEqual(shadowedOxfmtConfigs(["package.json"], root), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });

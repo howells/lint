@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `howells-oxfmt --write` and `howells-fix` warn when the config they pin would bypass nested oxfmt configs, naming each one. A pinned `--config` applies to the whole run, so formatting a directory that holds its own configs deeper down formatted those packages to the outer settings and read nothing of theirs. Three consumer repos carried that as prose telling agents never to run the formatter from the repo root. The warning fires only where a nested config exists below a directory target, and formatting still proceeds, because failing would break `howells-fix .` at every monorepo root. Covered by a test asserting which configs are named and that an explicit file path names none.
+
 ## 3.3.5 — 2026-09-18
 
 ### Fixed
