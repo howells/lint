@@ -53,6 +53,8 @@ export const cleanSource = (name) =>
  * @param {Record<string, Record<string, unknown>>} [spec.packages] manifests by directory
  * @param {Record<string, string>} [spec.files] file contents by path
  * @param {string[]} [spec.workspaceGlobs] pnpm-workspace.yaml `packages:` entries
+ * @param {boolean} [spec.oxlintrc] write the shared `.oxlintrc.json`; off for a
+ *   fixture supplying its own Oxlint config per unit
  */
 export const makeFixture = async ({
   rootManifest = { name: "fixture", scripts: { lint: "howells-check src" } },

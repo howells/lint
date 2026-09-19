@@ -303,6 +303,43 @@ test("a unit's format check reads that unit's own oxfmt config", async () => {
   assert.equal((await runRatchet(root, ["--write"])).status, 0);
 });
 
+test("a unit's findings are counted under that unit's own oxlint config", async () => {
+  const root = await makeFixture({
+    rootManifest: { name: "mono", scripts: { lint: "turbo run lint" } },
+    packages: {
+      "apps/web": { name: "web", scripts: { lint: "howells-check src" } },
+    },
+    files: { "apps/web/src/a.js": offendingSource("a") },
+    oxlintrc: false,
+  });
+
+  // `.mjs` is a spelling Oxlint does not discover, so it is the one case where
+  // the wrapper pins a config with --config - and therefore the only place an
+  // Oxlint-side cwd slip could pin the root's config over the package's. The
+  // root enables no-console only and the package eqeqeq only, so which rule is
+  // counted names which config was read. Neither is on by Oxlint's defaults,
+  // unlike no-debugger, which fires whatever the config says and so cannot tell
+  // the two configs apart.
+  await writeFile(
+    path.join(root, "oxlint.config.mjs"),
+    'export default { rules: { "no-console": "error" } };\n'
+  );
+  await writeFile(
+    path.join(root, "apps/web/oxlint.config.mjs"),
+    'export default { rules: { eqeqeq: "error" } };\n'
+  );
+  await writeFile(
+    path.join(root, "apps/web/src/a.js"),
+    "export const a = (value) => {\n  console.log(value);\n  return value == 1;\n};\n"
+  );
+
+  assert.equal((await runRatchet(root, ["--write"])).status, 0);
+
+  assert.deepEqual((await baselineOf(root)).units, {
+    "apps/web": { "eslint(eqeqeq)": 1 },
+  });
+});
+
 test("an unknown argument is refused rather than ignored", async () => {
   const root = await singleUnitFixture();
 
