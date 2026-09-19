@@ -87,7 +87,7 @@
   "dependencies": {
     "@howells/neon": "^0.2.0",
     "@manypkg/cli": "0.25.1",
-    "cn": "0.2.6",
+    "cn": "0.3.0",
     "globals": "17.12.0",
     "oxc-parser": "0.148.0",
     "oxfmt": "0.67.0",
