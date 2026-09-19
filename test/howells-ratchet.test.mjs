@@ -264,6 +264,45 @@ test("an unformatted file fails outright unless the repo ratchets it", async () 
   assert.match(risen.stderr, /unformatted files {2}2 > 1/u);
 });
 
+test("a unit's format check reads that unit's own oxfmt config", async () => {
+  const root = await makeFixture({
+    rootManifest: { name: "mono", scripts: { lint: "turbo run lint" } },
+    packages: {
+      "apps/web": { name: "web", scripts: { lint: "howells-check src" } },
+    },
+    files: { "apps/web/src/a.js": offendingSource("a") },
+  });
+
+  // The root formats wide and the package narrow, so one file is formatted by
+  // the root's settings and unformatted by the package's. Both configs are
+  // spellings that need an explicit --config, which is what made resolving them
+  // from the wrong directory silent: the gate pinned the root's config and
+  // passed a file the package's own lint run would reject.
+  await writeFile(
+    path.join(root, "oxfmt.config.mjs"),
+    "export default { printWidth: 200 };\n"
+  );
+  await writeFile(
+    path.join(root, "apps/web/oxfmt.config.mjs"),
+    "export default { printWidth: 40 };\n"
+  );
+  await writeFile(
+    path.join(root, "apps/web/src/wide.js"),
+    "export const wide = (alpha, bravo, charlie) => alpha + bravo + charlie + 1;\n"
+  );
+
+  const narrow = await runRatchetJson(root, ["--write"]);
+  assert.equal(narrow.status, 2);
+  assert.match(narrow.json.error, /apps\/web: formatting/u);
+  assert.match(narrow.json.error, /wide\.js/u);
+
+  // The other side of it: with the package's config gone the same file is
+  // formatted by the root's width and the gate passes, so the failure above
+  // reads the package's config rather than anything else about the file.
+  await rm(path.join(root, "apps/web/oxfmt.config.mjs"));
+  assert.equal((await runRatchet(root, ["--write"])).status, 0);
+});
+
 test("an unknown argument is refused rather than ignored", async () => {
   const root = await singleUnitFixture();
 

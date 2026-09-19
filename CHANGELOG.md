@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.5.1 — 2026-09-19
+
+### Fixed
+
+- `howells-ratchet` reads each unit's own Oxfmt config for its formatting check. `measureFormatting` resolved the config from the process working directory instead of the unit's, so in a monorepo it pinned the repo root's `oxfmt.config.*` with `--config` for every package, and a pinned config applies to the whole run and beats the nested one the package's own lint would have discovered. The failure was silent and in the permissive direction: a file the package's own `howells-check` rejects passed the gate, because it was measured against the root's settings. A repo with no Oxfmt config anywhere got the packaged preset by the same route. Found by ratchet-d against 3.5.0. Covered by a two-sided test — a package whose config sets a narrower width fails on a file the root's width allows, and the same file passes once that config is removed — confirmed to fail against 3.5.0.
+
 ## 3.5.0 — 2026-09-19
 
 ### Added
