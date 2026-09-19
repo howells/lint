@@ -10,8 +10,18 @@ import {
 } from "./parse-oxlint-args.mjs";
 import { withOxfmtConfig } from "./resolve-oxfmt-config.mjs";
 import { withOxlintConfig } from "./resolve-oxlint-config.mjs";
+import { hasStdinFlag, refuseStdin } from "./stdin-mode.mjs";
 
 const args = process.argv.slice(2);
+
+// Both stages need a path on disk: the linter has no stdin mode, and a two-tool
+// pass cannot hand one source to two tools. Fail loudly rather than returning
+// nothing.
+if (hasStdinFlag(args, ["--stdin-filepath", "--stdin"])) {
+  refuseStdin("howells-check");
+  process.exit(2);
+}
+
 const { options: oxlintOptions, targets } = partitionOxlintArgs(args);
 const resolvedTargets = targets.length > 0 ? targets : ["."];
 

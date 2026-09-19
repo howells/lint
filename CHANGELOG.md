@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.4.2 — 2026-09-19
+
+### Fixed
+
+- `howells-oxfmt --stdin-filepath=<path>` returns the formatted source again. Every wrapper ran its tool through `spawnPackageBinCapture`, which captures stdio so it can tell an empty path set apart from a real failure, and a captured child inherits no stdin: oxfmt read nothing, printed nothing and exited 0, so a consumer piping source in got an empty string back and no error. Reported from materialdesk, whose docs-manifest generator piped a source file through the formatter and silently wrote a zero-byte file. A stdin run now bypasses the capture path entirely and inherits the parent's stdio, so the tool reads the piped source and its stdout passes through unchanged; nothing classifies that output, because the bytes are the formatted file and an empty path set cannot arise where there is no path. Both flag forms work, `--stdin-filepath=x.ts` and `--stdin-filepath x.ts`, and the flag is paired in the argument partition so its space-form value is not read as a lint target.
+- `howells-oxlint`, `howells-check` and `howells-fix` refuse a stdin request with a one-line message and exit 2. Oxlint 1.82.0 has no stdin mode, and a two-tool pass cannot hand one piped source to two tools, so there is nothing to serve; failing loudly beats the previous empty output and exit 0, which reads as success.
+
 ## 3.4.1 — 2026-09-19
 
 ### Fixed

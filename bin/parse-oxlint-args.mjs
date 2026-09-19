@@ -9,6 +9,7 @@ const VALUE_FLAGS = new Set([
   "--format",
   "--ignore-path",
   "--ignore-pattern",
+  "--stdin-filepath",
   "--threads",
   "--debug",
   "-A",

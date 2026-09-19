@@ -16,6 +16,7 @@ import {
   withOxfmtConfig,
 } from "./resolve-oxfmt-config.mjs";
 import { withOxlintConfig } from "./resolve-oxlint-config.mjs";
+import { hasStdinFlag, refuseStdin } from "./stdin-mode.mjs";
 
 // A lint autofix is never applied to a test file. Oxlint calls a fix safe when
 // it preserves the behaviour of the code it rewrites, but in a test the code is
@@ -74,6 +75,15 @@ const testFileTargets = (targets) => {
 };
 
 const args = process.argv.slice(2);
+
+// Both stages need a path on disk: the linter has no stdin mode, and a two-tool
+// pass cannot hand one source to two tools. Fail loudly rather than returning
+// nothing.
+if (hasStdinFlag(args, ["--stdin-filepath", "--stdin"])) {
+  refuseStdin("howells-fix");
+  process.exit(2);
+}
+
 const useDangerousFixes = args.includes("--unsafe");
 const filteredArgs = args.filter((arg) => arg !== "--unsafe");
 const { options: oxlintOptions, targets } = partitionOxlintArgs(filteredArgs);
