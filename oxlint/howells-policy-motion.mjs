@@ -2,23 +2,7 @@
 // component code. The governed namespace and its replacement are both
 // parameters, so the rule carries no project's import names.
 
-function normalizeFilename(filename) {
-  return filename.replaceAll("\\", "/");
-}
-
-/**
- * Compile one `allowIn` entry into a matcher over a normalized path. An entry
- * matches a file whose path ends with it (with or without an extension) and a
- * file inside a directory of that name, so both a file stem
- * (`motion-config`) and a directory (`motion-primitives`) work, and `*` stops
- * at a path separator.
- */
-function suffixPattern(glob) {
-  const source = glob.replace(/[.*+?^${}()|[\]\\]/gu, (character) =>
-    character === "*" ? "[^/]*" : `\\${character}`
-  );
-  return new RegExp(`(?:^|/)${source}(?:\\.[\\w.]+)?(?:/|$)`, "u");
-}
+import { matchesAnyPath, normalizeFilename } from "./howells-policy-paths.mjs";
 
 /** The member name on a namespace access, or `undefined` when it is computed. */
 function memberName(node) {
@@ -54,10 +38,7 @@ export function createNoRawMotionNamespaceRule(context) {
   const replacement = options.replacement ?? "m";
   const filename = normalizeFilename(context.filename ?? "");
 
-  const exempt = (options.allowIn ?? []).some((glob) =>
-    suffixPattern(glob).test(filename)
-  );
-  if (exempt) {
+  if (matchesAnyPath(filename, options.allowIn ?? [])) {
     return {};
   }
 

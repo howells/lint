@@ -93,12 +93,12 @@ function isRecordSizeStringAnnotation(declarator) {
   );
 }
 
-/** True when `node` is a call to one of the class helpers (`cn`, `cva`, …). */
-export function isClassHelperCall(node) {
+/** True when `node` is a call to one of the named class helpers (`cn`, `cva`, …). */
+export function isClassHelperCall(node, helperNames = CLASS_HELPER_NAMES) {
   return (
     node?.type === "CallExpression" &&
     node.callee?.type === "Identifier" &&
-    CLASS_HELPER_NAMES.has(node.callee.name)
+    helperNames.has(node.callee.name)
   );
 }
 
@@ -162,7 +162,10 @@ export function createStringVisitors(onString) {
  * is called once per string literal, template quasi, or attribute value that
  * holds class names.
  */
-export function createClassStringVisitors(onClassString) {
+export function createClassStringVisitors(
+  onClassString,
+  helperNames = CLASS_HELPER_NAMES
+) {
   function checkString(value, node) {
     if (typeof value === "string") {
       onClassString(value, node);
@@ -215,7 +218,7 @@ export function createClassStringVisitors(onClassString) {
         }
         break;
       case "CallExpression":
-        if (isClassHelperCall(node)) {
+        if (isClassHelperCall(node, helperNames)) {
           for (const argument of node.arguments) {
             scanClassExpression(argument);
           }
@@ -252,7 +255,7 @@ export function createClassStringVisitors(onClassString) {
       }
     },
     CallExpression(node) {
-      if (isClassHelperCall(node)) {
+      if (isClassHelperCall(node, helperNames)) {
         for (const argument of node.arguments) {
           scanClassExpression(argument);
         }

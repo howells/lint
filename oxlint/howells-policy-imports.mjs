@@ -186,12 +186,16 @@ export function createNoOutOfBoundsPackageImportsRule(context) {
   }
 
   const filename = normalizeFilename(context.filename ?? "");
-  const isOwner = within.some(
-    (directory) =>
-      filename === directory ||
-      filename.startsWith(`${directory}/`) ||
-      filename.includes(`/${directory}/`)
-  );
+  const isOwner = within.some((directory) => {
+    // A `within` entry is a path as it appears in a file path, so a leading
+    // `./` or a trailing slash in the config is the same directory.
+    const owner = normalizeFilename(directory).replace(/^\.?\/|\/$/gu, "");
+    return (
+      filename === owner ||
+      filename.startsWith(`${owner}/`) ||
+      filename.includes(`/${owner}/`)
+    );
+  });
 
   // Decide ownership once per file, before returning visitors: an owning file
   // does no per-node work at all.

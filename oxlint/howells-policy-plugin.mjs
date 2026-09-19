@@ -9,6 +9,7 @@ import { createNoRawMotionNamespaceRule } from "./howells-policy-motion.mjs";
 import {
   createDesignTokenAlphaRule,
   createNoAvoidableArbitrarySpacingRule,
+  createNoRawColourInClassStringsRule,
   createNoRawTypeUtilitiesRule,
   createTransitionAfterFocusHelperRule,
 } from "./howells-policy-tailwind.mjs";
@@ -651,6 +652,28 @@ const plugin = {
         ],
       },
       create: createNoDeepPackageImportsRule,
+    },
+    "no-raw-colour-in-class-strings": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "Disallow a raw colour value inside a bracketed arbitrary class value, which is invisible to the theme. A `var(--token)` reference is the sanctioned escape. Merge helpers, exempt paths and permitted CSS functions are all param-driven. Opt-in; not enabled by any preset.",
+        },
+        messages: {},
+        schema: [
+          {
+            type: "object",
+            properties: {
+              allowFunctions: { type: "array", items: { type: "string" } },
+              allowIn: { type: "array", items: { type: "string" } },
+              functions: { type: "array", items: { type: "string" } },
+            },
+            additionalProperties: false,
+          },
+        ],
+      },
+      create: createNoRawColourInClassStringsRule,
     },
     "no-out-of-bounds-package-imports": {
       meta: {

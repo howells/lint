@@ -91,7 +91,7 @@ async function writeFixture(root, relativePath, source) {
 
 async function runOxlint(root, targets = ["src"]) {
   try {
-    await execFileAsync(
+    const { stderr, stdout } = await execFileAsync(
       oxlintBin,
       [
         "--config",
@@ -102,7 +102,9 @@ async function runOxlint(root, targets = ["src"]) {
       ],
       { cwd: root, env: { ...process.env, OXLINT_TSGOLINT_PATH: tsgolintPath } }
     );
-    return { status: 0, stdout: "[]" };
+    // A clean run may print nothing at all, and `diagnosticsForRule` parses
+    // whatever comes back, so an empty stdout becomes an empty report.
+    return { status: 0, stderr, stdout: stdout.trim() === "" ? "[]" : stdout };
   } catch (error) {
     return {
       status: error.code,
@@ -2055,6 +2057,218 @@ test("opt-in no-out-of-bounds-package-imports rule confines a namespace to its o
     assert.doesNotMatch(files, /packages\/mastra/);
     assert.doesNotMatch(files, /apps\/admin/);
     assert.doesNotMatch(files, /other\.ts/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("opt-in no-raw-colour-in-class-strings rule reports a colour, not a token reference", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import react from ${JSON.stringify(reactPresetUrl)};\n\nexport default {\n  extends: [react],\n  rules: {\n    "howells/no-raw-colour-in-class-strings": ["error", { allowIn: ["**/*.stories.tsx"] }],\n  },\n};\n`
+    );
+    await writeFixture(
+      root,
+      "src/swatch.tsx",
+      [
+        'import { cn } from "cn";',
+        "",
+        "export const Swatch = () => (",
+        '  <div className="bg-[#ffffff]">',
+        '    <p className={cn("text-[oklch(0.7_0.1_250)]")} />',
+        '    <div className="border-[rgba(0,0,0,0.5)]" />',
+        '    <div className="bg-surface text-muted-foreground" />',
+        '    <div className={cn("bg-[var(--surface-raised)]")} />',
+        '    <div className="w-[13px]" />',
+        "  </div>",
+        ");",
+        "",
+      ].join("\n")
+    );
+    // `allowIn` exempts a story by path, so the same colour there is quiet.
+    await writeFixture(
+      root,
+      "src/swatch.stories.tsx",
+      'export const Story = () => <div className="bg-[#ffffff]" />;\n'
+    );
+
+    const result = await runOxlint(root);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(no-raw-colour-in-class-strings)"
+    );
+    const messages = ruleDiagnostics
+      .map((diagnostic) => diagnostic.message)
+      .join("\n");
+    const files = ruleDiagnostics
+      .map((diagnostic) => diagnostic.filename)
+      .join("\n");
+
+    assert.equal(ruleDiagnostics.length, 3);
+    assert.match(
+      messages,
+      /`bg-\[#ffffff\]`: a raw colour value in a class string is invisible to the theme/
+    );
+    assert.match(messages, /`text-\[oklch\(0\.7_0\.1_250\)\]`/);
+    assert.match(messages, /`border-\[rgba\(0,0,0,0\.5\)\]`/);
+    // A design token, a `var()` reference, and a length are all left alone.
+    assert.doesNotMatch(
+      messages,
+      /bg-surface|muted-foreground|surface-raised|13px/
+    );
+    assert.doesNotMatch(files, /stories/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("path globs exempt a file by pattern as well as by stem", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    // The `allowIn` values a consumer actually passes: framework story and test
+    // spellings, and the module that configures the namespace it bans elsewhere.
+    const allowIn = ["**/*.stories.tsx", "**/*.test.tsx", "**/motion-config*"];
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import react from ${JSON.stringify(reactPresetUrl)};\n\nexport default {\n  extends: [react],\n  rules: {\n    "howells/no-raw-motion-namespace": ["error", { allowIn: ${JSON.stringify(allowIn)} }],\n  },\n};\n`
+    );
+    const source = [
+      'import { motion } from "motion/react";',
+      "",
+      "export const Panel = () => <motion.div />;",
+      "",
+    ].join("\n");
+    await writeFixture(root, "src/ui/panel.stories.tsx", source);
+    await writeFixture(root, "src/ui/panel.test.tsx", source);
+    await writeFixture(root, "src/ui/motion-config.tsx", source);
+    // A `**/` pattern has to match at the root as well as at depth.
+    await writeFixture(root, "src/motion-config-tokens.tsx", source);
+    await writeFixture(root, "src/ui/panel.tsx", source);
+
+    const result = await runOxlint(root);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(no-raw-motion-namespace)"
+    );
+    const files = ruleDiagnostics
+      .map((diagnostic) => diagnostic.filename)
+      .join("\n");
+
+    assert.equal(ruleDiagnostics.length, 1);
+    assert.match(files, /src\/ui\/panel\.tsx/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("a within entry is the same directory written with a slash or a dot slash", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\n\nexport default {\n  extends: [core],\n  rules: {\n    "howells/no-out-of-bounds-package-imports": [\n      "error",\n      { packages: ["@mastra/*"], within: ["./packages/mastra/"] },\n    ],\n  },\n};\n`
+    );
+    await writeFixture(
+      root,
+      "packages/mastra/src/agent.ts",
+      'import { Agent } from "@mastra/core";\n\nexport const agent = Agent;\n'
+    );
+    await writeFixture(
+      root,
+      "packages/utils/index.ts",
+      'import { Agent } from "@mastra/core";\n\nexport const agent = Agent;\n'
+    );
+
+    const result = await runOxlint(root, ["packages"]);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "howells(no-out-of-bounds-package-imports)"
+    );
+
+    assert.equal(ruleDiagnostics.length, 1);
+    assert.match(ruleDiagnostics[0].filename, /packages\/utils\/index\.ts/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+// The SonarJS plugin was retired in 3.0.0. Its dependency-manifest resolver
+// reads a package manifest per directory and writes a `console.debug` line for
+// every `catalog:` reference it cannot resolve against the catalog source, which
+// in a catalogued monorepo is one line per catalogued dependency per lint run -
+// measured at 265 lines in one repo and 184 in another, both still on 2.2.0,
+// while a repo on 3.3.3 is silent. Nothing in this lane reads a manifest any
+// more; these two assertions are what keeps it that way, because the plugin
+// would come back through an Ultracite JS-plugin preset rather than through a
+// change here.
+test("no preset loads a manifest-reading plugin", () => {
+  for (const [name, preset] of [
+    ["core", core],
+    ["next", next],
+    ["playwright", playwright],
+    ["react", react],
+    ["shadcn", shadcn],
+  ]) {
+    assert.ok(
+      !resolvedJsPluginNames(preset).includes("sonarjs"),
+      `${name} preset loads the sonarjs plugin`
+    );
+    assert.deepEqual(
+      ruleNamesWithPrefix(preset, "sonarjs/"),
+      [],
+      `${name} preset enables sonarjs rules`
+    );
+  }
+});
+
+test("linting a catalogued workspace writes no dependency-resolution noise", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `export { default } from ${JSON.stringify(reactPresetUrl)};\n`
+    );
+    // The shape that produced the noise: a `catalog:` reference with no entry
+    // for it in the catalog, which is what the resolver reported on.
+    await writeFile(
+      path.join(root, "package.json"),
+      `${JSON.stringify(
+        {
+          name: "catalogued-fixture",
+          private: true,
+          type: "module",
+          dependencies: { cn: "catalog:", react: "catalog:" },
+          devDependencies: { oxlint: "catalog:tooling" },
+        },
+        null,
+        2
+      )}\n`
+    );
+    await writeFile(
+      path.join(root, "pnpm-workspace.yaml"),
+      'packages:\n  - "packages/*"\n\ncatalog:\n  zod: 4.1.13\n\ncatalogs:\n  tooling:\n    oxfmt: 0.67.0\n'
+    );
+    await writeFixture(
+      root,
+      "src/panel.tsx",
+      "export const Panel = () => <div>hi</div>;\n"
+    );
+
+    const result = await runOxlint(root);
+    // The resolver wrote through `console.debug`, which is stdout, so a JSON run
+    // came back with those lines interleaved in the report as well. Both
+    // channels are asserted, and the report still has to parse.
+    const output = `${result.stdout}\n${result.stderr ?? ""}`;
+
+    assert.doesNotMatch(output, /could not be resolved for catalog/u);
+    assert.doesNotMatch(output, /catalog/iu);
+    assert.doesNotThrow(() => JSON.parse(result.stdout));
   } finally {
     await rm(root, { force: true, recursive: true });
   }

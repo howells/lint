@@ -10,6 +10,7 @@ import {
   globToRegExp,
   reportClassToken,
 } from "./howells-policy-class-strings.mjs";
+import { matchesAnyPath, normalizeFilename } from "./howells-policy-paths.mjs";
 
 // Generic, cross-project ban on Tailwind *typographic* utilities in class
 // strings: any class in the governed typographic namespace is banned UNLESS it
@@ -499,4 +500,75 @@ export function createTransitionAfterFocusHelperRule(context) {
       }
     },
   };
+}
+
+// A class string must carry design tokens and theme utilities, never a raw
+// colour value. A raw colour in a class string is invisible to the theme: it
+// does not respond to a mode switch, it cannot be retuned centrally, and it is
+// not audited for contrast. A `var(--token)` inside the brackets is the
+// sanctioned escape, because a token reference is what the rule steers towards.
+
+const COLOUR_VALUE_PATTERN =
+  /#[\da-f]{3,8}(?![\da-z])|(?:okl(?:ch|ab)|l(?:ch|ab)|rgba?|hsla?|color)\(/iu;
+const BRACKETED_VALUE_PATTERN = /\[([^\]]*)\]/gu;
+const CLASS_TOKEN_PATTERN = /\S+/gu;
+
+/**
+ * ESLint-style rule factory for `no-raw-colour-in-class-strings`.
+ *
+ * @param {{ filename?: string, options?: Array<{ functions?: string[], allowIn?: string[], allowFunctions?: string[] }>, report: Function }} context
+ */
+export function createNoRawColourInClassStringsRule(context) {
+  const options = context.options?.[0] ?? {};
+  const helperNames = new Set(options.functions ?? ["cn"]);
+  const allowFunctions = options.allowFunctions ?? ["var"];
+  const filename = normalizeFilename(context.filename ?? "");
+
+  if (matchesAnyPath(filename, options.allowIn ?? [])) {
+    return {};
+  }
+
+  // A `cn(...)` call inside a `className` is reached by both visitors, so each
+  // token is reported once per string node.
+  const reportedByNode = new WeakMap();
+
+  function holdsRawColour(token) {
+    BRACKETED_VALUE_PATTERN.lastIndex = 0;
+    let bracket = BRACKETED_VALUE_PATTERN.exec(token);
+    while (bracket !== null) {
+      const inner = bracket[1];
+      const sanctioned = allowFunctions.some((name) =>
+        inner.includes(`${name}(`)
+      );
+      if (!sanctioned && COLOUR_VALUE_PATTERN.test(inner)) {
+        return true;
+      }
+      bracket = BRACKETED_VALUE_PATTERN.exec(token);
+    }
+    return false;
+  }
+
+  return createClassStringVisitors((value, node) => {
+    CLASS_TOKEN_PATTERN.lastIndex = 0;
+    let match = CLASS_TOKEN_PATTERN.exec(value);
+    while (match !== null) {
+      const token = match[0];
+      let seen = reportedByNode.get(node);
+      if (seen === undefined) {
+        seen = new Set();
+        reportedByNode.set(node, seen);
+      }
+      if (!seen.has(match.index) && holdsRawColour(token)) {
+        seen.add(match.index);
+        reportClassToken(
+          context,
+          node,
+          match.index,
+          token.length,
+          `\`${token}\`: a raw colour value in a class string is invisible to the theme; use a design token.`
+        );
+      }
+      match = CLASS_TOKEN_PATTERN.exec(value);
+    }
+  }, helperNames);
 }
