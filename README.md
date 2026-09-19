@@ -364,7 +364,7 @@ A monorepo root should have:
 
 `howells-workspace-check` validates that the root declares `packageManager: "pnpm@..."`, requires Node 24.15.0+ in `engines.node`, pins `.node-version` to `24.15.0`, keeps `pnpm-workspace.yaml` present when workspace package directories exist, and passes `manypkg check`.
 
-CI should call `pnpm lint` or `pnpm check` so root workspace lint is not bypassed by a direct `turbo lint` command.
+A gate should call `pnpm lint` or `pnpm prepush` so root workspace lint is not bypassed by a direct `turbo lint` command.
 
 Give the Turbo `lint` task the same build dependency as `typecheck` when workspace packages import each other through built output:
 
@@ -377,7 +377,7 @@ Give the Turbo `lint` task the same build dependency as `typecheck` when workspa
 }
 ```
 
-Type-aware linting is on by default, and it resolves a sibling package's types from what that package exports. When those exports point at `dist`, a lint task with no build dependency runs against packages that have not been built. On a clean clone that reports errors that are not in the code. On a developer machine it passes, because an earlier build left `dist` behind, so the gap shows up first in CI or on a fresh checkout. Measured in one monorepo: `pnpm lint` alone reported four errors that `pnpm check` did not, because `check` ran typecheck, and therefore the builds, first. A package whose exports point at source files needs no build step and no dependency.
+Type-aware linting is on by default, and it resolves a sibling package's types from what that package exports. When those exports point at `dist`, a lint task with no build dependency runs against packages that have not been built. On a clean clone that reports errors that are not in the code. On a developer machine it passes, because an earlier build left `dist` behind, so the gap shows up first in CI or on a fresh checkout. Measured in one monorepo: `pnpm lint` alone reported four errors that `pnpm prepush` did not, because `prepush` ran typecheck, and therefore the builds, first. A package whose exports point at source files needs no build step and no dependency.
 
 ## Binaries
 

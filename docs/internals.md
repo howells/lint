@@ -16,5 +16,5 @@
 
 ## Refreshing the vendored rules
 
-- Playwright: copy `dist/index.cjs` and `LICENSE` from the new `eslint-plugin-playwright` tarball into `vendor/eslint-plugin-playwright/`, keeping the header comment and updating its version, then run `node bin/howells-oxfmt.mjs --write vendor` and `pnpm check`. Never edit the vendored code.
+- Playwright: copy `dist/index.cjs` and `LICENSE` from the new `eslint-plugin-playwright` tarball into `vendor/eslint-plugin-playwright/`, keeping the header comment and updating its version, then run `node bin/howells-oxfmt.mjs --write vendor` and `pnpm prepush`. Never edit the vendored code.
 - shadcn: copy `dist/index.js`, `dist/similar.js`, `dist/tailwind-worker.js` and `LICENSE` from the new `@shadcn/lint` tarball into `vendor/shadcn-lint/`, keeping the header comments and updating their version, then run the same two commands. Check that `cn` and `oxc-parser` still match the versions the new bundle expects. Don't copy `dist/index.d.ts`: the types here are hand-written in `oxlint/shadcn.d.mts`, and oxfmt rejects the published declaration file as an invalid ambient context. Leave `vendor/shadcn-lint/package.json` in place, because the bundle is ESM and this package is CommonJS, so without it Oxlint refuses to parse any config that loads the plugin.

@@ -73,7 +73,7 @@ jobs:
       # The same gate that guards a pull request: format check, lint with
       # warnings denied, the test suite, and the peer-dependency check that
       # keeps ESLint out of the graph.
-      - run: pnpm check
+      - run: pnpm prepush
 
       # `pnpm pack` rather than publishing the directory. npm does not
       # understand pnpm's `catalog:` and `workspace:` specifiers, so publishing

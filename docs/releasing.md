@@ -1,6 +1,6 @@
 # Releasing
 
-Pushing a `vX.Y.Z` tag publishes that version. `.github/workflows/release.yml` runs `pnpm check` and then `npm publish`, authenticating through npm trusted publishing: GitHub mints a short-lived OIDC token scoped to this repository and this workflow file, and npm exchanges it for publish rights. No token is stored in the repository or on any machine, and the account keeps `auth-and-writes` two-factor.
+Pushing a `vX.Y.Z` tag publishes that version. `.github/workflows/release.yml` runs `pnpm prepush` and then `npm publish`, authenticating through npm trusted publishing: GitHub mints a short-lived OIDC token scoped to this repository and this workflow file, and npm exchanges it for publish rights. No token is stored in the repository or on any machine, and the account keeps `auth-and-writes` two-factor.
 
 ```sh
 # on main, with the version already bumped and merged

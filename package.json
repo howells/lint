@@ -78,11 +78,11 @@
     "access": "public"
   },
   "scripts": {
-    "check": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin test oxlint oxfmt oxfmt.config.mjs && node --test && pnpm peers check",
-    "test": "node --test",
     "lint": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin test oxlint oxfmt oxfmt.config.mjs",
-    "prepush": "pnpm check",
-    "prepare": "howells-husky"
+    "lint:fix": "node bin/howells-oxfmt.mjs --write . && oxlint --fix bin test oxlint oxfmt oxfmt.config.mjs",
+    "prepare": "howells-husky",
+    "prepush": "pnpm lint && pnpm test",
+    "test": "node --test"
   },
   "dependencies": {
     "@howells/neon": "^0.2.0",

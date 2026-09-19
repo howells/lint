@@ -10,7 +10,7 @@ The shared lint and format toolchain. It pins Oxlint, Oxfmt, Ultracite, React Do
 ## Commands
 
 - `pnpm test` - the Node test suite (`node --test`).
-- `pnpm check` - the full gate: oxfmt check, oxlint with `--deny-warnings`, tests, and the peer-dependency check.
+- `pnpm prepush` - the full gate: `lint` (oxfmt check, then oxlint with `--deny-warnings`) and `test`. The suite covers the peer-dependency check, in test/peer-dependencies.test.mjs.
 
 ## The contract
 
