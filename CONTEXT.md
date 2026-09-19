@@ -22,6 +22,8 @@ Shared code quality toolchain package for Howells projects. It centralizes the s
 
 **Vendored plugin**: A rule bundle copied into `vendor/` under its own licence and loaded through Oxlint's JS-plugin bridge, because installing it would pull ESLint or a legacy TypeScript compiler into every consumer. The Playwright rules and the shadcn rules are both vendored. Never edit the copy; refresh it from a new tarball. _Avoid_: forked plugin, patched plugin
 
+**Lint ratchet**: The `howells-ratchet` gate: a committed count of Oxlint findings per unit per rule, in `lint-baseline.json` at the repo root, which may fall but never rise. It holds a backlog for a repo whose `pnpm lint` cannot be the push gate yet, so the new rules stay on instead of being switched off. A unit is a directory whose `lint` script runs `howells-check`, and its targets are that command's arguments. _Avoid_: lint budget, error budget, allowlist, suppression file
+
 **Migration exception**: A temporary local override used only to adopt the shared toolchain in an existing project. It should have a removal path and must not become a project preference. _Avoid_: local preference, repo style
 
 **Howells workspace convention**: The personal-project monorepo layout where apps live under `apps/*` and shared packages live under `packages/*`. Packages must not import apps, and apps must not import sibling apps; no boundary meaning is inferred from other workspace folder names. _Avoid_: generic monorepo architecture

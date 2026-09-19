@@ -15,6 +15,7 @@ The shared lint and format toolchain. It pins Oxlint, Oxfmt, Ultracite, React Do
 ## The contract
 
 - `docs/exports.md` - the preset and binary matrix, how the presets compose, and the opt-in rules a consumer enables itself.
-- `docs/consumer-wiring.md` - the six steps to put a repo on this package, and how config discovery behaves.
+- `docs/consumer-wiring.md` - the steps to put a repo on this package, and how config discovery behaves.
+- `docs/lint-ratchet.md` - the finding-count gate, its baseline, and migrating a hand-copied ratchet script.
 - `docs/internals.md` - the rules for editing this package, and refreshing the vendored plugins.
 - `docs/releasing.md` - tag, publish and trusted publishing.

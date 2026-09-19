@@ -6,6 +6,7 @@
 4. Scripts: `"lint": "howells-check ."` and `"lint:fix": "howells-fix ."`. Keep `lint` non-mutating; every write goes in `lint:fix` or `format`. The Oxlint lane has no `lint:strict` - type-aware linting, React Doctor, boundaries and Playwright overlays all belong in the normal check.
 5. Monorepo roots only: `"lint": "turbo run lint && howells-workspace-check"` and `"lint:fix": "turbo run lint:fix && howells-workspace-fix"`. Never put workspace lint in an individual package or a single-package app, and call `pnpm lint` rather than `turbo lint`, which bypasses it. Where packages import each other through built output, give the Turbo `lint` task `dependsOn: ["^build"]` as `typecheck` has: type-aware lint resolves sibling types from `dist`, so without it a clean clone reports errors that a machine with stale build output hides.
 6. Verify with `pnpm lint`.
+7. Where that surfaces a backlog too large to clear before the gate goes on, add `"lint:ratchet": "howells-ratchet"` and `"lint:rebaseline": "howells-ratchet --write"`, point `prepush` at `lint:ratchet`, and leave `lint` as the unratcheted full run. `docs/lint-ratchet.md` has the baseline shape, the migration from a hand-copied script, and how to burn the backlog down.
 
 ## Config discovery
 

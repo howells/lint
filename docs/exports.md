@@ -19,7 +19,7 @@ Every Oxlint preset enforces the Howells workspace convention: apps under `apps/
 
 ## Binaries
 
-`howells-check` (oxfmt `--check` plus oxlint in one pass, both results reported, failing if either fails). A `!`-prefixed exclude or a quoted glob may be passed as a positional argument to any of these, and an exclude is translated into `--ignore-pattern` for Oxlint, which does not honour the positional form, `howells-fix` (oxfmt `--write` then oxlint `--fix`), `howells-oxlint`, `howells-oxfmt`, `howells-ultracite`, `howells-workspace-check`, `howells-workspace-fix`.
+`howells-check` (oxfmt `--check` plus oxlint in one pass, both results reported, failing if either fails). A `!`-prefixed exclude or a quoted glob may be passed as a positional argument to any of these, and an exclude is translated into `--ignore-pattern` for Oxlint, which does not honour the positional form, `howells-fix` (oxfmt `--write` then oxlint `--fix`), `howells-oxlint`, `howells-oxfmt`, `howells-ultracite`, `howells-workspace-check`, `howells-workspace-fix`, `howells-ratchet` (the finding-count gate that may fall but never rise; see `docs/lint-ratchet.md`).
 
 ## Preset composition rules
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.5.0 — 2026-09-19
+
+### Added
+
+- `howells-ratchet`, the lint ratchet as a binary. A gate that lets each rule's finding count fall but never rise against a committed `lint-baseline.json` existed as a hand-copied script in 26 repos in diverging variants, with the same bugs fixed repo by repo; consumers replace theirs with `"lint:ratchet": "howells-ratchet"` and `"lint:rebaseline": "howells-ratchet --write"`. Units and their targets come from each package's own `lint` script - the `howells-check` segment, `!`-prefixed excludes honoured - with the repo root as a unit when it names any, and each unit is measured from its own directory so both tools resolve the config and tsconfig that package's own lint run resolves. `--migrate` converts any of the three legacy shapes (`{unit: {rule: n}}`, a flat `{rule: n}`, and `{rules, unformatted}`) and deletes the old file; `--json` prints machine-readable output; `--root` measures a repo other than the cwd's. Measured read-only against three consumer repos, the totals are identical to what their own scripts report today: rulework 95 across 18 units, tensile 1393, materia 38295 errors across 39 units, unit for unit. `docs/lint-ratchet.md` is the reference.
+- The ratchet makes four failures of the copied variants impossible. Finding no unit, or a unit reaching no files when it has targets, is a failure rather than a pass printed over nothing - one variant read the root's targets from a script name that had since been renamed, found nothing and went green, and a `lint` script that runs the ratchet itself is now refused by name. The Oxlint report is read from the resolved executable spawned directly, never through a package manager, and parsed from the first brace, so an engine warning on stdout ahead of the JSON cannot invalidate the measurement. A write is always a full measurement of every unit, because a partial scan written as a whole baseline erases the units it did not visit. And `--write` refuses when any count rose, naming each one, unless `--allow-rise` is given, which a repo needs once when a newly enabled rule is the reason; falls and removed rules always write.
+- Every diagnostic counts, whatever its severity, where one family of variants counted only errors. `pnpm lint` runs Oxlint with `--deny-warnings`, so a warning fails it, and a baseline omitting warnings is weaker than the lint it stands in for. A structural migration therefore says how far today's measurement exceeds the numbers it carried across, and names the counts, rather than absorbing the difference: on materia that is 706 warnings against a baseline of 38295.
+- Formatting stays a hard check inside the ratchet rather than a ratcheted count: `howells-oxfmt --check` over each unit's targets must pass. It is kept in the gate so a repo whose `prepush` calls `lint:ratchet` rather than `lint` does not quietly lose it. A repo moving onto a preset that enables a new formatter option can ratchet the count instead with `--write --unformatted`, which adds an `unformatted` map to the baseline and keeps it.
+- 37 tests over fixture workspaces cover single-unit and monorepo measurement, an `!exclude`, the zero-unit and zero-file failures, a rise blocked, a fall passing and prompting a rebaseline, `--write` refusing a rise, `--allow-rise`, each legacy shape migrating to identical counts, and stdout noise ahead of the report. Each of the 14 guards was broken on purpose and its test confirmed to fail.
+
+### Changed
+
+- `spawnPackageBinCapture` takes an optional working directory, so a caller measuring a workspace can run a tool from the package being measured.
+
 ## 3.4.2 — 2026-09-19
 
 ### Fixed

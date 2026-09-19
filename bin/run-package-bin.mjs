@@ -112,9 +112,15 @@ const CAPTURE_MAX_BUFFER_BYTES = 256 * 1024 * 1024;
 // stderr as strings instead of inheriting the parent's streams. Callers that
 // need to inspect a tool's output (e.g. to tell an empty path set apart from a
 // real failure) use this and re-emit the captured output themselves.
-export const spawnPackageBinCapture = (packageName, binName, args) => {
+//
+// `cwd` matters to any caller measuring a workspace: both tools resolve their
+// nested config and their tsconfig relative to the working directory, so a
+// package has to be measured from its own directory to be measured the way its
+// own lint script measures it.
+export const spawnPackageBinCapture = (packageName, binName, args, cwd) => {
   const binPath = resolvePackageBin(packageName, binName);
   return spawnSync(process.execPath, [binPath, ...args], {
+    cwd,
     env: spawnEnv(packageName),
     encoding: "utf-8",
     maxBuffer: CAPTURE_MAX_BUFFER_BYTES,

@@ -435,6 +435,7 @@ Installers only need `@howells/lint` as a direct dependency. Use these package b
 - `howells-oxfmt` proxies to the pinned Oxfmt binary with project-config discovery and packaged-preset fallback
 - `howells-workspace-check` runs workspace lint, then runs `manypkg check`
 - `howells-workspace-fix` runs `manypkg fix`
+- `howells-ratchet` gates Oxlint finding counts against a committed `lint-baseline.json`, which may fall but never rise, for a repo whose backlog is too large for `pnpm lint` to be the push gate yet. `docs/lint-ratchet.md` covers the baseline shape, the unit discovery, and migrating a hand-copied ratchet script
 
 `howells-check`, `howells-fix` and `howells-oxlint` discover `oxlint.config.*` upward from the working directory, and pass `--config` only for a spelling Oxlint ignores. Oxlint finds `oxlint.config.ts` and `oxlint.config.mts` on its own and handles a nested config per directory; it ignores `oxlint.config.cts`, `.js`, `.mjs` and `.cjs`, and a project writing one of those linted on Oxlint's defaults with no preset, no plugins and no rules, quietly and exiting 0. Prefer `oxlint.config.ts`: the flag pins one config for the whole run, which overrides a nested config belonging to a package, and the run says so until the file is renamed.
 
