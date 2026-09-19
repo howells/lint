@@ -97,7 +97,7 @@ export const measureFormatting = (unit, { counted }) => {
   const result = spawnPackageBinCapture(
     "oxfmt",
     "oxfmt",
-    withOxfmtConfig([...args, ...unit.targets]),
+    withOxfmtConfig([...args, ...unit.targets], unit.dir),
     unit.dir
   );
 
