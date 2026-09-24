@@ -25,6 +25,12 @@ When configuring a project, do this in order:
 5. If the project is a monorepo, add root workspace scripts that run `howells-workspace-check`.
 6. Verify with `pnpm lint`.
 
+The `howells-lint` agent skill in [`skills/howells-lint`](skills/howells-lint/SKILL.md) walks an agent through this setup and adds a ratchet when a backlog appears:
+
+```bash
+npx skills@latest add howells/lint --skill howells-lint --global
+```
+
 ## Requirements
 
 All projects using this package should declare the runtime and package manager explicitly:
