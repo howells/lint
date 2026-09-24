@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.5.2 - 2026-09-24
+
+### Changed
+
+- Dependency refresh: Oxlint 1.85.0, Oxfmt 0.70.0, oxc-parser 0.151.0, Ultracite 7.12.0, oxlint-tsgolint 7.0.2002, oxlint-plugin-react-doctor 0.9.14 and cn 0.4.0.
+
 ## 3.5.1 — 2026-09-19
 
 ### Fixed
