@@ -5,6 +5,7 @@
 ### Changed
 
 - Dependency refresh: Oxlint 1.85.0, Oxfmt 0.70.0, oxc-parser 0.151.0, Ultracite 7.12.0, oxlint-tsgolint 7.0.2002, oxlint-plugin-react-doctor 0.9.14 and cn 0.4.0.
+- The core preset turns `no-bitwise` off. The rule guards against `&` or `|` typed for `&&` or `||`, and TypeScript already rejects that as TS2447, so on this preset it only ever reported code that means its operators: FNV-1a hashes and TypeScript flag masks. Six repos suppressed it, by config or inline. Nothing to migrate: an existing `no-bitwise` disable becomes inert, and unused disable directives aren't reported. Covered by a test that lints an FNV-1a fixture clean.
 
 ## 3.5.1 — 2026-09-19
 

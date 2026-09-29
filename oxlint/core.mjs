@@ -120,6 +120,16 @@ export default defineConfig({
       },
     ],
     "howells/no-runtime-dynamic-imports": "error",
+    // `no-bitwise` exists to catch `&` or `|` typed for `&&` or `||`. In
+    // TypeScript that mistake is already a compile error (TS2447: the operator
+    // is not allowed for boolean types), so the rule only ever reports code
+    // that means its bitwise operators: FNV-1a and other hashes, unsigned
+    // 32-bit folds, and TypeScript's own SymbolFlags. Measured across the
+    // repos on this preset: six suppressed it, by config in designmilk and
+    // materialdesk, as a legacy warning in materialgraph, and inline in
+    // colorscope, setout, materia and materialdesk scripts. Every inline
+    // suppression was a hash or a TypeScript flags mask.
+    "no-bitwise": "off",
     "no-restricted-properties": [
       "error",
       {

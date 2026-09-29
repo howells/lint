@@ -399,6 +399,35 @@ test("core preset lets promise-typed stubs be async without awaiting", async () 
   }
 });
 
+test("core preset lets a hash use its bitwise operators", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`
+    );
+    // FNV-1a is defined by XOR folding and an unsigned 32-bit result; there is
+    // no non-bitwise way to write it. TypeScript already rejects `&` and `|`
+    // between booleans (TS2447), which is the mistake `no-bitwise` guards.
+    await writeFixture(
+      root,
+      "src/fnv1a.ts",
+      "export const fnv1a = (value: string): number => {\n  let hash = 0x81_1c_9d_c5;\n  for (const char of value) {\n    hash ^= char.codePointAt(0) ?? 0;\n    hash = Math.imul(hash, 0x01_00_01_93) >>> 0;\n  }\n  return hash;\n};\n"
+    );
+
+    const result = await runOxlint(root);
+    const ruleDiagnostics = diagnosticsForRule(
+      result.stdout,
+      "eslint(no-bitwise)"
+    );
+
+    assert.equal(ruleDiagnostics.length, 0);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("Playwright preset rejects brittle E2E test patterns", async () => {
   const root = await makeFixtureRoot();
 
