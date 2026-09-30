@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.5.3 - 2026-09-30
+
+### Fixed
+
+- `shadcn/no-raw-colors` no longer reports a type role the project declares in its own `@theme`. With `--text-caption: 0.75rem` declared, `className="text-caption"` was reported as `"text-caption" is not a declared theme color`, because the rule classified `text-<name>` with the stock `cn` grammar, where anything that is not a t-shirt size is a text colour, and never looked at the theme's `--text-*` namespace. Reproduced in materialgraph's `apps/hunch`: 95 errors, every one on a named type role (`text-caption`, `text-paragraph`, `text-heading` and the rest). A name that is declared nowhere still reports, as does `text-pink-500` and `bg-caption`.
+- The fix is upstream's: the vendored `@shadcn/lint` moves from 0.1.0 to 0.2.0, whose `no-raw-colors` asks the theme which namespace declares the name before calling it a colour. No local patch; the copy is refreshed as `docs/internals.md` describes. Covered by a test that lints a declared type role, an undeclared `text-heading`, `text-pink-500` and `bg-caption`, and fails on 0.1.0.
+
 ## 3.5.2 - 2026-09-24
 
 ### Changed

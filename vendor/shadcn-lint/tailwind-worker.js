@@ -4,13 +4,13 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { workerData } from "node:worker_threads";
 
+import { d as splitVariants, t as didYouMean } from "./similar.js";
+
 /*
- * Vendored from @shadcn/lint 0.1.0 (MIT, see LICENSE beside this file).
+ * Vendored from @shadcn/lint 0.2.0 (MIT, see LICENSE beside this file).
  * Loaded by index.js. Refresh it the way AGENTS.md describes, never by
  * editing it here.
  */
-import { d as splitVariants, t as didYouMean } from "./similar.js";
-
 //#region src/tailwind/oracle.ts
 const SIGNATURE_TTL = 1e3;
 const loaded = /* @__PURE__ */ new Map();
@@ -65,6 +65,31 @@ function styleTarget(entry) {
   }
   return null;
 }
+function exportedStyle(exports, subpath) {
+  const exact = styleTarget(exports[`./${subpath}`]);
+  if (exact) return exact;
+  const patterns = Object.keys(exports)
+    .filter((key) => key.startsWith("./") && key.includes("*"))
+    .sort((a, b) => b.length - a.length);
+  for (const key of patterns) {
+    const star = key.indexOf("*");
+    const prefix = key.slice(2, star);
+    const suffix = key.slice(star + 1);
+    if (
+      subpath.length < prefix.length + suffix.length ||
+      !subpath.startsWith(prefix) ||
+      !subpath.endsWith(suffix)
+    )
+      continue;
+    const target = styleTarget(exports[key]);
+    if (!target) continue;
+    return target.replace(
+      "*",
+      subpath.slice(prefix.length, subpath.length - suffix.length)
+    );
+  }
+  return null;
+}
 function packageDirectory(base, name) {
   let dir = base;
   for (let depth = 0; depth < 32; depth++) {
@@ -99,7 +124,7 @@ function resolveStylesheet(base, id) {
   if (subpath) {
     const target =
       exports && typeof exports === "object"
-        ? styleTarget(exports[`./${subpath}`])
+        ? exportedStyle(exports, subpath)
         : null;
     if (target) return existingFile(path.join(pkgDir, target));
     return stylesheetAt(
@@ -119,6 +144,13 @@ function resolveStylesheet(base, id) {
     if (file) return file;
   }
   return stylesheetAt(pkgDir, "index");
+}
+function realpathOf(file) {
+  try {
+    return fs.realpathSync.native(file);
+  } catch {
+    return file;
+  }
 }
 function mtimeOf(file) {
   try {
@@ -146,9 +178,10 @@ async function build(cssFile) {
           base,
           content: "",
         };
-      const file = resolveStylesheet(base, id);
-      if (!file)
+      const resolved = resolveStylesheet(base, id);
+      if (!resolved)
         throw new Error(`@import "${id}" could not be resolved from ${base}`);
+      const file = realpathOf(resolved);
       files.push(file);
       return {
         base: path.dirname(file),

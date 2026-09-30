@@ -1349,6 +1349,52 @@ test("React preset reports off-scale values and unreadable component classNames"
   }
 });
 
+test("no-raw-colors reads a declared type role as a font size, not a colour", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFixture(
+      root,
+      "oxlint.config.mjs",
+      `import react from "${reactPresetUrl}";\n\nexport default {\n  extends: [react],\n  rules: { "shadcn/no-raw-colors": "error" },\n};\n`
+    );
+    await writeFixture(root, "package.json", '{ "type": "module" }\n');
+    await writeFixture(
+      root,
+      "components.json",
+      `${JSON.stringify({ tailwind: { css: "app/globals.css" } })}\n`
+    );
+    await writeFixture(
+      root,
+      "app/globals.css",
+      '@import "tailwindcss";\n\n@theme {\n  --color-ink: #111;\n  --color-muted: #666;\n  --text-caption: 0.75rem;\n  --text-caption--line-height: 1rem;\n}\n'
+    );
+    // `text-caption` is declared as a size, so it is a size. `text-heading` is
+    // declared nowhere, and `text-pink-500` is palette: both stay reports.
+    await writeFixture(
+      root,
+      "src/type.tsx",
+      'export const Type = () => (\n  <p className="text-caption text-muted">\n    <b className="text-heading">a</b>\n    <i className="text-pink-500">b</i>\n    <u className="bg-caption">c</u>\n  </p>\n);\n'
+    );
+
+    const result = await runOxlint(root);
+    const messages = diagnosticsForRule(
+      result.stdout,
+      "shadcn(no-raw-colors)"
+    ).map((diagnostic) => diagnostic.message);
+    const reported = (className) =>
+      messages.some((message) => message.startsWith(`"${className}"`));
+
+    assert.ok(!reported("text-caption"), messages.join("\n"));
+    assert.ok(!reported("text-muted"), messages.join("\n"));
+    assert.ok(reported("text-heading"), messages.join("\n"));
+    assert.ok(reported("text-pink-500"), messages.join("\n"));
+    assert.ok(reported("bg-caption"), messages.join("\n"));
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("React preset reports no shadcn finding in a project without Tailwind", async () => {
   const root = await makeFixtureRoot();
 

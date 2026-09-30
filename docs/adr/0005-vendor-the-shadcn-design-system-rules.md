@@ -42,4 +42,4 @@ Writing the equivalent rules into the `howells` plugin was rejected. `howells/no
 
 ## Cost
 
-Upstream fixes arrive only when someone refreshes the copy, and the plugin is at 0.1.0, so it will move. `AGENTS.md` records the refresh steps. The package is also Tailwind v4 only; a consumer still on v3 gets the built-in grammar rather than its own theme.
+Upstream fixes arrive only when someone refreshes the copy, and the plugin is at 0.2.0, so it will move. The refresh to 0.2.0 was the fix for `no-raw-colors` reading a declared `--text-<name>` type role as an undeclared colour: 0.1.0 classified `text-caption` with the stock `cn` grammar and never consulted the theme's own namespaces, and 0.2.0 does. `AGENTS.md` records the refresh steps. The package is also Tailwind v4 only; a consumer still on v3 gets the built-in grammar rather than its own theme.

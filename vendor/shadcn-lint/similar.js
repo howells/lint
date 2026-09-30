@@ -1,5 +1,5 @@
 /*
- * Vendored from @shadcn/lint 0.1.0 (MIT, see LICENSE beside this file).
+ * Vendored from @shadcn/lint 0.2.0 (MIT, see LICENSE beside this file).
  * Loaded by index.js. Refresh it the way AGENTS.md describes, never by
  * editing it here.
  */
