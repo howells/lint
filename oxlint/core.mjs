@@ -4,6 +4,7 @@ import ultraciteCore from "ultracite/oxlint/core";
 import ultraciteVitest from "ultracite/oxlint/vitest";
 
 import { boundaryJsPlugins, boundaryRules } from "./boundaries.mjs";
+import gdp from "./gdp.mjs";
 
 // Anti-slop is extended last on purpose. It disables
 // `typescript/consistent-indexed-object-style` and
@@ -12,7 +13,7 @@ import { boundaryJsPlugins, boundaryRules } from "./boundaries.mjs";
 // one produces the input of the other. Nothing after core turns them back on,
 // so this position holds for the React and Next lanes too.
 export default defineConfig({
-  extends: [ultraciteCore, ultraciteVitest, ultraciteAntiSlop],
+  extends: [ultraciteCore, ultraciteVitest, gdp, ultraciteAntiSlop],
   jsPlugins: boundaryJsPlugins,
   options: {
     typeAware: true,

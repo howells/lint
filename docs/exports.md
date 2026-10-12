@@ -10,6 +10,7 @@
 - `/oxlint/react-doctor-rules` - compose or disable React Doctor rules in mixed workspaces.
 - `/oxlint/shadcn` - the shadcn plugin and `componentSourceOverride`.
 - `/oxlint/neon`
+- `/oxlint/gdp` - Ultracite's authorization-proof rules as a standalone export for custom configs; included by core, React, Next and standalone Playwright.
 
 Every Oxlint preset enforces the Howells workspace convention: apps under `apps/*`, shared packages under `packages/*`, packages never import apps, apps never import sibling apps.
 
@@ -23,11 +24,12 @@ Every Oxlint preset enforces the Howells workspace convention: apps under `apps/
 
 ## Preset composition rules
 
+- Core enables GDP by default, so React, Next and standalone Playwright inherit it. It uses Ultracite's GDP rules and overrides unchanged, with the pinned plugin resolved from this package. Every type assertion except `as const` is rejected outside trusted modules under `proofs/` and branded-ID constructors under `lib/ids.ts`, including in projects without GDP application code. See [GDP usage](./gdp.md).
 - The Playwright export turns the Vitest rules off across the lane it governs, because Ultracite scopes them to `*.spec.*` and two of them can't be satisfied by a Playwright spec. The disable only takes effect in an override entry that also names `plugins: ["vitest"]` - Oxlint drops a rule entry whose plugin isn't in scope and reports nothing. `playwrightOverride(files)` carries all three parts; use it rather than assembling one by hand.
 - The React and Next presets load the shadcn plugin and enable two of its six rules: `no-arbitrary-values` (warn, with the layout category and lone CSS-variable references allowed) and `require-static-classes` (error). Those two need no project configuration and stay silent without Tailwind. The severity split is deliberate: what survives the arbitrary-value allowances needs a judgement call, so at error it gates every upgrade behind unrelated work.
 - The other four shadcn rules (`no-restyle`, `no-inline-styles`, `no-unknown-classes`, `no-raw-colors`) each enforce a policy only a consumer holds. `no-restyle` alone, with no `contracts`, was proxy-counted at roughly 1,480, 634 and 246 existing overrides in three repos, and the layout allowance wasn't measured. Don't move one into a preset.
 - `componentSourceOverride(files)` stops the call-site rules at the component directory, including `require-static-classes`, which can't read a prop-forwarding wrapper and so is unsatisfiable there.
-- The core preset extends Ultracite's anti-slop and Vitest rule sets, in that order after Ultracite core. Anti-slop must stay last: it disables `typescript/consistent-indexed-object-style` and `unicorn/no-immediate-mutation`, which deadlock against `anti-slop/no-known-value-widening`.
+- The core preset extends Ultracite core, Vitest, GDP and anti-slop, in that order. Anti-slop must stay last: it disables `typescript/consistent-indexed-object-style` and `unicorn/no-immediate-mutation`, which deadlock against `anti-slop/no-known-value-widening`.
 
 ## Opt-in rules a consumer enables itself
 

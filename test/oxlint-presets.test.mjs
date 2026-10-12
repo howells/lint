@@ -18,6 +18,7 @@ import { promisify } from "node:util";
 import { resolvePackageBin } from "../bin/run-package-bin.mjs";
 import boundaries from "../oxlint/boundaries.mjs";
 import core from "../oxlint/core.mjs";
+import gdp from "../oxlint/gdp.mjs";
 import neon from "../oxlint/neon.mjs";
 import next from "../oxlint/next.mjs";
 import playwright from "../oxlint/playwright.mjs";
@@ -33,6 +34,9 @@ const repoRoot = path.resolve(
 const oxlintBin = path.join(repoRoot, "node_modules", ".bin", "oxlint");
 const corePresetUrl = pathToFileURL(
   path.join(repoRoot, "oxlint", "core.mjs")
+).href;
+const gdpPresetUrl = pathToFileURL(
+  path.join(repoRoot, "oxlint", "gdp.mjs")
 ).href;
 const reactPresetUrl = pathToFileURL(
   path.join(repoRoot, "oxlint", "react.mjs")
@@ -146,6 +150,165 @@ function diagnosticsForRule(stdout, code) {
 
 test("core preset enables type-aware linting", async () => {
   assert.equal(core.options?.typeAware, true);
+});
+
+test("core enables GDP by default and rejects proof creation and assertions outside trusted modules", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFixture(
+      root,
+      "oxlint.config.mjs",
+      `import core from "${corePresetUrl}";\nexport default { extends: [core] };\n`
+    );
+    await writeFixture(
+      root,
+      "src/forged.ts",
+      [
+        'import { defineProof } from "@gdp-ts/core";',
+        'import type { Proof } from "@gdp-ts/core";',
+        "",
+        'export const prover = defineProof("UserIsProjectAdmin");',
+        'export const forged = {} as Proof<"UserIsProjectAdmin", []>;',
+        'export const assertion = "alice" as string;',
+        'export const constant = "alice" as const;',
+        "",
+      ].join("\n")
+    );
+
+    const result = await runOxlint(root);
+    assert.equal(result.status, 1);
+    assert.equal(
+      diagnosticsForRule(result.stdout, "gdp-ts(no-define-proof)").length,
+      1
+    );
+    assert.equal(
+      diagnosticsForRule(result.stdout, "gdp-ts(no-proof-assertion)").length,
+      1
+    );
+    assert.equal(
+      diagnosticsForRule(result.stdout, "gdp-ts(no-type-assertion)").length,
+      2
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+for (const [name, presetUrl] of [
+  ["React", reactPresetUrl],
+  ["Next", nextPresetUrl],
+  ["Playwright", playwrightPresetUrl],
+]) {
+  test(`${name} inherits GDP's assertion ban without an extra preset`, async () => {
+    const root = await makeFixtureRoot();
+
+    try {
+      await writeFixture(
+        root,
+        "oxlint.config.mjs",
+        `import preset from "${presetUrl}";\nexport default { extends: [preset] };\n`
+      );
+      await writeFixture(
+        root,
+        "src/assertion.ts",
+        'export const assertion = (value: string | number): string => value as string;\nexport const constant = "alice" as const;\n'
+      );
+      const result = await runOxlint(root);
+      assert.equal(result.status, 1);
+      assert.equal(
+        diagnosticsForRule(result.stdout, "gdp-ts(no-type-assertion)").length,
+        1
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+}
+
+test("GDP trusted modules may mint proofs but cannot export the prover", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFixture(
+      root,
+      "oxlint.config.mjs",
+      `import core from "${corePresetUrl}";\nexport default { extends: [core] };\n`
+    );
+    const trustedSource = [
+      'import { defineProof } from "@gdp-ts/core";',
+      'import type { Named, Proof } from "@gdp-ts/core";',
+      "",
+      'const prover = defineProof("UserIsProjectAdmin");',
+      "export interface UserIsProjectAdmin<U, P>",
+      '  extends Proof<"UserIsProjectAdmin", [U, P]> {}',
+      "export const checkProjectAdmin = <U, P>(",
+      "  user: Named<U, string>,",
+      "  project: Named<P, string>",
+      "): UserIsProjectAdmin<U, P> | null =>",
+      '  user.value === "alice" && project.value === "demo"',
+      "    ? prover.prove(user, project)",
+      "    : null;",
+      "",
+    ].join("\n");
+    await writeFixture(root, "src/proofs/project-admin.ts", trustedSource);
+
+    const accepted = await runOxlint(root);
+    assert.equal(accepted.status, 0, `${accepted.stdout}${accepted.stderr}`);
+
+    await writeFixture(
+      root,
+      "src/proofs/project-admin.ts",
+      `${trustedSource}export { prover };\n`
+    );
+    const rejected = await runOxlint(root);
+    assert.equal(rejected.status, 1);
+    assert.equal(
+      diagnosticsForRule(rejected.stdout, "gdp-ts(no-exported-prover)").length,
+      1
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("GDP branded-ID exception permits ID assertions but still rejects forged proofs", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFixture(
+      root,
+      "oxlint.config.mjs",
+      `import gdp from "${gdpPresetUrl}";\nexport default { extends: [gdp] };\n`
+    );
+    const idsSource = [
+      'import type { Proof } from "@gdp-ts/core";',
+      'export type UserId = string & { readonly brand: "UserId" };',
+      "export const userId = (value: string): UserId => value as UserId;",
+      "",
+    ].join("\n");
+    await writeFixture(root, "src/lib/ids.ts", idsSource);
+    const accepted = await runOxlint(root);
+    assert.equal(accepted.status, 0, `${accepted.stdout}${accepted.stderr}`);
+
+    await writeFixture(
+      root,
+      "src/lib/ids.ts",
+      `${idsSource}export const forged = {} as Proof<"UserIsProjectAdmin", []>;\n`
+    );
+    const rejected = await runOxlint(root);
+    assert.equal(rejected.status, 1);
+    assert.equal(
+      diagnosticsForRule(rejected.stdout, "gdp-ts(no-proof-assertion)").length,
+      1
+    );
+    assert.equal(
+      diagnosticsForRule(rejected.stdout, "gdp-ts(no-type-assertion)").length,
+      0
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
 });
 
 test("Ultracite JS-plugin coverage remains assigned to the correct presets", () => {
@@ -1542,6 +1705,7 @@ test("every Oxlint preset puts the policy plugin in scope", () => {
   for (const [name, preset] of [
     ["boundaries", boundaries],
     ["core", core],
+    ["gdp", gdp],
     ["neon", neon],
     ["next", next],
     ["playwright", playwright],
@@ -2294,6 +2458,7 @@ const MANIFEST_READING_RULES = [
 test("no preset loads a manifest-reading plugin", () => {
   for (const [name, preset] of [
     ["core", core],
+    ["gdp", gdp],
     ["next", next],
     ["playwright", playwright],
     ["react", react],

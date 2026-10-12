@@ -46,6 +46,10 @@
       "types": "./oxlint/core.d.mts",
       "default": "./oxlint/core.mjs"
     },
+    "./oxlint/gdp": {
+      "types": "./oxlint/gdp.d.mts",
+      "default": "./oxlint/gdp.mjs"
+    },
     "./oxlint/react": {
       "types": "./oxlint/react.d.mts",
       "default": "./oxlint/react.mjs"
@@ -86,16 +90,17 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@gdp-ts/core": "0.1.0",
     "@howells/neon": "^0.2.0",
     "@manypkg/cli": "0.25.1",
     "cn": "0.4.0",
     "globals": "17.12.0",
     "oxc-parser": "0.151.0",
-    "oxfmt": "0.70.0",
-    "oxlint": "1.85.0",
-    "oxlint-plugin-react-doctor": "0.9.14",
-    "oxlint-tsgolint": "7.0.2002",
-    "ultracite": "7.12.0"
+    "oxfmt": "0.71.0",
+    "oxlint": "1.86.0",
+    "oxlint-plugin-react-doctor": "0.9.16",
+    "oxlint-tsgolint": "7.0.2004",
+    "ultracite": "8.0.0"
   },
   "devDependencies": {
     "@howells/husky": "^0.2.5",

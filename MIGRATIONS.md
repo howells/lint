@@ -2,6 +2,18 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## GDP rules are enabled by default
+
+The unreleased Ultracite 8 refresh enables its GDP authorization-proof rules in core. React, Next and standalone Playwright inherit them without an extra config entry. The pinned lint plugin is included in `@howells/lint`.
+
+1. **Expect existing casts to report.** Ultracite's strict mode rejects every type assertion except `as const` outside `proofs/` and `lib/ids.ts`, even if the project does not use GDP. A `// SAFETY:` comment alone no longer makes an ordinary cast pass. Use typed values, narrowing or validation at the input boundary instead. Generated code should be ignored deliberately at the project level.
+
+2. **Keep the trusted exceptions narrow.** `proofs/` modules may create proofs and use assertions, but must keep the prover private. `lib/ids.ts` permits branded-ID assertions while still rejecting forged proofs and proof creation. Other core rules, including anti-slop's safety-comment requirements, remain on in both locations. Do not move ordinary code into these directories simply to avoid findings.
+
+3. **Keep new findings visible while migrating.** A project with a backlog can use the [lint ratchet](./docs/lint-ratchet.md) and reduce it incrementally. Any temporary exact-file override needs a removal path; do not disable GDP across the project.
+
+4. **Application authorization still needs application code.** Lint rules do not retrofit permission checks. Applications adopting typed proofs install `@gdp-ts/core@0.1.0` as a runtime dependency, follow [the GDP recipe](./docs/gdp.md), and run their TypeScript check alongside linting.
+
 ## 3.3.0: a config Oxlint ignored is now applied
 
 Take this one on its own. It changes nothing for a repo whose config is `oxlint.config.ts`, and it can surface a large backlog in a repo whose config is `oxlint.config.mjs`, `.js`, `.cjs` or `.cts`, because that config was never being read.

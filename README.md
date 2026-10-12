@@ -68,7 +68,9 @@ React Doctor and native Oxlint Next.js rules now arrive through Ultracite's Reac
 
 The core Oxlint preset enables type-aware linting and native Oxlint rules that keep code files navigable: `max-lines` errors above 600 non-comment, non-blank lines; `max-lines-per-function` warns above 120 non-comment, non-blank lines; `max-statements` warns above 45 statements per function; and `complexity` warns above cyclomatic complexity 15. It also rejects runtime `import()` expressions, including literal specifiers, so package loading stays statically traceable. Test files keep the file-level `max-lines` guard but disable function-size, statement-count, and complexity limits, because test framework callbacks naturally wrap many independent cases. Generated files should be ignored at the project level; rare intentional exceptions should use an exact-file override with a short refactor note.
 
-The core preset carries two further Ultracite rule sets, so React, Next, and Playwright inherit them. [anti-slop](https://github.com/dmmulroy/anti-slop) rejects the low-evidence TypeScript that turns up when code is written fast: type assertions with no stated reason, `unknown` in parameters and returns, `Reflect.get`/`Reflect.apply` property access, module mocking, widen-then-assert. Ultracite vendors a bundled build of it, so nothing extra is installed. Ultracite's Vitest rules cover test files - roughly 60 rules scoped to `*.test.*`, `*.spec.*`, and `__tests__` - replacing the dozen this package used to hand-roll.
+The core preset carries three further Ultracite rule sets, so React, Next, and Playwright inherit them. [anti-slop](https://github.com/dmmulroy/anti-slop) rejects the low-evidence TypeScript that turns up when code is written fast: type assertions with no stated reason, `unknown` in parameters and returns, `Reflect.get`/`Reflect.apply` property access, module mocking, widen-then-assert. Ultracite vendors a bundled build of it, so nothing extra is installed. Ultracite's Vitest rules cover test files - roughly 60 rules scoped to `*.test.*`, `*.spec.*`, and `__tests__` - replacing the dozen this package used to hand-roll.
+
+[GDP authorization-proof rules](./docs/gdp.md) are also enabled by default. They prevent proof creation outside `proofs/`, forged proof assertions, and exported provers from trusted modules. Ultracite's strict mode rejects every type assertion except `as const` outside `proofs/` and `lib/ids.ts`, even in projects without GDP application code. The lint plugin is pinned here; applications using the proof library add it as a runtime dependency. See [migration notes](./MIGRATIONS.md#gdp-rules-are-enabled-by-default) for existing casts.
 
 Core, React, Next, and Playwright presets also enforce the default Howells workspace convention: apps live under `apps/*`, shared packages live under `packages/*`, packages must not import apps, and apps must not import sibling apps. The rule is intentionally narrow and does not infer boundary meaning from other workspace folder names.
 
@@ -239,6 +241,7 @@ Choose the closest preset:
 - `@howells/lint/oxlint/boundaries` for composing only the default workspace boundary rule into custom configs
 - `@howells/lint/oxlint/react-doctor-rules` for composing or disabling React Doctor rules in mixed workspaces
 - `@howells/lint/oxlint/shadcn` for composing the shadcn design-system rules into custom configs, and for `componentSourceOverride`
+- `@howells/lint/oxlint/gdp` for GDP rules in custom configs; core, React, Next and standalone Playwright already enable them; see [usage and rules](./docs/gdp.md)
 
 Node or non-React TypeScript:
 

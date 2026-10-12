@@ -14,7 +14,7 @@ const repoRoot = path.resolve(
   ".."
 );
 
-test("packed package installs without ESLint and loads the Next, Playwright and shadcn presets", async () => {
+test("packed package installs without ESLint or TypeScript and loads the Next, Playwright, shadcn and GDP presets", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "howells-lint-consumer-"));
 
   try {
@@ -83,7 +83,10 @@ test("packed package installs without ESLint and loads the Next, Playwright and 
       path.join(root, "node_modules", ".pnpm")
     );
     assert.deepEqual(
-      installedPackages.filter((entry) => entry.startsWith("eslint@")),
+      installedPackages.filter(
+        (entry) =>
+          entry.startsWith("eslint@") || entry.startsWith("typescript@")
+      ),
       []
     );
 
@@ -154,6 +157,37 @@ test("packed package installs without ESLint and loads the Next, Playwright and 
       `${shadcnResult.stdout}${shadcnResult.stderr}`,
       /shadcn\(no-arbitrary-values\)/
     );
+
+    // Only @howells/lint is a direct dependency. The new preset and its pinned
+    // plugin must both resolve from the packed package, without a hoisted copy
+    // beside the consumer config.
+    await writeFile(
+      path.join(root, "gdp.oxlint.config.mjs"),
+      'import gdp from "@howells/lint/oxlint/gdp";\nexport default { extends: [gdp] };\n'
+    );
+    await execFileAsync(
+      process.execPath,
+      [oxlintBin, "--config", "gdp.oxlint.config.mjs", "portrait.ts"],
+      { cwd: root }
+    );
+    await writeFile(
+      path.join(root, "forged.ts"),
+      'import type { Proof } from "@gdp-ts/core";\nexport const forged = {} as Proof<"UserIsProjectAdmin", []>;\n'
+    );
+    // The normal Next preset must enforce GDP too, without importing the
+    // standalone GDP export in the consumer config.
+    for (const config of ["gdp.oxlint.config.mjs", "oxlint.config.mjs"]) {
+      const gdpResult = await execFileAsync(
+        process.execPath,
+        [oxlintBin, "--config", config, "forged.ts"],
+        { cwd: root }
+      ).catch((error) => error);
+      assert.equal(gdpResult.code, 1);
+      assert.match(
+        `${gdpResult.stdout}${gdpResult.stderr}`,
+        /gdp-ts\(no-proof-assertion\)/
+      );
+    }
   } finally {
     await rm(root, { force: true, recursive: true });
   }

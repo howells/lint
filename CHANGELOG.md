@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `@howells/lint/oxlint/gdp`, exposing Ultracite's GDP authorization-proof rules and trusted-module overrides. Core enables GDP by default, so React, Next and standalone Playwright inherit it. Ultracite's strict mode rejects every type assertion except `as const` outside `proofs/` and `lib/ids.ts`, even in projects without GDP application code; see `MIGRATIONS.md`. The `@gdp-ts/core` lint plugin is pinned to 0.1.0 and resolved inside this package, so consumers do not need a direct plugin dependency. Applications using the proof library install it as a runtime dependency.
+
+### Changed
+
+- Upgrade Ultracite from 7.12.0 to 8.0.0, with its Oxlint/Oxfmt toolchain pinned to Oxlint 1.86.0, Oxfmt 0.71.0, oxlint-tsgolint 7.0.2004 and oxlint-plugin-react-doctor 0.9.16. The shared core preset already enables type-aware linting, so consumers need no configuration migration.
+
 ## 3.5.3 - 2026-09-30
 
 ### Fixed
