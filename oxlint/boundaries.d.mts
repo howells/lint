@@ -8,5 +8,7 @@ export const boundaryJsPlugins: OxlintJsPlugins;
 export const boundarySettings: OxlintSettings;
 export const boundaryRules: OxlintRules;
 
+export function createNextFeatureBoundaryConfig(rootPath: string): OxlintConfig;
+
 declare const config: OxlintConfig;
 export default config;

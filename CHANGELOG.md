@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.7.0 - 2026-10-13
+
+### Added
+
+- `createNextFeatureBoundaryConfig(rootPath)` from `@howells/lint/oxlint/boundaries`, enforcing Next.js source-layer direction with upstream `eslint-plugin-boundaries` 7.2.0 directly in Oxlint. TypeScript aliases use `eslint-import-resolver-oxc` 0.15.0. Both runtimes are vendored with their licenses to avoid installing an unused ESLint peer; packed-install tests verify enforcement and the dependency graph.
+
 ## 3.6.0 - 2026-10-13
 
 ### Added

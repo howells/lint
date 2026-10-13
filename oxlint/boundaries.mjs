@@ -1,5 +1,7 @@
 import { defineConfig } from "oxlint";
 
+export { createNextFeatureBoundaryConfig } from "./architecture-boundaries.mjs";
+
 const howellsPolicyPluginSpecifier = new URL(
   "./howells-policy-plugin.mjs",
   import.meta.url

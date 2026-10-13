@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -14,8 +22,10 @@ const repoRoot = path.resolve(
   ".."
 );
 
-test("packed package installs without ESLint or TypeScript and loads the Next, Playwright, shadcn and GDP presets", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "howells-lint-consumer-"));
+test("packed package installs without ESLint or TypeScript and loads the Next, Playwright, shadcn, GDP and boundary presets", async () => {
+  const root = await realpath(
+    await mkdtemp(path.join(tmpdir(), "howells-lint-consumer-"))
+  );
 
   try {
     // The destination is a fresh directory, so the tarball is whatever lands in
@@ -188,6 +198,57 @@ test("packed package installs without ESLint or TypeScript and loads the Next, P
         /gdp-ts\(no-proof-assertion\)/
       );
     }
+
+    // Resolve aliases and the vendored plugin/resolver from an installed
+    // tarball, so an accidentally omitted runtime file cannot pass the suite.
+    await writeFile(
+      path.join(root, "boundaries.oxlint.config.mjs"),
+      'import { createNextFeatureBoundaryConfig } from "@howells/lint/oxlint/boundaries";\nexport default { categories: { correctness: "off" }, ...createNextFeatureBoundaryConfig(import.meta.dirname) };\n'
+    );
+    await writeFile(
+      path.join(root, "tsconfig.json"),
+      JSON.stringify({ compilerOptions: { paths: { "@/*": ["./src/*"] } } })
+    );
+    for (const layer of ["app", "lib"]) {
+      await mkdir(path.join(root, "src", layer), { recursive: true });
+      await writeFile(
+        path.join(root, "src", layer, "target.ts"),
+        "export const value = 1;\n"
+      );
+    }
+    await writeFile(
+      path.join(root, "src/app/allowed.ts"),
+      'export { value } from "@/lib/target";\n'
+    );
+    await execFileAsync(
+      process.execPath,
+      [
+        oxlintBin,
+        "--config",
+        "boundaries.oxlint.config.mjs",
+        "src/app/allowed.ts",
+      ],
+      { cwd: root }
+    );
+    await writeFile(
+      path.join(root, "src/lib/forbidden.ts"),
+      'export { value } from "@/app/target";\n'
+    );
+    const boundaryResult = await execFileAsync(
+      process.execPath,
+      [
+        oxlintBin,
+        "--config",
+        "boundaries.oxlint.config.mjs",
+        "src/lib/forbidden.ts",
+      ],
+      { cwd: root }
+    ).catch((error) => error);
+    assert.equal(boundaryResult.code, 1);
+    assert.match(
+      `${boundaryResult.stdout}${boundaryResult.stderr}`,
+      /boundaries\(dependencies\)/
+    );
   } finally {
     await rm(root, { force: true, recursive: true });
   }

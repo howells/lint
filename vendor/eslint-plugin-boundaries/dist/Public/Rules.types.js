@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.isRuleName = exports.isRuleShortName = exports.isRulePolicy = exports.isRuleEffect = exports.NO_UNKNOWN_DEPENDENCIES_REQUIRE_MAP = exports.RULE_NAMES_MAP = exports.RULE_SHORT_NAMES_MAP = exports.RULE_POLICIES_MAP = exports.RULE_EFFECTS_MAP = exports.isElementSelector = void 0;
+var elements_1 = require("@boundaries/elements");
+Object.defineProperty(exports, "isElementSelector", { enumerable: true, get: function () { return elements_1.isElementSelector; } });
+var Shared_1 = require("../Shared");
+Object.defineProperty(exports, "RULE_EFFECTS_MAP", { enumerable: true, get: function () { return Shared_1.RULE_EFFECTS_MAP; } });
+Object.defineProperty(exports, "RULE_POLICIES_MAP", { enumerable: true, get: function () { return Shared_1.RULE_POLICIES_MAP; } });
+Object.defineProperty(exports, "RULE_SHORT_NAMES_MAP", { enumerable: true, get: function () { return Shared_1.RULE_SHORT_NAMES_MAP; } });
+Object.defineProperty(exports, "RULE_NAMES_MAP", { enumerable: true, get: function () { return Shared_1.RULE_NAMES_MAP; } });
+Object.defineProperty(exports, "NO_UNKNOWN_DEPENDENCIES_REQUIRE_MAP", { enumerable: true, get: function () { return Shared_1.NO_UNKNOWN_DEPENDENCIES_REQUIRE_MAP; } });
+var Settings_1 = require("../Settings");
+Object.defineProperty(exports, "isRuleEffect", { enumerable: true, get: function () { return Settings_1.isRuleEffect; } });
+Object.defineProperty(exports, "isRulePolicy", { enumerable: true, get: function () { return Settings_1.isRulePolicy; } });
+Object.defineProperty(exports, "isRuleShortName", { enumerable: true, get: function () { return Settings_1.isRuleShortName; } });
+Object.defineProperty(exports, "isRuleName", { enumerable: true, get: function () { return Settings_1.isRuleName; } });

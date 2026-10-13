@@ -39,6 +39,24 @@ Scripts:
 
 Monorepo roots use `turbo run lint && howells-workspace-check`. A repo with a backlog adds the ratchet: `"lint:ratchet": "howells-ratchet"` and `"lint:rebaseline": "howells-ratchet --write"`.
 
+## Architecture boundaries
+
+Use `turbo boundaries` for package dependencies in a Turborepo, keeping the policies in `turbo.json`.
+
+For a Next.js app with `src/app`, `src/pages`, `src/components`, `src/features`, `src/entities`, `src/lib` and `src/shared`, compose the upstream boundary plugin into `oxlint.config.ts`:
+
+```ts
+import { createNextFeatureBoundaryConfig } from "@howells/lint/oxlint/boundaries";
+import next from "@howells/lint/oxlint/next";
+
+export default {
+  ...createNextFeatureBoundaryConfig(import.meta.dirname),
+  extends: [next],
+};
+```
+
+The factory loads `eslint-plugin-boundaries` directly in Oxlint and resolves TypeScript aliases from the app's `tsconfig.json`. Imports can stay in the same layer or go down: app/pages → components → features → entities → lib/shared. Keep the factory's `settings` at the config root; Oxlint does not inherit them through `extends`. When adding your own `rules` or `settings`, merge them with the factory's values. The normal `howells-check` run enforces these checks.
+
 ## Reference
 
 These ship with the package:

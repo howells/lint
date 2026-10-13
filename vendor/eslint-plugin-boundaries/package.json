@@ -1,0 +1,8 @@
+{
+  "name": "eslint-plugin-boundaries",
+  "version": "7.2.0",
+  "private": true,
+  "description": "Unmodified upstream runtime loaded by Oxlint; vendored to avoid the ESLint peer dependency.",
+  "license": "MIT",
+  "main": "dist/index.js"
+}

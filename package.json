@@ -1,6 +1,6 @@
 {
   "name": "@howells/lint",
-  "version": "3.6.0",
+  "version": "3.7.0",
   "description": "Pinned Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
   "keywords": [],
   "homepage": "https://github.com/howells/lint#readme",
@@ -89,16 +89,24 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@boundaries/elements": "3.1.1",
     "@gdp-ts/core": "0.1.0",
     "@howells/neon": "^0.2.0",
     "@manypkg/cli": "0.25.1",
+    "chalk": "4.1.2",
     "cn": "0.4.0",
+    "eslint-import-resolver-node": "0.3.9",
+    "eslint-module-utils": "2.12.1",
     "globals": "17.12.0",
+    "handlebars": "4.7.9",
+    "micromatch": "4.0.8",
     "oxc-parser": "0.151.0",
+    "oxc-resolver": "11.24.2",
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0",
     "oxlint-plugin-react-doctor": "0.9.16",
     "oxlint-tsgolint": "7.0.2004",
+    "stable-hash-x": "0.1.1",
     "ultracite": "8.0.0"
   },
   "devDependencies": {
