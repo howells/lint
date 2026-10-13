@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.6.0 - 2026-10-13
 
 ### Added
 
@@ -9,6 +9,7 @@
 ### Changed
 
 - Upgrade Ultracite from 7.12.0 to 8.0.0, with its Oxlint/Oxfmt toolchain pinned to Oxlint 1.86.0, Oxfmt 0.71.0, oxlint-tsgolint 7.0.2004 and oxlint-plugin-react-doctor 0.9.16. The shared core preset already enables type-aware linting, so consumers need no configuration migration.
+- The README is a short public guide to installing and wiring the package, linking the reference docs that ship with it. Project documentation moved to Linear.
 
 ## 3.5.3 - 2026-09-30
 

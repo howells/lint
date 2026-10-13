@@ -2,9 +2,9 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
-## GDP rules are enabled by default
+## 3.6.0: GDP rules are enabled by default
 
-The unreleased Ultracite 8 refresh enables its GDP authorization-proof rules in core. React, Next and standalone Playwright inherit them without an extra config entry. The pinned lint plugin is included in `@howells/lint`.
+The Ultracite 8 refresh enables its GDP authorization-proof rules in core. React, Next and standalone Playwright inherit them without an extra config entry. The pinned lint plugin is included in `@howells/lint`.
 
 1. **Expect existing casts to report.** Ultracite's strict mode rejects every type assertion except `as const` outside `proofs/` and `lib/ids.ts`, even if the project does not use GDP. A `// SAFETY:` comment alone no longer makes an ordinary cast pass. Use typed values, narrowing or validation at the input boundary instead. Generated code should be ignored deliberately at the project level.
 
