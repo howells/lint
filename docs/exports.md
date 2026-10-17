@@ -12,6 +12,8 @@
 - `/oxlint/neon`
 - `/oxlint/gdp` - Ultracite's authorization-proof rules as a standalone export for custom configs; included by core, React, Next and standalone Playwright.
 
+`@howells/lint/oxlint/core` also exports `ignorePatterns`, a `string[]` containing Ultracite's exclusions and generated-file patterns. Spread it into the consumer root config: `ignorePatterns: [...ignorePatterns, ...localPatterns]`. Oxlint 1.86.0 does not inherit ignores through `extends`; see [3.8.0 adoption notes](../MIGRATIONS.md#380-correct-switches-test-matchers-and-class-contracts).
+
 Every Oxlint preset enforces the Howells workspace convention: apps under `apps/*`, shared packages under `packages/*`, packages never import apps, apps never import sibling apps.
 
 ## Oxfmt preset

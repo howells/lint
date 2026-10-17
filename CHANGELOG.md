@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.8.0 - 2026-10-17
+
+### Fixed
+
+- Reconcile switch rules following [xo's configuration](https://github.com/xojs/eslint-config-xo-typescript/blob/main/index.js): disable `default-case` and configure `typescript/switch-exhaustiveness-check` with `allowDefaultCaseForExhaustiveSwitch: false` and `requireDefaultForNonUnion: true`. Exhaustive unions need no default, redundant defaults report, and switches over open types still need a default. `unicorn/no-useless-switch-case` stays enabled. Binary fixtures remove each option independently to prove that Oxlint 1.86.0 honours both.
+- Disable `typescript/no-unsafe-assignment`, `typescript/no-unsafe-argument` and `typescript/no-unsafe-member-access` only in test and test setup files. Vitest deliberately returns `any` from asymmetric matchers, as confirmed by [the revert of its stricter return type](https://github.com/vitest-dev/vitest/pull/8129). Production keeps all three checks; tests keep `no-unsafe-call` and `no-unsafe-return`.
+- Configure `class-methods-use-this` with [Oxlint's upstream options](https://github.com/oxc-project/oxc/blob/oxlint_v1.86.0/crates/oxc_linter/src/rules/eslint/class_methods_use_this.rs) `ignoreOverrideMethods: true` and `ignoreClassesWithImplements: "all"`. Interface implementations and override methods pass; ordinary methods without `this` still report. Fixtures remove each option independently, including a private method in an implementing class.
+- Allow variable assertion messages with `vitest/valid-expect`'s documented `maxArgs: 2` option. Oxlint 1.86.0 already accepts literal strings and template literals through [oxc#18975](https://github.com/oxc-project/oxc/pull/18975); a variable message still reports with the default settings. Missing arguments, three arguments and missing matcher calls still report.
+
+### Added
+
+- Typed `ignorePatterns` export from `@howells/lint/oxlint/core`, preserving Ultracite's existing exclusions including `**/*.generated.*` and adding explicit `**/generated/**` coverage. Oxlint 1.86.0 does not inherit these patterns through `extends`: consumers must spread the export into their root config, as shown in `MIGRATIONS.md`. Fixtures verify directory walks and explicit file targets, preserving consumer exclusions and findings in ordinary source.
+
 ## 3.7.0 - 2026-10-13
 
 ### Added

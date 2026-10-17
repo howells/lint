@@ -2,6 +2,28 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## 3.8.0: correct switches, test matchers and class contracts
+
+Core, React, Next and standalone Playwright inherit the rule changes. No tool versions change: Oxlint stays pinned to 1.86.0.
+
+- Remove consumer overrides for `default-case` and `typescript/switch-exhaustiveness-check` that worked around their conflict. Exhaustive union switches omit `default`; open types such as `string` still require one. Missing union members and redundant defaults report. `unicorn/no-useless-switch-case` remains enabled.
+- Test files (`*.test.*`, `*.spec.*`, `*.test-d.*`, `*.spec-d.*`, `__tests__/**`) and the preset's existing Vitest setup files permit Vitest's deliberately `any`-typed asymmetric matchers. Only `no-unsafe-assignment`, `no-unsafe-argument` and `no-unsafe-member-access` are disabled there. `no-unsafe-call` and `no-unsafe-return` remain enabled; production keeps all five.
+- `class-methods-use-this` permits classes implementing interfaces and methods marked `override`. It still reports ordinary class methods without `this`. The preset uses Oxlint's `ignoreOverrideMethods: true` and `ignoreClassesWithImplements: "all"` option names.
+- `vitest/valid-expect` accepts literal, template and variable messages. Literal and template messages already pass the pinned binary's defaults; `maxArgs: 2` is needed for variables. The rule still checks argument counts and matcher calls.
+
+Generated files need one consumer configuration change. Ultracite already lists `**/*.generated.*` and generated directories, but Oxlint 1.86.0 does **not** merge `ignorePatterns` through `extends`, even when the consumer has no ignores of its own. Spread the named export into the root config, keeping any local patterns:
+
+```ts
+import core, { ignorePatterns } from "@howells/lint/oxlint/core";
+
+export default {
+  extends: [core],
+  ignorePatterns: [...ignorePatterns, "**/project-output/**"],
+};
+```
+
+For React, Next or standalone Playwright, keep the existing default preset import and import `ignorePatterns` from `/oxlint/core` separately. The export preserves Ultracite's complete ignore list and explicitly includes `**/generated/**`. These exclusions apply to both directory walks and explicitly named files. Extending the preset alone does not activate them.
+
 ## 3.6.0: GDP rules are enabled by default
 
 The Ultracite 8 refresh enables its GDP authorization-proof rules in core. React, Next and standalone Playwright inherit them without an extra config entry. The pinned lint plugin is included in `@howells/lint`.

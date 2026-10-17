@@ -6,6 +6,13 @@ import ultraciteVitest from "ultracite/oxlint/vitest";
 import { boundaryJsPlugins, boundaryRules } from "./boundaries.mjs";
 import gdp from "./gdp.mjs";
 
+// Oxlint only reads ignores from the consumer's root config, not `extends`.
+// Consumers spread this export into their own ignorePatterns; see MIGRATIONS.md.
+export const ignorePatterns = [
+  ...ultraciteCore.ignorePatterns,
+  "**/generated/**",
+];
+
 // Anti-slop is extended last on purpose. It disables
 // `typescript/consistent-indexed-object-style` and
 // `unicorn/no-immediate-mutation`, which Ultracite's core preset enables and
@@ -14,11 +21,30 @@ import gdp from "./gdp.mjs";
 // so this position holds for the React and Next lanes too.
 export default defineConfig({
   extends: [ultraciteCore, ultraciteVitest, gdp, ultraciteAntiSlop],
+  ignorePatterns,
   jsPlugins: boundaryJsPlugins,
   options: {
     typeAware: true,
   },
   overrides: [
+    {
+      files: [
+        "**/*.{test,spec,test-d,spec-d}.*",
+        "**/__tests__/**",
+        "**/vitest.setup.{ts,tsx,js,jsx,mts,mjs}",
+        "**/test/setup.{ts,tsx,js,jsx,mts,mjs}",
+      ],
+      plugins: ["vitest"],
+      rules: {
+        // Vitest deliberately returns `any` from asymmetric matchers:
+        // https://github.com/vitest-dev/vitest/pull/8129
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-member-access": "off",
+        // Native support covers literal messages; variables need maxArgs: 2.
+        "vitest/valid-expect": ["error", { maxArgs: 2 }],
+      },
+    },
     {
       files: ["**/*.test.{js,jsx,ts,tsx}", "**/*.spec.{js,jsx,ts,tsx}"],
       rules: {
@@ -91,12 +117,20 @@ export default defineConfig({
   plugins: ultraciteCore.plugins,
   rules: {
     ...boundaryRules,
+    // Oxlint's option names differ from typescript-eslint's override option.
+    "class-methods-use-this": [
+      "error",
+      { ignoreClassesWithImplements: "all", ignoreOverrideMethods: true },
+    ],
     complexity: [
       "warn",
       {
         max: 15,
       },
     ],
+    // Follow xo: typed exhaustiveness handles unions and open types together.
+    // https://github.com/xojs/eslint-config-xo-typescript/blob/main/index.js
+    "default-case": "off",
     "max-lines": [
       "error",
       {
@@ -155,6 +189,13 @@ export default defineConfig({
     // (promise-returning functions are async, never throw synchronously); the
     // untyped one yields.
     "require-await": "off",
+    "typescript/switch-exhaustiveness-check": [
+      "error",
+      {
+        allowDefaultCaseForExhaustiveSwitch: false,
+        requireDefaultForNonUnion: true,
+      },
+    ],
     "unicorn/filename-case": [
       "error",
       {

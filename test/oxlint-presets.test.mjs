@@ -2530,3 +2530,340 @@ test("linting a catalogued workspace writes no dependency-resolution noise", asy
     await rm(root, { force: true, recursive: true });
   }
 });
+
+// These fixtures exercise the pinned binary, including controls with each option
+// removed. Oxlint silently ignores unknown rule options, so shape checks alone
+// cannot establish that a shared preset changes lint behaviour.
+async function writeTypedFixtureConfig(root, config) {
+  await writeFixture(root, "oxlint.config.mjs", config);
+  await writeFixture(
+    root,
+    "tsconfig.json",
+    JSON.stringify({
+      compilerOptions: {
+        strict: true,
+        target: "ESNext",
+        module: "ESNext",
+        moduleResolution: "Bundler",
+      },
+      include: ["src/**/*"],
+    })
+  );
+}
+
+test("switch options reject redundant defaults and require open-type defaults independently", async () => {
+  const root = await makeFixtureRoot();
+  try {
+    await writeTypedFixtureConfig(
+      root,
+      `import core from "${corePresetUrl}"; export default { extends: [core] };`
+    );
+    const sources = {
+      "union.ts":
+        'export const choose = (value: "a" | "b"): number => { let result = 0; switch (value) { case "a": { result = 1; break; } case "b": { result = 2; break; } } return result; };',
+      "redundant-default.ts":
+        'export const choose = (value: "a" | "b"): number => { switch (value) { case "a": { return 1; } case "b": { return 2; } default: { return 3; } } };',
+      "missing-union.ts":
+        'export const choose = (value: "a" | "b"): number => { switch (value) { case "a": { return 1; } } return 0; };',
+      "open.ts":
+        'export const choose = (value: string): number => { switch (value) { case "a": { return 1; } } return 0; };',
+      "open-default.ts":
+        'export const choose = (value: string): number => { switch (value) { case "a": { return 1; } default: { return 0; } } };',
+      "useless-case.ts":
+        'export const choose = (value: string): number => { switch (value) { case "a": default: { return 0; } } };',
+    };
+    for (const [name, source] of Object.entries(sources)) {
+      await writeFixture(root, `src/${name}`, source);
+    }
+    const code = "typescript(switch-exhaustiveness-check)";
+    const result = await runOxlint(root);
+    const findings = diagnosticsForRule(result.stdout, code);
+    assert.equal(findings.length, 3, result.stdout);
+    for (const name of [
+      "redundant-default.ts",
+      "missing-union.ts",
+      "open.ts",
+    ]) {
+      assert.ok(
+        findings.some((finding) => finding.filename.endsWith(name)),
+        result.stdout
+      );
+    }
+    assert.equal(
+      diagnosticsForRule(result.stdout, "eslint(default-case)").length,
+      0
+    );
+    assert.equal(
+      diagnosticsForRule(result.stdout, "unicorn(no-useless-switch-case)")
+        .length,
+      1
+    );
+    const accepted = await runOxlint(root, [
+      "src/union.ts",
+      "src/open-default.ts",
+    ]);
+    assert.equal(accepted.status, 0, `${accepted.stdout}${accepted.stderr}`);
+    for (const [option, target] of [
+      ["allowDefaultCaseForExhaustiveSwitch", "redundant-default.ts"],
+      ["requireDefaultForNonUnion", "open.ts"],
+    ]) {
+      await writeFixture(
+        root,
+        "oxlint.config.mjs",
+        `import core from "${corePresetUrl}";
+const [severity, options] = core.rules["typescript/switch-exhaustiveness-check"];
+const { ${option}: removed, ...rest } = options;
+export default { extends: [core], rules: { "typescript/switch-exhaustiveness-check": [severity, rest] } };`
+      );
+      const control = await runOxlint(root, [`src/${target}`]);
+      assert.equal(
+        diagnosticsForRule(control.stdout, code).length,
+        0,
+        control.stdout
+      );
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("class method options exempt implements and override independently while ordinary methods still report", async () => {
+  const root = await makeFixtureRoot();
+  try {
+    await writeTypedFixtureConfig(
+      root,
+      `import core from "${corePresetUrl}"; export default { extends: [core] };`
+    );
+    await writeFixture(
+      root,
+      "src/implements.ts",
+      'interface Reader { read(): string; } export class InterfaceReader implements Reader { read(): string { return "value"; } private helper(): string { return "helper"; } }'
+    );
+    await writeFixture(
+      root,
+      "src/override.ts",
+      'abstract class Base { abstract read(): string; } export class Reader extends Base { override read(): string { return "value"; } }'
+    );
+    await writeFixture(
+      root,
+      "src/plain.ts",
+      'export class Reader { read(): string { return "value"; } }'
+    );
+    const code = "eslint(class-methods-use-this)";
+    const result = await runOxlint(root);
+    const findings = diagnosticsForRule(result.stdout, code);
+    assert.equal(findings.length, 1, result.stdout);
+    assert.ok(findings[0].filename.endsWith("plain.ts"));
+    for (const [option, target, count] of [
+      ["ignoreClassesWithImplements", "implements.ts", 2],
+      ["ignoreOverrideMethods", "override.ts", 1],
+    ]) {
+      await writeFixture(
+        root,
+        "oxlint.config.mjs",
+        `import core from "${corePresetUrl}";
+const [severity, options] = core.rules["class-methods-use-this"];
+const { ${option}: removed, ...rest } = options;
+export default { extends: [core], rules: { "class-methods-use-this": [severity, rest] } };`
+      );
+      const control = await runOxlint(root, [`src/${target}`]);
+      assert.equal(
+        diagnosticsForRule(control.stdout, code).length,
+        count,
+        control.stdout
+      );
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("unsafe matcher exceptions cover test spellings, retain call and return checks, and leave production strict", async () => {
+  const root = await makeFixtureRoot();
+  try {
+    await writeTypedFixtureConfig(
+      root,
+      `import core from "${corePresetUrl}"; export default { extends: [core] };`
+    );
+    // Mirror Vitest's intentional asymmetric matcher return types without adding
+    // a test-runner dependency to every consumer of this toolchain.
+    await writeFixture(
+      root,
+      "src/vitest.d.ts",
+      `declare module "vitest" {
+export const expect: { any(value: unknown): any; objectContaining(value: unknown): any; };
+}`
+    );
+    const source = `import { expect } from "vitest";
+declare function accept(value: string): void;
+export const matcher: { name: string } = expect.objectContaining({ name: "test" });
+accept(expect.any(String));
+export const member: unknown = expect.objectContaining({ name: "test" }).name;
+expect.any(String)();
+export function unsafeReturn(): string { return expect.any(String); }
+`;
+    const targets = [
+      "src/matcher.test.ts",
+      "src/matcher.spec.ts",
+      "src/matcher.test.mts",
+      "src/matcher.spec.cts",
+      "src/matcher.test-d.ts",
+      "src/matcher.spec-d.ts",
+      "src/__tests__/matcher.ts",
+      "src/__tests__/matcher.mts",
+      "src/vitest.setup.ts",
+      "src/test/setup.ts",
+      "src/production.ts",
+    ];
+    for (const target of targets) {
+      await writeFixture(root, target, source);
+    }
+    const result = await runOxlint(root);
+    for (const rule of [
+      "no-unsafe-assignment",
+      "no-unsafe-argument",
+      "no-unsafe-member-access",
+    ]) {
+      const findings = diagnosticsForRule(result.stdout, `typescript(${rule})`);
+      assert.equal(findings.length, 1, result.stdout);
+      assert.ok(findings[0].filename.endsWith("production.ts"));
+    }
+    for (const rule of ["no-unsafe-call", "no-unsafe-return"]) {
+      assert.equal(
+        diagnosticsForRule(result.stdout, `typescript(${rule})`).length,
+        targets.length,
+        result.stdout
+      );
+    }
+    await writeFixture(
+      root,
+      "oxlint.config.mjs",
+      `import core from "${corePresetUrl}";
+export default { extends: [{ ...core, overrides: core.overrides.filter(override => !Object.hasOwn(override.rules, "typescript/no-unsafe-assignment")) }] };`
+    );
+    const control = await runOxlint(root, ["src/matcher.test.ts"]);
+    for (const rule of [
+      "no-unsafe-assignment",
+      "no-unsafe-argument",
+      "no-unsafe-member-access",
+    ]) {
+      assert.equal(
+        diagnosticsForRule(control.stdout, `typescript(${rule})`).length,
+        1,
+        control.stdout
+      );
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("generated ignores require a root spread and preserve consumer ignores and ordinary findings", async () => {
+  const root = await makeFixtureRoot();
+  try {
+    const targets = [
+      "src/normal.ts",
+      "src/types.generated.ts",
+      "src/generated/client.ts",
+      "src/nested/generated/client.ts",
+      "src/consumer-only.ts",
+      "src/dist/output.ts",
+    ];
+    for (const target of targets) {
+      await writeFixture(root, target, "debugger;");
+    }
+    await writeFixture(
+      root,
+      "oxlint.config.mjs",
+      `import core from "${corePresetUrl}"; export default { extends: [core] };`
+    );
+    const inherited = await runOxlint(root);
+    assert.equal(
+      diagnosticsForRule(inherited.stdout, "eslint(no-debugger)").length,
+      targets.length,
+      inherited.stdout
+    );
+    for (const [spread, expected] of [
+      [false, 5],
+      [true, 1],
+    ]) {
+      await writeFixture(
+        root,
+        "oxlint.config.mjs",
+        `import core, { ignorePatterns } from "${corePresetUrl}";
+export default { extends: [core], ignorePatterns: [${spread ? "...ignorePatterns," : ""} "**/consumer-only.ts"] };`
+      );
+      const result = await runOxlint(root);
+      const findings = diagnosticsForRule(result.stdout, "eslint(no-debugger)");
+      assert.equal(findings.length, expected, result.stdout);
+      assert.ok(
+        findings.some((finding) => finding.filename.endsWith("normal.ts"))
+      );
+      const explicit = await runOxlint(root, targets);
+      assert.equal(
+        diagnosticsForRule(explicit.stdout, "eslint(no-debugger)").length,
+        expected,
+        explicit.stdout
+      );
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("valid-expect accepts literal and template messages natively, variables with maxArgs, and still rejects invalid calls", async () => {
+  const root = await makeFixtureRoot();
+  try {
+    await writeTypedFixtureConfig(
+      root,
+      `import core from "${corePresetUrl}"; export default { extends: [core] };`
+    );
+    const messages = {
+      literal: '"message"',
+      template: "`message ${value}`",
+      variable: "message",
+    };
+    for (const [name, message] of Object.entries(messages)) {
+      await writeFixture(
+        root,
+        `src/${name}.test.ts`,
+        `import { expect } from "vitest"; const value = 1; const message: string = "message"; expect(value, ${message}).toBe(1);`
+      );
+    }
+    await writeFixture(
+      root,
+      "src/invalid.test.ts",
+      'import { expect } from "vitest"; expect().toBe(1); expect(1, "message", "extra").toBe(1); expect(1);'
+    );
+    const code = "vitest(valid-expect)";
+    const result = await runOxlint(root);
+    const findings = diagnosticsForRule(result.stdout, code);
+    assert.equal(findings.length, 3, result.stdout);
+    assert.ok(
+      findings.every((finding) => finding.filename.endsWith("invalid.test.ts"))
+    );
+    await writeFixture(
+      root,
+      "oxlint.config.mjs",
+      `import core from "${corePresetUrl}";
+export default { extends: [core], overrides: [{ files: ["**/*.test.ts"], plugins: ["vitest"], rules: { "vitest/valid-expect": "error" } }] };`
+    );
+    const control = await runOxlint(root);
+    const native = diagnosticsForRule(control.stdout, code);
+    assert.equal(native.length, 4, control.stdout);
+    assert.equal(
+      native.filter((finding) => finding.filename.endsWith("variable.test.ts"))
+        .length,
+      1
+    );
+    for (const name of ["literal", "template"]) {
+      assert.equal(
+        native.filter((finding) => finding.filename.endsWith(`${name}.test.ts`))
+          .length,
+        0
+      );
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
