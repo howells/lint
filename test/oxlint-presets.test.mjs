@@ -493,6 +493,42 @@ test("core preset rejects runtime dynamic imports", async () => {
   }
 });
 
+test("core preset requires a reason on every disable comment", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`
+    );
+    await writeFixture(
+      root,
+      "src/disables.ts",
+      [
+        "// oxlint-disable-next-line no-console",
+        'console.log("bare");',
+        "// oxlint-disable-next-line no-console --",
+        'console.log("empty");',
+        "// oxlint-disable-next-line no-console -- the CLI prints its report.",
+        'console.log("reasoned");',
+        "export {};",
+        "",
+      ].join("\n")
+    );
+
+    const result = await runOxlint(root);
+    const ruleOutput = JSON.stringify(
+      diagnosticsForRule(result.stdout, "howells(require-disable-reason)")
+    );
+
+    assert.match(ruleOutput, /"line":1/);
+    assert.match(ruleOutput, /"line":3/);
+    assert.doesNotMatch(ruleOutput, /"line":5/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 // `vitest/prefer-import-in-mock` demands that the module named in `vi.mock` be
 // written as `import("./dep")` so the factory's `importOriginal()` is typed,
 // and `howells/no-runtime-dynamic-imports` reports every import expression.

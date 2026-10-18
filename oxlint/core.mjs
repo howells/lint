@@ -155,6 +155,7 @@ export default defineConfig({
       },
     ],
     "howells/no-runtime-dynamic-imports": "error",
+    "howells/require-disable-reason": "error",
     // `no-bitwise` exists to catch `&` or `|` typed for `&&` or `||`. In
     // TypeScript that mistake is already a compile error (TS2447: the operator
     // is not allowed for boolean types), so the rule only ever reports code
