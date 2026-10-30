@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Allow `await` inside a loop in command-line scripts (`**/scripts/**`). A script that runs one rate-limited request or one local process at a time has no restructure that keeps that sequence and satisfies `no-await-in-loop`; recursion and reduce chains only hide the loop. Application code keeps the rule. Measured in kinecho's `scripts/classify.ts`, which runs the local Claude CLI once per video.
+- Allow a tool's own config file (`playwright`, `vitest`, `vite`, `drizzle`) to read `process.env`. Those files run inside the tool, so the app's env schema doesn't cover them; Playwright's `process.env.CI` is the common case. Application code keeps the env rule.
+
 ## 3.8.0 - 2026-10-17
 
 ### Fixed

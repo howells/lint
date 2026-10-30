@@ -627,6 +627,60 @@ test("core preset lets a hash use its bitwise operators", async () => {
   }
 });
 
+test("core preset lets a command-line script await inside a loop", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`
+    );
+    // One local process per item, on purpose; the same loop in application
+    // code is still reported.
+    const loop =
+      "export const runAll = async (items: string[], run: (item: string) => Promise<void>): Promise<void> => {\n  for (const item of items) {\n    await run(item);\n  }\n};\n";
+    await writeFixture(root, "scripts/classify.ts", loop);
+    await writeFixture(root, "src/classify.ts", loop);
+
+    const result = await runOxlint(root);
+    const files = diagnosticsForRule(
+      result.stdout,
+      "eslint(no-await-in-loop)"
+    ).map((diagnostic) => diagnostic.filename);
+
+    assert.deepEqual(
+      files.map((file) => path.basename(path.dirname(file))),
+      ["src"]
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("core preset lets a tool config read its own environment", async () => {
+  const root = await makeFixtureRoot();
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.mjs"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default core;\n`
+    );
+    const read = 'export const isCI = process.env.CI === "true";\n';
+    await writeFixture(root, "playwright.config.ts", read);
+    await writeFixture(root, "src/flags.ts", read);
+
+    const result = await runOxlint(root);
+    const files = diagnosticsForRule(
+      result.stdout,
+      "eslint(no-restricted-properties)"
+    ).map((diagnostic) => path.basename(diagnostic.filename));
+
+    assert.deepEqual(files, ["flags.ts"]);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("Playwright preset rejects brittle E2E test patterns", async () => {
   const root = await makeFixtureRoot();
 

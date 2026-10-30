@@ -113,6 +113,30 @@ export default defineConfig({
         "howells/no-runtime-dynamic-imports": "off",
       },
     },
+    // A command-line script that awaits inside a loop usually means it: one
+    // request at a time for a rate-limited API, or one local process at a time
+    // (a model CLI, ffmpeg) where running them all at once would swamp the
+    // machine. There is no restructure that keeps that sequence and satisfies
+    // `no-await-in-loop` - recursion and reduce-chained promises only hide the
+    // loop from the rule. Measured in kinecho: `scripts/classify.ts` runs the
+    // local Claude CLI once per video, by design. Application code keeps the
+    // rule, where an awaited loop is the usual accidental serialisation.
+    {
+      files: ["**/scripts/**/*.{ts,mts,js,mjs}"],
+      rules: {
+        "no-await-in-loop": "off",
+      },
+    },
+    // A tool's own config file runs inside that tool, not the app: Playwright
+    // reads `process.env.CI` to set retries and workers, Vitest and Drizzle read
+    // their own variables. The app's env schema neither covers nor should cover
+    // those, so the env rule has nothing to point the config at.
+    {
+      files: ["**/{playwright,vitest,vite,drizzle}.config.{ts,mts,js,mjs,cjs}"],
+      rules: {
+        "no-restricted-properties": "off",
+      },
+    },
   ],
   plugins: ultraciteCore.plugins,
   rules: {
