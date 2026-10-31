@@ -102,6 +102,7 @@ const filename = "fileURLToPath(import.meta.url)";
 const guard = (body, property = "dirname") =>
   `if (typeof import.meta.${property} === "string") { ${body} }`;
 const use = (expression) => `console.log(${expression});`;
+const nativePathProperty = process.platform === "win32" ? "win32" : "posix";
 const metadataWrites = [
   [
     "object-destructuring",
@@ -243,6 +244,69 @@ const mutationRoutes = [
     "filename",
     "/changed",
   ],
+  [
+    "extracted-builtin-lookup",
+    'const lookup = process.getBuiltinModule; lookup("node:path").dirname = () => "changed";',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "computed-builtin-lookup",
+    'process["getBuiltinModule"]("node:path").dirname = () => "changed";',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "bound-builtin-lookup",
+    'const lookup = process.getBuiltinModule.bind(null); lookup("node:path").dirname = () => "changed";',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "namespace-default-object",
+    'import * as paths from "node:path"; paths.default.dirname = () => "changed";',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "native-submodule-object",
+    `path.${nativePathProperty}.dirname = () => "changed";`,
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "nested-submodule-object",
+    `path.${nativePathProperty}.${nativePathProperty}.dirname = () => "changed";`,
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "namespace-default-call-escape",
+    'import * as paths from "node:path"; Object.assign(paths.default, { dirname: () => "changed" });',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "submodule-alias-call-escape",
+    `const paths = path.${nativePathProperty}; Object.assign(paths, { dirname: () => "changed" });`,
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "computed-submodule-alias",
+    `const key = "${nativePathProperty}"; const paths = path[key]; paths.dirname = () => "changed";`,
+    dirname,
+    "dirname",
+    "changed",
+  ],
   ...["globalThis[key]", "globalThis.URL", 'globalThis["URL"]'].map(
     (access, index) => [
       `global-constructor-write-${index}`,
@@ -308,6 +372,25 @@ const cases = [
     imports +
       'import { URL as NativeURL } from "node:url"; const target = new NativeURL(import.meta.url); console.log(target.href);' +
       guard(use(filename), "filename"),
+    1,
+  ],
+  [
+    "namespace-default-property-read",
+    imports +
+      'import * as paths from "node:path"; console.log(paths.default.sep);' +
+      guard(use(dirname)),
+    1,
+  ],
+  [
+    "submodule-alias-property-read",
+    imports +
+      `const paths = path.${nativePathProperty}; console.log(paths.sep);` +
+      guard(use(dirname)),
+    1,
+  ],
+  [
+    "computed-module-property-read",
+    imports + 'const key = "sep"; void path[key];' + guard(use(dirname)),
     1,
   ],
   [

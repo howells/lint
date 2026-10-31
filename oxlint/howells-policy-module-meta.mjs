@@ -27,6 +27,18 @@ const memberName = (node) =>
     ? undefined
     : staticName(node.property);
 
+const builtinProperty = (resolved, property, includeObjects) => {
+  if (!resolved || resolved.property) return undefined;
+  if (
+    includeObjects &&
+    (property === undefined ||
+      property === "default" ||
+      (resolved.module === "path" && ["posix", "win32"].includes(property)))
+  )
+    return { module: resolved.module };
+  return { ...resolved, property };
+};
+
 const isImportMeta = (node) =>
   node?.type === "MetaProperty" &&
   node.meta.name === "import" &&
@@ -277,7 +289,12 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     return declaration;
   };
 
-  const resolveBuiltin = (expression, declarationFor, seen = new Set()) => {
+  const resolveBuiltin = (
+    expression,
+    declarationFor,
+    includeObjects = false,
+    seen = new Set()
+  ) => {
     expression = unwrap(expression);
     if (!expression) return undefined;
     if (expression.type === "Identifier") {
@@ -308,13 +325,22 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
         )
           return undefined;
         return declaration.type === "ImportSpecifier"
-          ? { module, property: staticName(declaration.imported) }
+          ? builtinProperty(
+              { module },
+              staticName(declaration.imported),
+              includeObjects
+            )
           : { module };
       }
       const constant = declarationFor(expression);
       if (!constant?.init) return undefined;
       if (constant.id.type === "Identifier")
-        return resolveBuiltin(constant.init, declarationFor, seen);
+        return resolveBuiltin(
+          constant.init,
+          declarationFor,
+          includeObjects,
+          seen
+        );
       if (constant.id.type === "ObjectPattern") {
         const property = constant.id.properties.find(
           (item) =>
@@ -324,22 +350,32 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
             item.value.name === expression.name
         );
         if (!property) return undefined;
-        const module = resolveBuiltin(constant.init, declarationFor, seen);
-        return module && !module.property
-          ? { ...module, property: staticName(property.key) }
-          : undefined;
+        const module = resolveBuiltin(
+          constant.init,
+          declarationFor,
+          includeObjects,
+          seen
+        );
+        return builtinProperty(
+          module,
+          staticName(property.key),
+          includeObjects
+        );
       }
       return undefined;
     }
     if (
       expression.type === "MemberExpression" &&
-      !expression.computed &&
+      (includeObjects || !expression.computed) &&
       !expression.optional
     ) {
-      const module = resolveBuiltin(expression.object, declarationFor, seen);
-      return module && !module.property
-        ? { ...module, property: staticName(expression.property) }
-        : undefined;
+      const module = resolveBuiltin(
+        expression.object,
+        declarationFor,
+        includeObjects,
+        seen
+      );
+      return builtinProperty(module, memberName(expression), includeObjects);
     }
     if (
       expression.type === "CallExpression" &&
@@ -372,7 +408,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
   // A possible alias must invalidate mutation/escape proofs even when its
   // initialization cannot be established for a replacement at that reference.
   const possibleBuiltin = (expression) =>
-    resolveBuiltin(expression, constantDeclaration);
+    resolveBuiltin(expression, constantDeclaration, true);
 
   const runtimeObject = (expression) => {
     expression = unwrap(expression);
@@ -393,6 +429,11 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     )
       return "process";
     if (resolved?.module === "url" && resolved.property === "URL") return "URL";
+    if (
+      resolved?.module === "process" &&
+      resolved.property === "getBuiltinModule"
+    )
+      return "lookup";
     if (expression?.type === "Identifier") {
       return ["globalThis", "process", "URL"].some((name) =>
         isGlobal(expression, name)
@@ -407,8 +448,9 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       if (["globalThis", "process", "URL"].includes(property)) return property;
       if (property === undefined) return "unknown";
     }
+    if (owner === "process" && property === "getBuiltinModule") return "lookup";
     if (owner === "URL" && property === "prototype") return "URL";
-    if (owner === "unknown") return "unknown";
+    if (owner === "unknown" || owner === "lookup") return "unknown";
     return undefined;
   };
 
@@ -472,27 +514,18 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
           runtime === "URL" &&
           parent?.type === "NewExpression" &&
           parent.callee === node;
+        const lookupCall =
+          runtime === "lookup" &&
+          parent?.type === "CallExpression" &&
+          parent.callee === node &&
+          possibleBuiltin(parent);
         if (
           !propertyRead &&
           !construction &&
+          !lookupCall &&
           parent?.type !== "UnaryExpression"
         )
           return true;
-      }
-      if (node.type === "CallExpression") {
-        const resolved = possibleBuiltin(node);
-        if (resolved && !resolved.property) {
-          const parent = node.parent;
-          if (parent?.type === "MemberExpression" && parent.object === node)
-            return false;
-          if (
-            parent?.type === "VariableDeclarator" &&
-            parent.init === node &&
-            parent.parent.kind === "const"
-          )
-            return false;
-          return true;
-        }
       }
       if (
         node.type === "Identifier" &&
@@ -517,19 +550,24 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
         )
           return true;
       }
-      // Catch mutation through an escaped imported module object/constant alias.
-      if (node.type === "Identifier") {
+      // Catch escaping module objects, including known nested builtin objects.
+      if (
+        ["Identifier", "CallExpression", "MemberExpression"].includes(node.type)
+      ) {
         const resolved = possibleBuiltin(node);
         if (!resolved || resolved.property) return false;
         const parent = node.parent;
         if (
-          ["ImportDefaultSpecifier", "ImportNamespaceSpecifier"].includes(
-            parent?.type
-          )
+          [
+            "ImportSpecifier",
+            "ImportDefaultSpecifier",
+            "ImportNamespaceSpecifier",
+          ].includes(parent?.type)
         )
           return false;
         if (parent?.type === "MemberExpression" && parent.object === node)
           return false;
+        if (parent?.type === "UnaryExpression") return false;
         if (
           parent?.type === "VariableDeclarator" &&
           parent.init === node &&
