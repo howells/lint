@@ -237,6 +237,15 @@ test("CommonJS require uses require conditions, including browser branches", asy
 
 const opaqueLoaders = [
   [
+    "process main module loader",
+    'const owner = process.mainModule; const key = "require"; owner[key]("foreign"); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "named process main module loader",
+    'import { mainModule as owner } from "node:process"; const key = "require"; export const value = owner[key]("foreign");',
+  ],
+  [
     "CommonJS wrapper arguments",
     'const load = arguments[1]; load("foreign"); module.exports = 1;',
     "cjs",
@@ -418,6 +427,20 @@ test("literal data patterns and named process utilities do not expose loader nam
     'export const value = typeof process === "object" ? process.env.NODE_ENV : undefined;',
     "const { env } = process; export { env };",
     "const { process: { env } } = globalThis; export { env };",
+  ]) {
+    const root = await fixture(t, source);
+    assert.equal(listener(root).check(), 0, source);
+  }
+});
+
+test("static data keys and qualified process reads are not namespace escapes", async (t) => {
+  for (const source of [
+    "export const value = globalThis.process.env.NODE_ENV;",
+    'export const data = { arguments: "data", process: 1, global: 2, globalThis: 3 };',
+    'const data = { arguments: "data", process: 1, global: 2, globalThis: 3 }; export const value = [data.arguments, data.process, data.global, data.globalThis];',
+    "export class Data { arguments = 1; process = 2; global = 3; globalThis = 4; }",
+    "export class Data { arguments() { return 1; } process() { return 2; } global() { return 3; } globalThis() { return 4; } }",
+    "export const data = { arguments() { return 1; }, process() { return 2; }, global() { return 3; }, globalThis() { return 4; } };",
   ]) {
     const root = await fixture(t, source);
     assert.equal(listener(root).check(), 0, source);

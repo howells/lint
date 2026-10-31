@@ -13,6 +13,7 @@ const OPAQUE_LOADER_KEYS = new Set([
   "createRequire",
   "eval",
   "getBuiltinModule",
+  "mainModule",
   "require",
 ]);
 const RUNTIME_NAMESPACES = new Set(["global", "globalThis", "process"]);
@@ -64,6 +65,16 @@ const propertyName = (node) => {
   if (key.type === "Literal") return key.value;
   return !node.computed && key.type === "Identifier" ? key.name : undefined;
 };
+
+const staticPropertyKey = (node, parent) =>
+  parent &&
+  !parent.computed &&
+  !parent.shorthand &&
+  ((parent.type === "MemberExpression" && parent.property === node) ||
+    (["Property", "PropertyDefinition", "MethodDefinition"].includes(
+      parent.type
+    ) &&
+      parent.key === node));
 
 const runtimeNamespace = (node) => {
   node = unwrap(node);
@@ -364,7 +375,7 @@ const runtimeDependencies = (filename, owner) => {
       unknown = true;
     if (
       specifiers.some((item) =>
-        ["createRequire", "getBuiltinModule"].includes(
+        ["createRequire", "getBuiltinModule", "mainModule"].includes(
           (item.imported ?? item.local)?.name ??
             (item.imported ?? item.local)?.value
         )
@@ -439,7 +450,7 @@ const runtimeDependencies = (filename, owner) => {
         if (node.importKind !== "type") unknown = true;
         return false;
       case "Identifier":
-        if (node.name === "arguments") {
+        if (node.name === "arguments" && !staticPropertyKey(node, parent)) {
           let scope = parent;
           while (
             scope &&
@@ -450,12 +461,7 @@ const runtimeDependencies = (filename, owner) => {
         }
         if (
           RUNTIME_NAMESPACES.has(node.name) &&
-          !(
-            parent?.type === "Property" &&
-            parent.key === node &&
-            !parent.computed &&
-            !parent.shorthand
-          ) &&
+          !staticPropertyKey(node, parent) &&
           !namespaceUse(node, parent)
         )
           unknown = true;
