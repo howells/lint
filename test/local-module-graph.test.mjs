@@ -237,6 +237,74 @@ test("CommonJS require uses require conditions, including browser branches", asy
 
 const opaqueLoaders = [
   [
+    "CommonJS wrapper arguments",
+    'const load = arguments[1]; load("foreign"); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "CommonJS wrapper arguments in an arrow",
+    'const load = () => arguments[1]("foreign"); load(); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "quoted factory destructuring",
+    'const { "getBuiltinModule": get } = process; const { "createRequire": factory } = get("module"); const load = factory(__filename); load("foreign"); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "computed literal factory destructuring",
+    'const { ["getBuiltinModule"]: get } = process; const { ["createRequire"]: factory } = get("module"); const load = factory(__filename); load("foreign"); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "escaped quoted factory destructuring",
+    String.raw`const { "\u0067etBuiltinModule": get } = process; const { "\u0063reateRequire": factory } = get("module"); const load = factory(__filename); load("foreign"); module.exports = 1;`,
+    "cjs",
+  ],
+  [
+    "computed factory destructuring keys",
+    'const first = "getBuiltinModule"; const second = "createRequire"; const { [first]: get } = process; const { [second]: factory } = get("module"); factory(__filename)("foreign"); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "computed process namespace factory",
+    'const first = "getBuiltinModule"; const second = "createRequire"; process[first]("module")[second](__filename)("foreign"); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "aliased process namespace factory",
+    'const owner = process; const first = "getBuiltinModule"; const second = "createRequire"; owner[first]("module")[second](__filename)("foreign"); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "aliased qualified process namespace factory",
+    'const owner = globalThis.process; const first = "getBuiltinModule"; const second = "createRequire"; owner[first]("module")[second](__filename)("foreign"); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "process namespace rest escape",
+    'const { ...owner } = process; const first = "getBuiltinModule"; const second = "createRequire"; owner[first]("module")[second](__filename)("foreign"); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "destructured global process namespace escape",
+    'const { "process": owner } = globalThis; const first = "getBuiltinModule"; const second = "createRequire"; owner[first]("module")[second](__filename)("foreign"); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "default process namespace factory",
+    'import owner from "node:process"; const first = "getBuiltinModule"; const second = "createRequire"; export const value = owner[first]("module")[second](import.meta.url)("foreign");',
+  ],
+  [
+    "required process namespace factory",
+    'const owner = require("node:process"); const first = "getBuiltinModule"; const second = "createRequire"; owner[first]("module")[second](__filename)("foreign"); module.exports = 1;',
+    "cjs",
+  ],
+  [
+    "quoted evaluator destructuring",
+    'const { "eval": execute } = globalThis; execute("require(name)");',
+  ],
+  [
     "createRequire",
     'import { createRequire } from "node:module"; const load = createRequire(import.meta.url); export const value = load("foreign-package");',
   ],
@@ -341,6 +409,30 @@ for (const [name, source, extension = "mjs"] of opaqueLoaders) {
     assert.equal(listener(root).check(), 1);
   });
 }
+
+test("literal data patterns and named process utilities do not expose loader namespaces", async (t) => {
+  for (const source of [
+    'const { "label": label } = { label: "data" }; export { label };',
+    'export const data = { "createRequire": "label", "getBuiltinModule": 1 };',
+    'import { cwd } from "node:process"; export const value = cwd();',
+    'export const value = typeof process === "object" ? process.env.NODE_ENV : undefined;',
+    "const { env } = process; export { env };",
+    "const { process: { env } } = globalThis; export { env };",
+  ]) {
+    const root = await fixture(t, source);
+    assert.equal(listener(root).check(), 0, source);
+  }
+});
+
+test("ordinary functions have their own arguments rather than CommonJS wrapper arguments", async (t) => {
+  const root = await fixture(t, 'import "./arguments.cjs";');
+  await write(
+    root,
+    "src/arguments.cjs",
+    'function value() { const read = () => arguments[0]; return read(); } module.exports = value("data");'
+  );
+  assert.equal(listener(root).check(), 0);
+});
 
 test("explicit TypeScript type-only loader and cyclic dependencies stay erased", async (t) => {
   const root = await fixture(t, 'export * from "./types.ts";');

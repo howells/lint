@@ -9,6 +9,13 @@ import { ResolverFactory } from "oxc-resolver";
 const RELATIVE_MODULE = /^\.{1,2}\//u;
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/u;
 const WORKSPACE_DIRECTORIES = new Set(["apps", "packages"]);
+const OPAQUE_LOADER_KEYS = new Set([
+  "createRequire",
+  "eval",
+  "getBuiltinModule",
+  "require",
+]);
+const RUNTIME_NAMESPACES = new Set(["global", "globalThis", "process"]);
 const RUNTIME_TS_NODES = new Set([
   "TSAsExpression",
   "TSSatisfiesExpression",
@@ -52,12 +59,52 @@ const canonicalSpecifier = (specifier) =>
     return code < 32 || code === 127;
   });
 
-const propertyName = (node) =>
-  node.computed
-    ? node.property.type === "Literal"
-      ? node.property.value
-      : undefined
-    : node.property.name;
+const propertyName = (node) => {
+  const key = node.property ?? node.key;
+  if (key.type === "Literal") return key.value;
+  return !node.computed && key.type === "Identifier" ? key.name : undefined;
+};
+
+const runtimeNamespace = (node) => {
+  node = unwrap(node);
+  if (node.type === "Identifier" && RUNTIME_NAMESPACES.has(node.name))
+    return node.name === "process" ? "process" : "global";
+  if (
+    node.type === "MemberExpression" &&
+    runtimeNamespace(node.object) === "global"
+  ) {
+    const key = propertyName(node);
+    if (key === "process") return "process";
+    if (key === "global" || key === "globalThis") return "global";
+  }
+  return undefined;
+};
+
+const namespacePattern = (pattern, namespace) =>
+  pattern.type === "ObjectPattern" &&
+  pattern.properties.every((property) => {
+    if (property.type !== "Property") return false;
+    const key = propertyName(property);
+    if (key === undefined || OPAQUE_LOADER_KEYS.has(key)) return false;
+    if (namespace === "global" && RUNTIME_NAMESPACES.has(key))
+      return namespacePattern(
+        property.value,
+        key === "process" ? "process" : "global"
+      );
+    return true;
+  });
+
+const namespaceUse = (node, parent) => {
+  if (parent?.type === "UnaryExpression" && parent.operator === "typeof")
+    return true;
+  if (parent?.type === "MemberExpression" && parent.object === node)
+    return propertyName(parent) !== undefined;
+  if (parent?.type === "VariableDeclarator" && parent.init === node)
+    return namespacePattern(parent.id, runtimeNamespace(node));
+  if (parent?.type === "AssignmentExpression" && parent.right === node)
+    return namespacePattern(parent.left, runtimeNamespace(node));
+  return false;
+};
 
 // Skip erased TypeScript, including annotations containing typeof require.
 // Runtime namespace/enum bodies and expression wrappers still need inspection.
@@ -306,6 +353,16 @@ const runtimeDependencies = (filename, owner) => {
     if (["module", "node:module", "vm", "node:vm"].includes(node.value))
       unknown = true;
     if (
+      ["process", "node:process"].includes(node.value) &&
+      specifiers.some(
+        (item) =>
+          !["ImportSpecifier", "ExportSpecifier"].includes(item.type) ||
+          ((item.imported ?? item.local)?.name ??
+            (item.imported ?? item.local)?.value) === "default"
+      )
+    )
+      unknown = true;
+    if (
       specifiers.some((item) =>
         ["createRequire", "getBuiltinModule"].includes(
           (item.imported ?? item.local)?.name ??
@@ -382,6 +439,26 @@ const runtimeDependencies = (filename, owner) => {
         if (node.importKind !== "type") unknown = true;
         return false;
       case "Identifier":
+        if (node.name === "arguments") {
+          let scope = parent;
+          while (
+            scope &&
+            !["FunctionDeclaration", "FunctionExpression"].includes(scope.type)
+          )
+            scope = memberCalls.parents.get(scope);
+          if (!scope) unknown = true;
+        }
+        if (
+          RUNTIME_NAMESPACES.has(node.name) &&
+          !(
+            parent?.type === "Property" &&
+            parent.key === node &&
+            !parent.computed &&
+            !parent.shorthand
+          ) &&
+          !namespaceUse(node, parent)
+        )
+          unknown = true;
         if (node.name === "require") {
           if (
             parent?.type === "MemberExpression" &&
@@ -422,11 +499,19 @@ const runtimeDependencies = (filename, owner) => {
           unknown = true;
         break;
       case "MemberExpression":
+        if (runtimeNamespace(node) && !namespaceUse(node, parent))
+          unknown = true;
         if (
           !memberCalls.allowed.has(node) &&
-          ["require", "createRequire", "getBuiltinModule", "eval"].includes(
-            propertyName(node)
-          )
+          OPAQUE_LOADER_KEYS.has(propertyName(node))
+        )
+          unknown = true;
+        break;
+      case "Property":
+        if (
+          parent?.type === "ObjectPattern" &&
+          (propertyName(node) === undefined ||
+            OPAQUE_LOADER_KEYS.has(propertyName(node)))
         )
           unknown = true;
         break;
@@ -573,7 +658,14 @@ export const createLocalModuleProof = (filename) => {
         // namespace aliases. No created-loader origin/escape proof is inferred.
         if (
           kind === "require" &&
-          ["module", "node:module", "vm", "node:vm"].includes(specifier)
+          [
+            "module",
+            "node:module",
+            "process",
+            "node:process",
+            "vm",
+            "node:vm",
+          ].includes(specifier)
         )
           return false;
         if (kind === "dynamic") return false;
