@@ -182,6 +182,38 @@ const supportedInEnclosingBranch = (node, property) => {
   return false;
 };
 
+const initializedBeforeReference = (declaration, identifier) => {
+  if (declaration.range[1] > identifier.range[0]) return false;
+  let statement = declaration.parent;
+  if (statement.parent?.type === "ExportNamedDeclaration")
+    statement = statement.parent;
+  const owner = statement.parent;
+  const statements =
+    owner?.type === "Program" || owner?.type === "BlockStatement"
+      ? owner.body
+      : owner?.type === "SwitchCase"
+        ? owner.consequent
+        : undefined;
+  if (!statements) return false;
+
+  let child = identifier;
+  for (
+    let ancestor = identifier.parent;
+    ancestor;
+    child = ancestor, ancestor = ancestor.parent
+  ) {
+    // A later function's text does not establish when it is invoked. Likewise,
+    // another switch case can be entered without running this initializer.
+    if (FUNCTION_BOUNDARIES.has(ancestor.type)) return false;
+    if (ancestor === owner) {
+      const initialization = statements.indexOf(statement);
+      const reference = statements.indexOf(child);
+      return initialization !== -1 && reference >= initialization;
+    }
+  }
+  return false;
+};
+
 export const createPreferSupportedImportMetaPropertiesRule = (context) => {
   const sourceCode = context.sourceCode;
   const variables = new WeakMap();
@@ -222,9 +254,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       return undefined;
     const declaration = found.definition.node;
     if (declaration.parent?.kind !== "const") return undefined;
-    // Do not turn a TDZ read (or an unknown deferred initialization order)
-    // into a successful native-property read.
-    if (declaration.range[1] > identifier.range[0]) return undefined;
+    if (!initializedBeforeReference(declaration, identifier)) return undefined;
     // Ignore mutable aliases even if malformed source writes to a const.
     if (
       found.variable.references.some(

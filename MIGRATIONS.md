@@ -38,7 +38,7 @@ const here =
   import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
 ```
 
-The rule still reports supported filename and dirname constructions, resolves Node helper bindings and initialized constant aliases, and avoids fixes across mutation, escape or initialization boundaries. Direct, destructuring and loop-target writes invalidate the proof; default initializers, computed pattern keys and loop iterables remain reads. An interior comment is retained by reporting without autofix. URL-directory conversions such as `fileURLToPath(new URL(".", import.meta.url))` keep their trailing separator; bare `import.meta.dirname` is not an equivalent string.
+The rule still reports supported filename and dirname constructions, resolves Node helper bindings and proven initialized constant aliases, and avoids fixes across mutation, escape or initialization boundaries. An alias initializer must precede its use in the same execution block or switch case; text order alone does not prove initialization across a deferred function or another case. Direct, destructuring and loop-target writes invalidate the proof; default initializers, computed pattern keys and loop iterables remain reads. An interior comment is retained by reporting without autofix. URL-directory conversions such as `fileURLToPath(new URL(".", import.meta.url))` keep their trailing separator; bare `import.meta.dirname` is not an equivalent string.
 
 The proof is deliberately local. Deferred function bodies, custom predicate functions, early-return dominance and computed property guards are not inferred. Other runtime-validation rules still apply; do not add an artificial guard or helper solely to satisfy this preference.
 

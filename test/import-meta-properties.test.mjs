@@ -120,6 +120,30 @@ const metadataWrites = [
   ["for-in", "for (import.meta.filename in { changed: true }) {}"],
   ["nested-for-of", 'for ([import.meta.filename] of [["changed"]]) {}'],
 ];
+const uninitializedAliases = [
+  [
+    "hoisted-helper",
+    `run();\nconst directory = path.dirname;\nfunction run() { ${guard(`return directory(${filename});`)} }`,
+  ],
+  [
+    "hoisted-filename",
+    `run();\nconst name = ${filename};\nfunction run() { ${guard("return path.dirname(name);")} }`,
+  ],
+  [
+    "hoisted-module-alias",
+    `run();\nconst paths = path;\nfunction run() { ${guard(`return paths.dirname(${filename});`)} }`,
+  ],
+  [
+    "switch-helper",
+    `switch ("read") { case "init": const directory = path.dirname; break; case "read": ${guard(`return directory(${filename});`)} }`,
+    true,
+  ],
+  [
+    "switch-filename",
+    `switch ("read") { case "init": const name = ${filename}; break; case "read": ${guard("return path.dirname(name);")} }`,
+    true,
+  ],
+];
 const cases = [
   ["unguarded-dirname", imports + use(dirname), 0],
   ["unguarded-filename", imports + use(filename), 0],
@@ -287,6 +311,42 @@ const cases = [
     "constant-filename-alias-chain",
     imports +
       `const name = fileURLToPath(import.meta.url);\nconst again = name;\n${guard(use("path.dirname(again)"))}`,
+    1,
+  ],
+  ...uninitializedAliases.map(([name, body, insideFunction]) => [
+    `uninitialized-alias-${name}`,
+    imports +
+      (insideFunction ? `export const locate = () => { ${body} };` : body),
+    0,
+  ]),
+  [
+    "outer-helper-not-assumed-in-deferred-function",
+    imports +
+      `const directory = path.dirname;\nexport const locate = () => { ${guard(`return directory(${filename});`)} };`,
+    0,
+  ],
+  [
+    "local-function-helper-initialized-before-use",
+    imports +
+      `export const locate = () => { const directory = path.dirname; ${guard(`return directory(${filename});`)} };`,
+    1,
+  ],
+  [
+    "same-switch-case-initialized-before-use",
+    imports +
+      `switch ("read") { case "read": const directory = path.dirname; ${guard(use(`directory(${filename})`))} }`,
+    1,
+  ],
+  [
+    "same-declaration-list-initialized-before-use",
+    imports +
+      `const directory = path.dirname, value = typeof import.meta.dirname === "string" ? directory(${filename}) : "missing"; console.log(value);`,
+    1,
+  ],
+  [
+    "exported-alias-initialized-before-use",
+    imports +
+      `export const directory = path.dirname;\n${guard(use(`directory(${filename})`))}`,
     1,
   ],
   [
@@ -625,6 +685,80 @@ test("metadata writes through patterns and loop targets retain runtime results",
       assert.equal(fixed.status, 0, `${name}: ${fixed.stdout}`);
       assert.equal(fixed.diagnostics.length, 0, name);
       assert.equal(
+        await readFile(path.join(root, target), "utf8"),
+        source,
+        name
+      );
+      assert.equal(await evaluateSource(root, target), original, name);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("metadata fixes preserve alias initialization failures and caught results", async () => {
+  const root = await fixtureRoot();
+  try {
+    await writeRuleConfig(root);
+    const target = "initialization.mjs";
+    for (const [name, body, insideFunction] of uninitializedAliases) {
+      const runBody = insideFunction
+        ? `function run() { ${body} }\ntry { observed = run(); } catch (error) { observed = error.name; }`
+        : body.replace(
+            "run();",
+            "try { observed = run(); } catch (error) { observed = error.name; }"
+          );
+      const source =
+        imports +
+        `let observed;\n${runBody}\nexport const getLocation = () => observed;\n`;
+      await writeFile(path.join(root, target), source);
+      const original = await evaluateSource(root, target);
+      assert.equal(original, "ReferenceError", name);
+      const fixed = await runOxlint(root, target, true);
+      assert.equal(fixed.status, 0, `${name}: ${fixed.stdout}`);
+      assert.equal(fixed.diagnostics.length, 0, name);
+      assert.equal(
+        await readFile(path.join(root, target), "utf8"),
+        source,
+        name
+      );
+      assert.equal(await evaluateSource(root, target), original, name);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("proven local aliases retain supported fixes and native runtime results", async () => {
+  const root = await fixtureRoot();
+  try {
+    await writeRuleConfig(root);
+    const target = "initialized.mjs";
+    for (const [name, body] of [
+      [
+        "function-local",
+        `const directory = path.dirname; ${guard(`return directory(${filename});`)}`,
+      ],
+      [
+        "same-switch-case",
+        `switch ("read") { case "read": const directory = path.dirname; ${guard(`return directory(${filename});`)} }`,
+      ],
+      [
+        "same-declaration-list",
+        `const directory = path.dirname, value = typeof import.meta.dirname === "string" ? directory(${filename}) : "missing"; return value;`,
+      ],
+    ]) {
+      const source =
+        imports + `export const getLocation = () => { ${body} };\n`;
+      await writeFile(path.join(root, target), source);
+      const original = await evaluateSource(root, target);
+      assert.equal(original, root, name);
+      const before = await runOxlint(root, target);
+      assert.equal(before.diagnostics.length, 1, `${name}: ${before.stdout}`);
+      const fixed = await runOxlint(root, target, true);
+      assert.equal(fixed.status, 0, `${name}: ${fixed.stdout}`);
+      assert.equal(fixed.diagnostics.length, 0, name);
+      assert.notEqual(
         await readFile(path.join(root, target), "utf8"),
         source,
         name
