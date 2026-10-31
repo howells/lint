@@ -3,6 +3,7 @@
 
 const PATH_MODULES = new Set(["path", "node:path"]);
 const URL_MODULES = new Set(["url", "node:url"]);
+const PROCESS_MODULES = new Set(["process", "node:process"]);
 const FUNCTION_BOUNDARIES = new Set([
   "ArrowFunctionExpression",
   "FunctionDeclaration",
@@ -246,32 +247,6 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     identifier.name === name &&
     (variableFor(identifier)?.defs.length ?? 0) === 0;
 
-  const runtimeObject = (expression) => {
-    expression = unwrap(expression);
-    if (expression?.type === "Identifier") {
-      if (
-        ["globalThis", "process", "URL"].some((name) =>
-          isGlobal(expression, name)
-        ) &&
-        sourceCode
-          .getScope(expression)
-          .references.some((reference) => reference.identifier === expression)
-      )
-        return expression.name;
-      return undefined;
-    }
-    if (expression?.type !== "MemberExpression") return undefined;
-    const owner = runtimeObject(expression.object);
-    const property = memberName(expression);
-    if (owner === "globalThis") {
-      if (["globalThis", "process", "URL"].includes(property)) return property;
-      if (property === undefined) return "unknown";
-    }
-    if (owner === "URL" && property === "prototype") return "URL";
-    if (owner === "unknown") return "unknown";
-    return undefined;
-  };
-
   const definitionFor = (identifier) => {
     const variable = variableFor(identifier);
     return variable?.defs.length === 1
@@ -323,7 +298,9 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
           ? "path"
           : URL_MODULES.has(specifier)
             ? "url"
-            : undefined;
+            : PROCESS_MODULES.has(specifier)
+              ? "process"
+              : undefined;
         if (
           !module ||
           imported.importKind === "type" ||
@@ -382,7 +359,9 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
         ? { module: "path" }
         : URL_MODULES.has(name)
           ? { module: "url" }
-          : undefined;
+          : PROCESS_MODULES.has(name)
+            ? { module: "process" }
+            : undefined;
     }
     return undefined;
   };
@@ -394,6 +373,44 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
   // initialization cannot be established for a replacement at that reference.
   const possibleBuiltin = (expression) =>
     resolveBuiltin(expression, constantDeclaration);
+
+  const runtimeObject = (expression) => {
+    expression = unwrap(expression);
+    if (
+      expression?.type === "Identifier" &&
+      !sourceCode
+        .getScope(expression)
+        .references.some(
+          (reference) =>
+            reference.identifier === expression && reference.isRead()
+        )
+    )
+      return undefined;
+    const resolved = possibleBuiltin(expression);
+    if (
+      resolved?.module === "process" &&
+      (!resolved.property || resolved.property === "default")
+    )
+      return "process";
+    if (resolved?.module === "url" && resolved.property === "URL") return "URL";
+    if (expression?.type === "Identifier") {
+      return ["globalThis", "process", "URL"].some((name) =>
+        isGlobal(expression, name)
+      )
+        ? expression.name
+        : undefined;
+    }
+    if (expression?.type !== "MemberExpression") return undefined;
+    const owner = runtimeObject(expression.object);
+    const property = memberName(expression);
+    if (owner === "globalThis") {
+      if (["globalThis", "process", "URL"].includes(property)) return property;
+      if (property === undefined) return "unknown";
+    }
+    if (owner === "URL" && property === "prototype") return "URL";
+    if (owner === "unknown") return "unknown";
+    return undefined;
+  };
 
   const isBuiltinCall = (node, module, property) => {
     if (

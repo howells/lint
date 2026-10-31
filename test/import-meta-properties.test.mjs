@@ -215,6 +215,34 @@ const mutationRoutes = [
     "filename",
     "/changed",
   ],
+  [
+    "imported-process-write",
+    'import runtime from "node:process"; runtime.getBuiltinModule = () => ({ fileURLToPath: () => "changed" });',
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ],
+  [
+    "imported-default-process-write",
+    'import { default as runtime } from "node:process"; runtime.getBuiltinModule = () => ({ fileURLToPath: () => "changed" });',
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ],
+  [
+    "imported-namespace-url-prototype-escape",
+    'import urls from "node:url"; Object.defineProperty(urls.URL.prototype, "pathname", { get: () => "/changed" });',
+    "fileURLToPath(new URL(import.meta.url))",
+    "filename",
+    "/changed",
+  ],
+  [
+    "imported-named-url-prototype-escape",
+    'import { URL as NativeURL } from "node:url"; Object.defineProperty(NativeURL.prototype, "pathname", { get: () => "/changed" });',
+    "fileURLToPath(new URL(import.meta.url))",
+    "filename",
+    "/changed",
+  ],
   ...["globalThis[key]", "globalThis.URL", 'globalThis["URL"]'].map(
     (access, index) => [
       `global-constructor-write-${index}`,
@@ -266,6 +294,20 @@ const cases = [
     imports +
       'const names = { process: "unrelated", URL: "unrelated", globalThis: "unrelated" }; console.log(names.process, names.URL, names.globalThis);' +
       guard(use(dirname)),
+    1,
+  ],
+  [
+    "imported-process-property-read",
+    imports +
+      'import runtime from "node:process"; console.log(runtime.pid);' +
+      guard(use(dirname)),
+    1,
+  ],
+  [
+    "imported-url-construction-read",
+    imports +
+      'import { URL as NativeURL } from "node:url"; const target = new NativeURL(import.meta.url); console.log(target.href);' +
+      guard(use(filename), "filename"),
     1,
   ],
   [
