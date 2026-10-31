@@ -363,6 +363,51 @@ const mutationRoutes = [
     "filename",
     "changed",
   ]),
+  ...[
+    ["constructed-url", 'new URL("file:///unused")'],
+    ["parsed-url", 'URL.parse("file:///unused")'],
+  ].map(([name, expression]) => [
+    `instance-prototype-${name}`,
+    `Object.defineProperty(${expression}.constructor.prototype, "pathname", { get: () => "/changed" });`,
+    filename,
+    "filename",
+    "/changed",
+  ]),
+  [
+    "instance-prototype-through-alias",
+    'const instance = new URL("file:///unused"); function mutate() { Object.defineProperty(instance.constructor.prototype, "pathname", { get: () => "/changed" }); } mutate();',
+    filename,
+    "filename",
+    "/changed",
+  ],
+  [
+    "instance-prototype-through-destructuring",
+    'const { constructor: Constructor } = new URL("file:///unused"); Object.defineProperty(Constructor.prototype, "pathname", { get: () => "/changed" });',
+    filename,
+    "filename",
+    "/changed",
+  ],
+  [
+    "created-require-loader",
+    'import { createRequire } from "node:module"; const require = createRequire(import.meta.url); require("node:path").dirname = () => "changed";',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "module-load-loader",
+    'import Module from "node:module"; Module._load("node:path").dirname = () => "changed";',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "runtime-import-loader",
+    'const { default: paths } = await import("node:path"); paths.dirname = () => "changed";',
+    dirname,
+    "dirname",
+    "changed",
+  ],
   ...["globalThis[key]", "globalThis.URL", 'globalThis["URL"]'].map(
     (access, index) => [
       `global-constructor-write-${index}`,
@@ -487,6 +532,53 @@ const cases = [
     `import variant from "node:path/${nativePathProperty}"; import { fileURLToPath } from "node:url";` +
       guard(use("variant.dirname(fileURLToPath(import.meta.url))")),
     0,
+  ],
+  [
+    "constructed-url-alias-read",
+    imports +
+      "const target = new URL(import.meta.url); const alias = target; console.log(alias.href);" +
+      guard(use(filename), "filename"),
+    1,
+  ],
+  [
+    "parsed-url-alias-read",
+    imports +
+      "const target = URL.parse(import.meta.url); console.log(target?.href);" +
+      guard(use(filename), "filename"),
+    1,
+  ],
+  [
+    "exported-url-instance-escapes",
+    imports +
+      "export const target = new URL(import.meta.url);" +
+      guard(use(filename), "filename"),
+    0,
+  ],
+  [
+    "exported-module-object-escapes",
+    imports + "export const borrowed = path;" + guard(use(dirname)),
+    0,
+  ],
+  [
+    "global-require-loader",
+    imports +
+      'require("node:path").dirname = () => "changed";' +
+      guard(use(dirname)),
+    0,
+  ],
+  [
+    "unused-loader-import-is-not-a-reference",
+    imports +
+      'import { createRequire } from "node:module";' +
+      guard(use(dirname)),
+    1,
+  ],
+  [
+    "module-loader-property-read",
+    imports +
+      'import * as Module from "node:module"; void Module.builtinModules;' +
+      guard(use(dirname)),
+    1,
   ],
   [
     "guarded-both-no-overlap",
@@ -980,6 +1072,25 @@ for (const [name, preset] of presetEntries) {
         ).length,
         1,
         guarded.stdout
+      );
+      await writeFile(
+        path.join(root, "source.mjs"),
+        imports + 'await import("node:path");\n' + guard(use(dirname))
+      );
+      const loading = await runOxlint(root, "source.mjs");
+      assert.equal(
+        loading.diagnostics.filter((diagnostic) => diagnostic.code === ruleCode)
+          .length,
+        0,
+        loading.stdout
+      );
+      assert.equal(
+        loading.diagnostics.filter(
+          (diagnostic) =>
+            diagnostic.code === "howells(no-runtime-dynamic-imports)"
+        ).length,
+        1,
+        loading.stdout
       );
     } finally {
       await rm(root, { recursive: true, force: true });

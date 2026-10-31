@@ -10,6 +10,7 @@ const PATH_SUBPATH_MODULES = new Set([
 ]);
 const URL_MODULES = new Set(["url", "node:url"]);
 const PROCESS_MODULES = new Set(["process", "node:process"]);
+const LOADER_MODULES = new Set(["module", "node:module"]);
 const GLOBAL_ALIASES = new Set(["globalThis", "global", "window", "self"]);
 const POSSIBLE_WRAPPERS = new Set([
   "ParenthesizedExpression",
@@ -34,6 +35,16 @@ const unwrap = (node) => {
 const unwrapPossible = (node) => {
   while (POSSIBLE_WRAPPERS.has(node?.type)) node = node.expression;
   return node;
+};
+
+const expressionContext = (node) => {
+  let value = node;
+  while (
+    POSSIBLE_WRAPPERS.has(value.parent?.type) &&
+    value.parent.expression === value
+  )
+    value = value.parent;
+  return { value, parent: value.parent };
 };
 
 const staticName = (node) =>
@@ -342,7 +353,9 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
               ? "url"
               : PROCESS_MODULES.has(specifier)
                 ? "process"
-                : undefined;
+                : includeObjects && LOADER_MODULES.has(specifier)
+                  ? "loader"
+                  : undefined;
         if (
           !module ||
           imported.importKind === "type" ||
@@ -423,7 +436,9 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
           ? { module: "url" }
           : PROCESS_MODULES.has(name)
             ? { module: "process" }
-            : undefined;
+            : includeObjects && LOADER_MODULES.has(name)
+              ? { module: "loader" }
+              : undefined;
     }
     return undefined;
   };
@@ -436,7 +451,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
   const possibleBuiltin = (expression) =>
     resolveBuiltin(expression, constantDeclaration, true);
 
-  const runtimeObject = (expression) => {
+  const runtimeObject = (expression, seen = new Set()) => {
     expression = unwrapPossible(expression);
     if (
       expression?.type === "Identifier" &&
@@ -448,7 +463,15 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
         )
     )
       return undefined;
+    if (expression?.type === "Identifier") {
+      const found = definitionFor(expression);
+      if (found) {
+        if (seen.has(found.variable)) return undefined;
+        seen = new Set(seen).add(found.variable);
+      }
+    }
     const resolved = possibleBuiltin(expression);
+    if (resolved?.module === "loader") return "loader";
     if (
       resolved?.module === "process" &&
       (!resolved.property || resolved.property === "default")
@@ -468,26 +491,50 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     )
       return "lookup";
     if (expression?.type === "Identifier") {
+      if (["require", "module"].some((name) => isGlobal(expression, name)))
+        return "loader";
       if (
         GLOBAL_ALIASES.has(expression.name) &&
         isGlobal(expression, expression.name)
       )
         return "globalThis";
-      return ["process", "URL"].some((name) => isGlobal(expression, name))
-        ? expression.name
+      if (["process", "URL"].some((name) => isGlobal(expression, name)))
+        return expression.name;
+      const declaration = constantDeclaration(expression);
+      return declaration?.id.type === "Identifier" && declaration.init
+        ? runtimeObject(declaration.init, seen)
         : undefined;
     }
+    if (expression?.type === "NewExpression")
+      return runtimeObject(expression.callee, seen) === "URL"
+        ? "URLInstance"
+        : undefined;
+    if (expression?.type === "CallExpression")
+      return runtimeObject(expression.callee, seen) === "URLParse"
+        ? "URLInstance"
+        : undefined;
     if (expression?.type !== "MemberExpression") return undefined;
-    const owner = runtimeObject(expression.object);
+    const owner = runtimeObject(expression.object, seen);
     const property = memberName(expression);
     if (owner === "globalThis") {
       if (GLOBAL_ALIASES.has(property)) return "globalThis";
       if (["process", "URL"].includes(property)) return property;
+      if (["require", "module"].includes(property)) return "loader";
       if (property === undefined) return "unknown";
     }
     if (owner === "process" && property === "getBuiltinModule") return "lookup";
+    if (
+      (owner === "process" && property === "mainModule") ||
+      owner === "loader"
+    )
+      return "loader";
     if (owner === "URL") {
+      if (property === "parse") return "URLParse";
       if (["prototype", "constructor"].includes(property)) return "URL";
+      if (property === undefined) return "unknown";
+    }
+    if (owner === "URLInstance") {
+      if (property === "constructor" || property === "__proto__") return "URL";
       if (property === undefined) return "unknown";
     }
     if (owner === "unknown" || owner === "lookup") return "unknown";
@@ -533,6 +580,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
 
   const hasMutationHazard = (nodes) =>
     nodes.some((node) => {
+      if (node.type === "ImportExpression") return true;
       if (isImportMeta(node)) {
         const parent = node.parent;
         // Escape through a variable, argument, return or export prevents a local
@@ -547,22 +595,40 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
         return true;
       const runtime = runtimeObject(node);
       if (runtime) {
-        const parent = node.parent;
+        const { value, parent } = expressionContext(node);
         const propertyRead =
-          parent?.type === "MemberExpression" && parent.object === node;
+          parent?.type === "MemberExpression" && parent.object === value;
         const construction =
           runtime === "URL" &&
           parent?.type === "NewExpression" &&
-          parent.callee === node;
+          parent.callee === value;
         const lookupCall =
           runtime === "lookup" &&
           parent?.type === "CallExpression" &&
-          parent.callee === node &&
+          parent.callee === value &&
           possibleBuiltin(parent);
+        const parseCall =
+          runtime === "URLParse" &&
+          parent?.type === "CallExpression" &&
+          parent.callee === value;
+        const localInstance =
+          runtime === "URLInstance" &&
+          parent?.type === "VariableDeclarator" &&
+          parent.id.type === "Identifier" &&
+          parent.init === value &&
+          parent.parent.kind === "const" &&
+          parent.parent.parent?.type !== "ExportNamedDeclaration";
+        const decodeInstance =
+          runtime === "URLInstance" &&
+          isBuiltinCall(parent, "url", "fileURLToPath") &&
+          parent.arguments[0] === value;
         if (
           !propertyRead &&
           !construction &&
           !lookupCall &&
+          !parseCall &&
+          !localInstance &&
+          !decodeInstance &&
           parent?.type !== "UnaryExpression"
         )
           return true;
@@ -578,7 +644,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
         if (resolved && !resolved.property) return true;
         const property = memberName(node);
         const object = runtimeObject(node.object);
-        if (object === "URL" || object === "unknown") return true;
+        if (["URL", "URLInstance", "unknown"].includes(object)) return true;
         if (
           object === "process" &&
           (property === undefined || property === "getBuiltinModule")
@@ -596,7 +662,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       ) {
         const resolved = possibleBuiltin(node);
         if (!resolved || resolved.property) return false;
-        const parent = node.parent;
+        const { value, parent } = expressionContext(node);
         if (
           [
             "ImportSpecifier",
@@ -605,19 +671,14 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
           ].includes(parent?.type)
         )
           return false;
-        if (parent?.type === "MemberExpression" && parent.object === node)
+        if (parent?.type === "MemberExpression" && parent.object === value)
           return false;
         if (parent?.type === "UnaryExpression") return false;
         if (
           parent?.type === "VariableDeclarator" &&
-          parent.init === node &&
-          parent.parent.kind === "const"
-        )
-          return false;
-        if (
-          parent?.type === "VariableDeclarator" &&
-          parent.id === node &&
-          parent.parent.kind === "const"
+          (parent.init === value || parent.id === value) &&
+          parent.parent.kind === "const" &&
+          parent.parent.parent?.type !== "ExportNamedDeclaration"
         )
           return false;
         return true;
