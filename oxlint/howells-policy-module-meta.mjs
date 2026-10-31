@@ -12,6 +12,10 @@ const URL_MODULES = new Set(["url", "node:url"]);
 const PROCESS_MODULES = new Set(["process", "node:process"]);
 const LOADER_MODULES = new Set(["module", "node:module"]);
 const GLOBAL_ALIASES = new Set(["globalThis", "global", "window", "self"]);
+const MUTATING_RECEIVER_METHODS = new Set([
+  "__defineGetter__",
+  "__defineSetter__",
+]);
 const POSSIBLE_WRAPPERS = new Set([
   "ParenthesizedExpression",
   "ChainExpression",
@@ -55,9 +59,28 @@ const staticName = (node) =>
       : undefined;
 
 const memberName = (node) =>
-  node.computed && node.property.type !== "Literal"
+  node.computed &&
+  (node.property.type !== "Literal" ||
+    typeof node.property.value !== "string" ||
+    node.property.regex ||
+    node.property.bigint)
     ? undefined
     : staticName(node.property);
+
+const isBindingProperty = (node, allowQuotedComputed = false) =>
+  node.type === "Property" &&
+  node.value.type === "Identifier" &&
+  (!node.computed ||
+    (allowQuotedComputed &&
+      node.key.type === "Literal" &&
+      typeof node.key.value === "string" &&
+      !node.key.regex &&
+      !node.key.bigint));
+
+const canFollowBinding = (node) =>
+  node.type === "Identifier" ||
+  (node.type === "ObjectPattern" &&
+    node.properties.every((property) => isBindingProperty(property, true)));
 
 const builtinProperty = (resolved, property, includeObjects) => {
   if (!resolved || resolved.property) return undefined;
@@ -382,9 +405,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       if (constant.id.type === "ObjectPattern") {
         const property = constant.id.properties.find(
           (item) =>
-            item.type === "Property" &&
-            !item.computed &&
-            item.value.type === "Identifier" &&
+            isBindingProperty(item, includeObjects) &&
             item.value.name === expression.name
         );
         if (!property) return undefined;
@@ -593,6 +614,27 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       }
       if (node.type === "CallExpression" && isGlobal(node.callee, "eval"))
         return true;
+      const invoked =
+        node.type === "CallExpression"
+          ? unwrapPossible(node.callee)
+          : node.type === "TaggedTemplateExpression"
+            ? unwrapPossible(node.tag)
+            : undefined;
+      if (
+        invoked?.type === "MemberExpression" &&
+        MUTATING_RECEIVER_METHODS.has(memberName(invoked))
+      ) {
+        const receiver = unwrapPossible(invoked.object);
+        const resolved = possibleBuiltin(receiver);
+        // A method call passes its object as `this`; property-read exemptions
+        // must not let the accessor methods mutate that implicit receiver.
+        if (
+          isImportMeta(receiver) ||
+          runtimeObject(receiver) ||
+          (resolved && !resolved.property)
+        )
+          return true;
+      }
       const runtime = runtimeObject(node);
       if (runtime) {
         const { value, parent } = expressionContext(node);
@@ -671,12 +713,25 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
           ].includes(parent?.type)
         )
           return false;
+        if (
+          node.type === "Identifier" &&
+          definitionFor(node)?.definition.name === node
+        ) {
+          const declaration = constantDeclaration(node);
+          if (
+            declaration &&
+            canFollowBinding(declaration.id) &&
+            declaration.parent.parent?.type !== "ExportNamedDeclaration"
+          )
+            return false;
+        }
         if (parent?.type === "MemberExpression" && parent.object === value)
           return false;
         if (parent?.type === "UnaryExpression") return false;
         if (
           parent?.type === "VariableDeclarator" &&
           (parent.init === value || parent.id === value) &&
+          canFollowBinding(parent.id) &&
           parent.parent.kind === "const" &&
           parent.parent.parent?.type !== "ExportNamedDeclaration"
         )

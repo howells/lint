@@ -146,6 +146,99 @@ const uninitializedAliases = [
   ],
 ];
 const mutationRoutes = [
+  ...[
+    ["direct", "path.__defineGetter__"],
+    ["quoted", 'path["__defineGetter__"]'],
+    ["optional", "path?.__defineGetter__?."],
+    ["alias", "borrowed.__defineGetter__"],
+    ["nested", `path.${nativePathProperty}.__defineGetter__`],
+  ].map(([name, method]) => [
+    `receiver-getter-path-${name}`,
+    `const borrowed = path; ${method}("dirname", () => () => "changed");`,
+    dirname,
+    "dirname",
+    "changed",
+  ]),
+  [
+    "receiver-getter-path-regexp",
+    'RegExp.prototype.toString = () => "__defineGetter__"; path[/x/]("dirname", () => () => "changed");',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "receiver-setter-path",
+    'path.__defineSetter__("dirname", () => {});',
+    dirname,
+    "dirname",
+    "TypeError",
+  ],
+  [
+    "receiver-getter-borrowed-result",
+    'path.__defineGetter__("borrowed", function () { return this; }); const { borrowed } = path; borrowed.dirname = () => "changed";',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  ...[
+    ["global", "", "URL.prototype.__defineGetter__"],
+    [
+      "imported",
+      'import { URL as NativeURL } from "node:url";',
+      "NativeURL.prototype.__defineGetter__",
+    ],
+    ["optional-quoted", "", 'URL?.["prototype"]?.["__defineGetter__"]?.'],
+  ].map(([name, setup, method]) => [
+    `receiver-getter-url-${name}`,
+    `${setup} ${method}("pathname", () => "/changed");`,
+    filename,
+    "filename",
+    "/changed",
+  ]),
+  [
+    "receiver-getter-process",
+    'process.__defineGetter__("getBuiltinModule", () => () => ({ fileURLToPath: () => "changed" }));',
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ],
+  ...[
+    ["quoted-computed", `{ ["${nativePathProperty}"]: borrowed }`, "borrowed"],
+    ["variable-computed", "{ [key]: borrowed }", "borrowed"],
+    ["defaulted", `{ ${nativePathProperty}: borrowed = {} }`, "borrowed"],
+    [
+      "nested",
+      `{ ${nativePathProperty}: { ${nativePathProperty}: borrowed } }`,
+      "borrowed",
+    ],
+    ["rest", "{ ...borrowed }", `borrowed.${nativePathProperty}`],
+  ].map(([name, binding, receiver]) => [
+    `destructured-path-${name}`,
+    `const key = "${nativePathProperty}"; const ${binding} = path; ${receiver}.dirname = () => "changed";`,
+    dirname,
+    "dirname",
+    "changed",
+  ]),
+  ...[
+    ["quoted-computed", '{ ["URL"]: Constructor }', "Constructor"],
+    ["variable-computed", "{ [key]: Constructor }", "Constructor"],
+    ["defaulted", "{ URL: Constructor = class {} }", "Constructor"],
+    ["nested", "{ default: { URL: Constructor } }", "Constructor"],
+    ["rest", "{ ...borrowed }", "borrowed.URL"],
+  ].map(([name, binding, constructor]) => [
+    `destructured-url-${name}`,
+    `import * as urls from "node:url"; const key = "URL"; const ${binding} = urls; Object.defineProperty(${constructor}.prototype, "pathname", { get: () => "/changed" });`,
+    filename,
+    "filename",
+    "/changed",
+  ]),
+  [
+    "destructured-object-computed-key",
+    `RegExp.prototype.toString = () => "${nativePathProperty}"; const { [/x/]: borrowed } = path; borrowed.dirname = () => "changed";`,
+    dirname,
+    "dirname",
+    "changed",
+  ],
   [
     "outer-alias-write",
     'const paths = path; function mutate() { paths.dirname = () => "changed"; } mutate();',
@@ -434,6 +527,23 @@ const cases = [
   ["unguarded-filename", imports + use(filename), 0],
   ["guarded-dirname", imports + guard(use(dirname)), 1],
   ["guarded-filename", imports + guard(use(filename), "filename"), 1],
+  [
+    "receiver-method-read",
+    imports + "void path.__defineGetter__;" + guard(use(dirname)),
+    1,
+  ],
+  [
+    "receiver-getter-lookup",
+    imports + 'path.__lookupGetter__("dirname");' + guard(use(dirname)),
+    1,
+  ],
+  [
+    "receiver-unrelated-object",
+    imports +
+      'const object = {}; object.__defineGetter__("value", () => true);' +
+      guard(use(dirname)),
+    1,
+  ],
   ...mutationRoutes.map(([name, mutation, expression, property]) => [
     `mutation-route-${name}`,
     imports + mutation + guard(use(expression), property),
@@ -579,6 +689,34 @@ const cases = [
       'import * as Module from "node:module"; void Module.builtinModules;' +
       guard(use(dirname)),
     1,
+  ],
+  [
+    "quoted-computed-binding-property-read",
+    imports +
+      'const { ["sep"]: separator } = path; console.log(separator);' +
+      guard(use(dirname)),
+    1,
+  ],
+  [
+    "simple-module-binding-read",
+    imports +
+      `const { ${nativePathProperty}: borrowed } = path; console.log(borrowed.sep);` +
+      guard(use(dirname)),
+    1,
+  ],
+  [
+    "quoted-computed-module-binding-read",
+    imports +
+      `const { ["${nativePathProperty}"]: borrowed } = path; console.log(borrowed.sep);` +
+      guard(use(dirname)),
+    1,
+  ],
+  [
+    "quoted-computed-binding-does-not-expand-positive-fixes",
+    imports +
+      'const { ["dirname"]: directory } = path;' +
+      guard(use("directory(fileURLToPath(import.meta.url))")),
+    0,
   ],
   [
     "guarded-both-no-overlap",
@@ -1154,7 +1292,7 @@ for (const [name, mutation, expression, property, expected] of mutationRoutes) {
       const target = "mutation-route.mjs";
       const source =
         imports +
-        `${mutation}\nexport const getLocation = () => { ${guard(`return ${expression};`, property)} };\n`;
+        `${mutation}\nexport const getLocation = () => { try { ${guard(`return ${expression};`, property)} } catch (error) { return error.name; } };\n`;
       await writeFile(path.join(root, target), source);
       const original = await evaluateSource(root, target);
       assert.equal(original, expected);
