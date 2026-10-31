@@ -144,11 +144,130 @@ const uninitializedAliases = [
     true,
   ],
 ];
+const mutationRoutes = [
+  [
+    "outer-alias-write",
+    'const paths = path; function mutate() { paths.dirname = () => "changed"; } mutate();',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "outer-alias-escape",
+    'const paths = path; function mutate() { Object.assign(paths, { dirname: () => "changed" }); } mutate();',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "outer-alias-chain-write",
+    'const paths = path; const borrowed = paths; function mutate() { borrowed.dirname = () => "changed"; } mutate();',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "outer-builtin-lookup-alias-write",
+    'const paths = process.getBuiltinModule("node:path"); function mutate() { paths.dirname = () => "changed"; } mutate();',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "global-object-alias-escape",
+    'const host = globalThis; const OriginalURL = URL; host.URL = class extends OriginalURL { constructor() { super("file:///changed"); } };',
+    "fileURLToPath(new URL(import.meta.url))",
+    "filename",
+    "/changed",
+  ],
+  [
+    "global-object-call-escape",
+    'const OriginalURL = URL; Object.assign(globalThis, { URL: class extends OriginalURL { constructor() { super("file:///changed"); } } });',
+    "fileURLToPath(new URL(import.meta.url))",
+    "filename",
+    "/changed",
+  ],
+  [
+    "process-object-alias-escape",
+    'const host = process; host.getBuiltinModule = () => ({ fileURLToPath: () => "changed" });',
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ],
+  [
+    "computed-global-process-escape",
+    'const key = "process"; const host = globalThis[key]; host.getBuiltinModule = () => ({ fileURLToPath: () => "changed" });',
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ],
+  [
+    "global-process-property-write",
+    'globalThis.process.getBuiltinModule = () => ({ fileURLToPath: () => "changed" });',
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ],
+  [
+    "constructor-prototype-escape",
+    'Object.defineProperty(URL.prototype, "pathname", { get: () => "/changed" });',
+    "fileURLToPath(new URL(import.meta.url))",
+    "filename",
+    "/changed",
+  ],
+  ...["globalThis[key]", "globalThis.URL", 'globalThis["URL"]'].map(
+    (access, index) => [
+      `global-constructor-write-${index}`,
+      `const OriginalURL = URL; const key = "URL"; ${access} = class extends OriginalURL { constructor() { super("file:///changed"); } };`,
+      "fileURLToPath(new URL(import.meta.url))",
+      "filename",
+      "/changed",
+    ]
+  ),
+  ...[
+    "process[key]",
+    "process.getBuiltinModule",
+    'process["getBuiltinModule"]',
+  ].map((access, index) => [
+    `global-builtin-lookup-write-${index}`,
+    `const key = "getBuiltinModule"; ${access} = () => ({ fileURLToPath: () => "changed" });`,
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ]),
+];
 const cases = [
   ["unguarded-dirname", imports + use(dirname), 0],
   ["unguarded-filename", imports + use(filename), 0],
   ["guarded-dirname", imports + guard(use(dirname)), 1],
   ["guarded-filename", imports + guard(use(filename), "filename"), 1],
+  ...mutationRoutes.map(([name, mutation, expression, property]) => [
+    `mutation-route-${name}`,
+    imports + mutation + guard(use(expression), property),
+    0,
+  ]),
+  [
+    "unrelated-literal-global-write",
+    imports + 'globalThis["unrelated"] = true;' + guard(use(dirname)),
+    1,
+  ],
+  [
+    "unrelated-literal-process-write",
+    imports + 'process["unrelated"] = true;' + guard(use(dirname)),
+    1,
+  ],
+  [
+    "unknown-computed-global-read",
+    imports + 'const key = "URL"; void globalThis[key];' + guard(use(dirname)),
+    1,
+  ],
+  [
+    "global-names-as-property-keys-are-not-references",
+    imports +
+      'const names = { process: "unrelated", URL: "unrelated", globalThis: "unrelated" }; console.log(names.process, names.URL, names.globalThis);' +
+      guard(use(dirname)),
+    1,
+  ],
   [
     "guarded-both-no-overlap",
     imports + guard(guard(use(dirname), "filename")),
@@ -695,6 +814,29 @@ test("metadata writes through patterns and loop targets retain runtime results",
     await rm(root, { recursive: true, force: true });
   }
 });
+
+for (const [name, mutation, expression, property, expected] of mutationRoutes) {
+  test(`metadata fixes retain mutation through ${name}`, async () => {
+    const root = await fixtureRoot();
+    try {
+      await writeRuleConfig(root);
+      const target = "mutation-route.mjs";
+      const source =
+        imports +
+        `${mutation}\nexport const getLocation = () => { ${guard(`return ${expression};`, property)} };\n`;
+      await writeFile(path.join(root, target), source);
+      const original = await evaluateSource(root, target);
+      assert.equal(original, expected);
+      const fixed = await runOxlint(root, target, true);
+      assert.equal(fixed.status, 0, fixed.stdout);
+      assert.equal(fixed.diagnostics.length, 0);
+      assert.equal(await readFile(path.join(root, target), "utf8"), source);
+      assert.equal(await evaluateSource(root, target), original);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+}
 
 test("metadata fixes preserve alias initialization failures and caught results", async () => {
   const root = await fixtureRoot();

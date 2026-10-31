@@ -21,6 +21,11 @@ const staticName = (node) =>
       ? node.value
       : undefined;
 
+const memberName = (node) =>
+  node.computed && node.property.type !== "Literal"
+    ? undefined
+    : staticName(node.property);
+
 const isImportMeta = (node) =>
   node?.type === "MetaProperty" &&
   node.meta.name === "import" &&
@@ -241,6 +246,32 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     identifier.name === name &&
     (variableFor(identifier)?.defs.length ?? 0) === 0;
 
+  const runtimeObject = (expression) => {
+    expression = unwrap(expression);
+    if (expression?.type === "Identifier") {
+      if (
+        ["globalThis", "process", "URL"].some((name) =>
+          isGlobal(expression, name)
+        ) &&
+        sourceCode
+          .getScope(expression)
+          .references.some((reference) => reference.identifier === expression)
+      )
+        return expression.name;
+      return undefined;
+    }
+    if (expression?.type !== "MemberExpression") return undefined;
+    const owner = runtimeObject(expression.object);
+    const property = memberName(expression);
+    if (owner === "globalThis") {
+      if (["globalThis", "process", "URL"].includes(property)) return property;
+      if (property === undefined) return "unknown";
+    }
+    if (owner === "URL" && property === "prototype") return "URL";
+    if (owner === "unknown") return "unknown";
+    return undefined;
+  };
+
   const definitionFor = (identifier) => {
     const variable = variableFor(identifier);
     return variable?.defs.length === 1
@@ -248,16 +279,22 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       : undefined;
   };
 
-  const constantInitializer = (identifier) => {
+  const constantDeclaration = (identifier) => {
     const found = definitionFor(identifier);
     if (!found || found.definition.node.type !== "VariableDeclarator")
       return undefined;
     const declaration = found.definition.node;
     if (declaration.parent?.kind !== "const") return undefined;
+    return declaration;
+  };
+
+  const constantInitializer = (identifier) => {
+    const declaration = constantDeclaration(identifier);
+    if (!declaration) return undefined;
     if (!initializedBeforeReference(declaration, identifier)) return undefined;
     // Ignore mutable aliases even if malformed source writes to a const.
     if (
-      found.variable.references.some(
+      variableFor(identifier).references.some(
         (reference) => reference.isWrite() && !reference.init
       )
     )
@@ -265,7 +302,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     return declaration;
   };
 
-  const builtin = (expression, seen = new Set()) => {
+  const resolveBuiltin = (expression, declarationFor, seen = new Set()) => {
     expression = unwrap(expression);
     if (!expression) return undefined;
     if (expression.type === "Identifier") {
@@ -297,10 +334,10 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
           ? { module, property: staticName(declaration.imported) }
           : { module };
       }
-      const constant = constantInitializer(expression);
+      const constant = declarationFor(expression);
       if (!constant?.init) return undefined;
       if (constant.id.type === "Identifier")
-        return builtin(constant.init, seen);
+        return resolveBuiltin(constant.init, declarationFor, seen);
       if (constant.id.type === "ObjectPattern") {
         const property = constant.id.properties.find(
           (item) =>
@@ -310,7 +347,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
             item.value.name === expression.name
         );
         if (!property) return undefined;
-        const module = builtin(constant.init, seen);
+        const module = resolveBuiltin(constant.init, declarationFor, seen);
         return module && !module.property
           ? { ...module, property: staticName(property.key) }
           : undefined;
@@ -322,7 +359,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       !expression.computed &&
       !expression.optional
     ) {
-      const module = builtin(expression.object, seen);
+      const module = resolveBuiltin(expression.object, declarationFor, seen);
       return module && !module.property
         ? { ...module, property: staticName(expression.property) }
         : undefined;
@@ -349,6 +386,14 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     }
     return undefined;
   };
+
+  const builtin = (expression) =>
+    resolveBuiltin(expression, constantInitializer);
+
+  // A possible alias must invalidate mutation/escape proofs even when its
+  // initialization cannot be established for a replacement at that reference.
+  const possibleBuiltin = (expression) =>
+    resolveBuiltin(expression, constantDeclaration);
 
   const isBuiltinCall = (node, module, property) => {
     if (
@@ -401,8 +446,24 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       }
       if (node.type === "CallExpression" && isGlobal(node.callee, "eval"))
         return true;
+      const runtime = runtimeObject(node);
+      if (runtime) {
+        const parent = node.parent;
+        const propertyRead =
+          parent?.type === "MemberExpression" && parent.object === node;
+        const construction =
+          runtime === "URL" &&
+          parent?.type === "NewExpression" &&
+          parent.callee === node;
+        if (
+          !propertyRead &&
+          !construction &&
+          parent?.type !== "UnaryExpression"
+        )
+          return true;
+      }
       if (node.type === "CallExpression") {
-        const resolved = builtin(node);
+        const resolved = possibleBuiltin(node);
         if (resolved && !resolved.property) {
           const parent = node.parent;
           if (parent?.type === "MemberExpression" && parent.object === node)
@@ -423,22 +484,25 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       )
         return true;
       if (node.type === "MemberExpression" && isWrite(node)) {
-        const resolved = builtin(node.object);
+        const resolved = possibleBuiltin(node.object);
         if (resolved && !resolved.property) return true;
+        const property = memberName(node);
+        const object = runtimeObject(node.object);
+        if (object === "URL" || object === "unknown") return true;
         if (
-          isGlobal(node.object, "process") &&
-          staticName(node.property) === "getBuiltinModule"
+          object === "process" &&
+          (property === undefined || property === "getBuiltinModule")
         )
           return true;
         if (
-          isGlobal(node.object, "globalThis") &&
-          ["URL", "process"].includes(staticName(node.property))
+          object === "globalThis" &&
+          (property === undefined || ["URL", "process"].includes(property))
         )
           return true;
       }
       // Catch mutation through an escaped imported module object/constant alias.
       if (node.type === "Identifier") {
-        const resolved = builtin(node);
+        const resolved = possibleBuiltin(node);
         if (!resolved || resolved.property) return false;
         const parent = node.parent;
         if (
