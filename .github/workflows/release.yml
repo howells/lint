@@ -121,8 +121,7 @@ jobs:
             runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
     env:
-      HOWELLS_LINT_TARBALL: ${{ runner.temp }}/packed-package/howells-lint-${{ needs.build.outputs.version }}.tgz
-      HOWELLS_LINT_NATIVE_EVIDENCE: ${{ runner.temp }}/native-protocol-${{ matrix.target }}.json
+      EXPECTED_PACKAGE_VERSION: ${{ needs.build.outputs.version }}
       EXPECTED_NATIVE_TARGET: ${{ matrix.target }}
       EXPECTED_PACKED_SHA256: ${{ needs.build.outputs.sha256 }}
     steps:
@@ -141,10 +140,14 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import assert from "node:assert/strict";
-          import { readFileSync } from "node:fs";
+          import { appendFileSync, readFileSync } from "node:fs";
           import { createHash } from "node:crypto";
+          import path from "node:path";
+          const tarball = path.join(process.env.RUNNER_TEMP, "packed-package", `howells-lint-${process.env.EXPECTED_PACKAGE_VERSION}.tgz`);
+          const evidence = path.join(process.env.RUNNER_TEMP, `native-protocol-${process.env.EXPECTED_NATIVE_TARGET}.json`);
           assert.equal(`${process.platform}-${process.arch}`, process.env.EXPECTED_NATIVE_TARGET);
-          assert.equal(createHash("sha256").update(readFileSync(process.env.HOWELLS_LINT_TARBALL)).digest("hex"), process.env.EXPECTED_PACKED_SHA256);
+          assert.equal(createHash("sha256").update(readFileSync(tarball)).digest("hex"), process.env.EXPECTED_PACKED_SHA256);
+          appendFileSync(process.env.GITHUB_ENV, `HOWELLS_LINT_TARBALL=${tarball}\nHOWELLS_LINT_NATIVE_EVIDENCE=${evidence}\n`);
           NODE
 
       # No source build: the test installs this tarball
@@ -170,7 +173,6 @@ jobs:
       # Only this job can obtain the npm Trusted Publishing OIDC token.
       id-token: write
     env:
-      HOWELLS_LINT_TARBALL: ${{ runner.temp }}/packed-package/howells-lint-${{ needs.build.outputs.version }}.tgz
       EXPECTED_PACKED_SHA256: ${{ needs.build.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v5
@@ -199,11 +201,14 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import assert from "node:assert/strict";
-          import { readFileSync } from "node:fs";
+          import { appendFileSync, readFileSync } from "node:fs";
           import { createHash } from "node:crypto";
+          import path from "node:path";
           const { version } = JSON.parse(readFileSync("package.json"));
+          const tarball = path.join(process.env.RUNNER_TEMP, "packed-package", `howells-lint-${version}.tgz`);
           assert.equal(process.env.GITHUB_REF_NAME, `v${version}`);
-          assert.equal(createHash("sha256").update(readFileSync(process.env.HOWELLS_LINT_TARBALL)).digest("hex"), process.env.EXPECTED_PACKED_SHA256);
+          assert.equal(createHash("sha256").update(readFileSync(tarball)).digest("hex"), process.env.EXPECTED_PACKED_SHA256);
+          appendFileSync(process.env.GITHUB_ENV, `HOWELLS_LINT_TARBALL=${tarball}\n`);
           NODE
 
       # Access remains in publishConfig. Keep the explicit provenance flag:
