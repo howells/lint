@@ -2,8 +2,24 @@
 // establishes their availability. Portable URL resolution stays valid otherwise.
 
 const PATH_MODULES = new Set(["path", "node:path"]);
+const PATH_SUBPATH_MODULES = new Set([
+  "path/posix",
+  "node:path/posix",
+  "path/win32",
+  "node:path/win32",
+]);
 const URL_MODULES = new Set(["url", "node:url"]);
 const PROCESS_MODULES = new Set(["process", "node:process"]);
+const GLOBAL_ALIASES = new Set(["globalThis", "global", "window", "self"]);
+const POSSIBLE_WRAPPERS = new Set([
+  "ParenthesizedExpression",
+  "ChainExpression",
+  "TSAsExpression",
+  "TSTypeAssertion",
+  "TSNonNullExpression",
+  "TSSatisfiesExpression",
+  "TSInstantiationExpression",
+]);
 const FUNCTION_BOUNDARIES = new Set([
   "ArrowFunctionExpression",
   "FunctionDeclaration",
@@ -12,6 +28,11 @@ const FUNCTION_BOUNDARIES = new Set([
 
 const unwrap = (node) => {
   while (node?.type === "ParenthesizedExpression") node = node.expression;
+  return node;
+};
+
+const unwrapPossible = (node) => {
+  while (POSSIBLE_WRAPPERS.has(node?.type)) node = node.expression;
   return node;
 };
 
@@ -295,7 +316,9 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     includeObjects = false,
     seen = new Set()
   ) => {
-    expression = unwrap(expression);
+    expression = includeObjects
+      ? unwrapPossible(expression)
+      : unwrap(expression);
     if (!expression) return undefined;
     if (expression.type === "Identifier") {
       const found = definitionFor(expression);
@@ -311,13 +334,15 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       ) {
         const imported = declaration.parent;
         const specifier = imported?.source?.value;
-        const module = PATH_MODULES.has(specifier)
-          ? "path"
-          : URL_MODULES.has(specifier)
-            ? "url"
-            : PROCESS_MODULES.has(specifier)
-              ? "process"
-              : undefined;
+        const module =
+          PATH_MODULES.has(specifier) ||
+          (includeObjects && PATH_SUBPATH_MODULES.has(specifier))
+            ? "path"
+            : URL_MODULES.has(specifier)
+              ? "url"
+              : PROCESS_MODULES.has(specifier)
+                ? "process"
+                : undefined;
         if (
           !module ||
           imported.importKind === "type" ||
@@ -367,7 +392,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     if (
       expression.type === "MemberExpression" &&
       (includeObjects || !expression.computed) &&
-      !expression.optional
+      (includeObjects || !expression.optional)
     ) {
       const module = resolveBuiltin(
         expression.object,
@@ -379,11 +404,11 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     }
     if (
       expression.type === "CallExpression" &&
-      !expression.optional &&
+      (includeObjects || !expression.optional) &&
       expression.arguments.length === 1 &&
       expression.callee.type === "MemberExpression" &&
       !expression.callee.computed &&
-      !expression.callee.optional &&
+      (includeObjects || !expression.callee.optional) &&
       staticName(expression.callee.property) === "getBuiltinModule" &&
       isGlobal(expression.callee.object, "process")
     ) {
@@ -391,7 +416,8 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
         expression.arguments[0]?.type === "Literal"
           ? expression.arguments[0].value
           : undefined;
-      return PATH_MODULES.has(name)
+      return PATH_MODULES.has(name) ||
+        (includeObjects && PATH_SUBPATH_MODULES.has(name))
         ? { module: "path" }
         : URL_MODULES.has(name)
           ? { module: "url" }
@@ -411,7 +437,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     resolveBuiltin(expression, constantDeclaration, true);
 
   const runtimeObject = (expression) => {
-    expression = unwrap(expression);
+    expression = unwrapPossible(expression);
     if (
       expression?.type === "Identifier" &&
       !sourceCode
@@ -430,14 +456,24 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       return "process";
     if (resolved?.module === "url" && resolved.property === "URL") return "URL";
     if (
+      resolved?.module === "url" &&
+      expression?.type === "MemberExpression" &&
+      expression.computed &&
+      memberName(expression) === undefined
+    )
+      return "unknown";
+    if (
       resolved?.module === "process" &&
       resolved.property === "getBuiltinModule"
     )
       return "lookup";
     if (expression?.type === "Identifier") {
-      return ["globalThis", "process", "URL"].some((name) =>
-        isGlobal(expression, name)
+      if (
+        GLOBAL_ALIASES.has(expression.name) &&
+        isGlobal(expression, expression.name)
       )
+        return "globalThis";
+      return ["process", "URL"].some((name) => isGlobal(expression, name))
         ? expression.name
         : undefined;
     }
@@ -445,11 +481,15 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     const owner = runtimeObject(expression.object);
     const property = memberName(expression);
     if (owner === "globalThis") {
-      if (["globalThis", "process", "URL"].includes(property)) return property;
+      if (GLOBAL_ALIASES.has(property)) return "globalThis";
+      if (["process", "URL"].includes(property)) return property;
       if (property === undefined) return "unknown";
     }
     if (owner === "process" && property === "getBuiltinModule") return "lookup";
-    if (owner === "URL" && property === "prototype") return "URL";
+    if (owner === "URL") {
+      if (["prototype", "constructor"].includes(property)) return "URL";
+      if (property === undefined) return "unknown";
+    }
     if (owner === "unknown" || owner === "lookup") return "unknown";
     return undefined;
   };

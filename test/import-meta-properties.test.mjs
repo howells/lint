@@ -307,6 +307,62 @@ const mutationRoutes = [
     "dirname",
     "changed",
   ],
+  [
+    "optional-submodule-escape",
+    `Object.assign(path?.${nativePathProperty}, { dirname: () => "changed" });`,
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "optional-namespace-default-escape",
+    'import * as paths from "node:path"; Object.assign(paths?.default, { dirname: () => "changed" });',
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  ...["node:", ""].map((prefix) => [
+    `path-subpath-import-${prefix ? "node" : "bare"}`,
+    `import variant from "${prefix}path/${nativePathProperty}"; const paths = variant; function mutate() { paths.dirname = () => "changed"; } mutate();`,
+    dirname,
+    "dirname",
+    "changed",
+  ]),
+  [
+    "path-subpath-namespace-default",
+    `import * as variant from "node:path/${nativePathProperty}"; variant.default.dirname = () => "changed";`,
+    dirname,
+    "dirname",
+    "changed",
+  ],
+  [
+    "computed-imported-url-prototype",
+    'import { URL as NodeURL } from "node:url"; const key = "prototype"; Object.defineProperty(NodeURL[key], "pathname", { get: () => "/changed" });',
+    filename,
+    "filename",
+    "/changed",
+  ],
+  [
+    "computed-namespace-url-constructor",
+    'import * as urls from "node:url"; const key = "URL"; Object.defineProperty(urls[key].prototype, "pathname", { get: () => "/changed" });',
+    filename,
+    "filename",
+    "/changed",
+  ],
+  [
+    "url-prototype-constructor-chain",
+    'Object.defineProperty(URL.prototype.constructor.prototype, "pathname", { get: () => "/changed" });',
+    filename,
+    "filename",
+    "/changed",
+  ],
+  ...["global", "globalThis.global"].map((access) => [
+    `node-global-alias-${access}`,
+    `${access}.process.getBuiltinModule = () => ({ fileURLToPath: () => "changed" });`,
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ]),
   ...["globalThis[key]", "globalThis.URL", 'globalThis["URL"]'].map(
     (access, index) => [
       `global-constructor-write-${index}`,
@@ -392,6 +448,45 @@ const cases = [
     "computed-module-property-read",
     imports + 'const key = "sep"; void path[key];' + guard(use(dirname)),
     1,
+  ],
+  [
+    "optional-module-property-read",
+    imports +
+      `console.log(path?.${nativePathProperty}.sep);` +
+      guard(use(dirname)),
+    1,
+  ],
+  [
+    "computed-url-prototype-read",
+    imports +
+      'const key = "prototype"; void URL[key];' +
+      guard(use(filename), "filename"),
+    1,
+  ],
+  [
+    "shadowed-global-aliases",
+    imports +
+      "{ const global = {}, window = {}, self = {}; void [global, window, self]; }" +
+      guard(use(dirname)),
+    1,
+  ],
+  [
+    "node-global-property-read",
+    imports + "console.log(global.process.pid);" + guard(use(dirname)),
+    1,
+  ],
+  [
+    "path-subpath-property-read",
+    imports +
+      `import variant from "node:path/${nativePathProperty}"; console.log(variant.sep);` +
+      guard(use(dirname)),
+    1,
+  ],
+  [
+    "path-subpath-does-not-expand-positive-fixes",
+    `import variant from "node:path/${nativePathProperty}"; import { fileURLToPath } from "node:url";` +
+      guard(use("variant.dirname(fileURLToPath(import.meta.url))")),
+    0,
   ],
   [
     "guarded-both-no-overlap",
