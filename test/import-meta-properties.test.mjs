@@ -147,6 +147,73 @@ const uninitializedAliases = [
 ];
 const mutationRoutes = [
   ...[
+    [
+      "immediate",
+      'globalThis.__lookupGetter__("process")().getBuiltinModule = () => ({ fileURLToPath: () => "changed" });',
+    ],
+    [
+      "alias",
+      'const readProcess = globalThis.__lookupGetter__("process"); readProcess().getBuiltinModule = () => ({ fileURLToPath: () => "changed" });',
+    ],
+    [
+      "call",
+      'globalThis.__lookupGetter__("process").call(null).getBuiltinModule = () => ({ fileURLToPath: () => "changed" });',
+    ],
+    [
+      "optional",
+      'Object.assign(globalThis?.__lookupGetter__?.("process")?.(), { getBuiltinModule: () => ({ fileURLToPath: () => "changed" }) });',
+    ],
+    [
+      "node-global",
+      'global.__lookupGetter__("process")().getBuiltinModule = () => ({ fileURLToPath: () => "changed" });',
+    ],
+    [
+      "setter",
+      'globalThis.__lookupSetter__("process")({ getBuiltinModule: () => ({ fileURLToPath: () => "changed" }) });',
+    ],
+    [
+      "setter-alias",
+      'const writeProcess = globalThis.__lookupSetter__("process"); writeProcess({ getBuiltinModule: () => ({ fileURLToPath: () => "changed" }) });',
+    ],
+  ].map(([name, mutation]) => [
+    `accessor-result-${name}`,
+    mutation,
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ]),
+  ...[
+    ["url-method", "", "URL.prototype.toString.constructor"],
+    [
+      "process-alias",
+      "const Create = process.constructor.constructor;",
+      "Create",
+    ],
+    [
+      "imported",
+      'import { URL as NativeURL } from "node:url";',
+      "NativeURL.prototype.toString.constructor",
+    ],
+    [
+      "instance",
+      "const target = new URL(import.meta.url);",
+      "target.toString.constructor",
+    ],
+    ["accessor", "", 'globalThis.__lookupGetter__("process").constructor'],
+    ["local-function", "", "(() => {}).constructor"],
+    [
+      "computed-alias",
+      'const key = "constructor"; const Create = (() => {})[key];',
+      "Create",
+    ],
+  ].map(([name, setup, constructor]) => [
+    `property-evaluator-${name}`,
+    `${setup} ${constructor}(${JSON.stringify('process.getBuiltinModule = () => ({ fileURLToPath: () => "changed" });')})();`,
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ]),
+  ...[
     ["direct", 'path.valueOf().dirname = () => "changed";'],
     [
       "optional",
@@ -596,6 +663,18 @@ const cases = [
   ["unguarded-filename", imports + use(filename), 0],
   ["guarded-dirname", imports + guard(use(dirname)), 1],
   ["guarded-filename", imports + guard(use(filename), "filename"), 1],
+  ...[
+    ["getter", 'globalThis.__lookupGetter__("process");'],
+    [
+      "getter-typeof",
+      'console.log(typeof globalThis.__lookupGetter__("process"));',
+    ],
+    ["setter", 'globalThis.__lookupSetter__("process");'],
+  ].map(([name, read]) => [
+    `discarded-accessor-${name}`,
+    imports + read + guard(use(filename), "filename"),
+    1,
+  ]),
   [
     "modeled-url-string-method",
     imports +

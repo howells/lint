@@ -560,13 +560,27 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       return "loader";
     if (owner === "URL") {
       if (property === "parse") return "URLParse";
-      if (["prototype", "constructor"].includes(property)) return "URL";
+      if (property === "prototype") return "URLPrototype";
+      if (property === "__proto__") return "evaluator";
       if (property === undefined) return "unknown";
+    }
+    if (owner === "URLPrototype") {
+      if (property === "constructor") return "URL";
+      if (property === "__proto__" || property === undefined) return "unknown";
     }
     if (owner === "URLInstance") {
-      if (property === "constructor" || property === "__proto__") return "URL";
+      if (property === "constructor") return "URL";
+      if (property === "__proto__") return "URLPrototype";
       if (property === undefined) return "unknown";
     }
+    // A function's constructor is Function, including methods and accessors
+    // reached through an otherwise unmodeled value. Unknown computed access
+    // can expose the same constructor without spelling its name.
+    if (
+      property === "constructor" ||
+      (expression.computed && property === undefined)
+    )
+      return "evaluator";
     if (owner === "unknown" || owner === "lookup") return "unknown";
     if (owner === "evaluator") return "evaluator";
     return undefined;
@@ -644,6 +658,11 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
           ["toString", "toJSON"].includes(memberName(invoked)) &&
           node.type === "CallExpression" &&
           node.arguments.length === 0;
+        const resultParent = expressionContext(node).parent;
+        const discardedResult =
+          resultParent?.type === "ExpressionStatement" ||
+          (resultParent?.type === "UnaryExpression" &&
+            ["void", "typeof"].includes(resultParent.operator));
         const descriptorRead =
           ["__lookupGetter__", "__lookupSetter__"].includes(
             memberName(invoked)
@@ -651,7 +670,8 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
           node.type === "CallExpression" &&
           node.arguments.length === 1 &&
           node.arguments[0].type === "Literal" &&
-          typeof node.arguments[0].value === "string";
+          typeof node.arguments[0].value === "string" &&
+          discardedResult;
         // A method receives its object as `this`. Unknown calls can mutate it,
         // return it (valueOf), or expose it through a new function (bind).
         if (
@@ -716,7 +736,8 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
         if (resolved && !resolved.property) return true;
         const property = memberName(node);
         const object = runtimeObject(node.object);
-        if (["URL", "URLInstance", "unknown"].includes(object)) return true;
+        if (["URL", "URLPrototype", "URLInstance", "unknown"].includes(object))
+          return true;
         if (
           object === "process" &&
           (property === undefined || property === "getBuiltinModule")
