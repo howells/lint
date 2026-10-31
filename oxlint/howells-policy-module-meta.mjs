@@ -56,14 +56,43 @@ const walk = (node, visit) => {
 };
 
 const isWrite = (node) => {
-  const parent = node.parent;
-  return (
-    (parent?.type === "AssignmentExpression" && parent.left === node) ||
-    (parent?.type === "UpdateExpression" && parent.argument === node) ||
-    (parent?.type === "UnaryExpression" &&
-      parent.operator === "delete" &&
-      parent.argument === node)
-  );
+  let target = node;
+  for (let parent = target.parent; parent; parent = target.parent) {
+    switch (parent.type) {
+      case "AssignmentExpression":
+      case "ForInStatement":
+      case "ForOfStatement":
+        return parent.left === target;
+      case "UpdateExpression":
+        return parent.argument === target;
+      case "UnaryExpression":
+        return parent.operator === "delete" && parent.argument === target;
+      case "Property":
+        if (parent.value !== target || parent.parent?.type !== "ObjectPattern")
+          return false;
+        break;
+      case "AssignmentPattern":
+        if (parent.left !== target) return false;
+        break;
+      case "RestElement":
+        if (parent.argument !== target) return false;
+        break;
+      case "ArrayPattern":
+      case "ObjectPattern":
+        break;
+      case "ParenthesizedExpression":
+      case "TSAsExpression":
+      case "TSTypeAssertion":
+      case "TSNonNullExpression":
+      case "TSSatisfiesExpression":
+        if (parent.expression !== target) return false;
+        break;
+      default:
+        return false;
+    }
+    target = parent;
+  }
+  return false;
 };
 
 // Exact typeof-string tests provide the property contract. Mere presence,

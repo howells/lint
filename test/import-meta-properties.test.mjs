@@ -102,6 +102,24 @@ const filename = "fileURLToPath(import.meta.url)";
 const guard = (body, property = "dirname") =>
   `if (typeof import.meta.${property} === "string") { ${body} }`;
 const use = (expression) => `console.log(${expression});`;
+const metadataWrites = [
+  [
+    "object-destructuring",
+    '({ value: import.meta.filename } = { value: "changed" });',
+  ],
+  [
+    "nested-destructuring",
+    '({ value: [import.meta.filename] } = { value: ["changed"] });',
+  ],
+  ["array-destructuring", '[import.meta.filename] = ["changed"];'],
+  ["object-default", '({ value: import.meta.filename = "changed" } = {});'],
+  ["array-default", '[import.meta.filename = "changed"] = [];'],
+  ["object-rest", "({...import.meta.filename} = { changed: true });"],
+  ["array-rest", '[...import.meta.filename] = ["changed"];'],
+  ["for-of", 'for (import.meta.filename of ["changed"]) {}'],
+  ["for-in", "for (import.meta.filename in { changed: true }) {}"],
+  ["nested-for-of", 'for ([import.meta.filename] of [["changed"]]) {}'],
+];
 const cases = [
   ["unguarded-dirname", imports + use(dirname), 0],
   ["unguarded-filename", imports + use(filename), 0],
@@ -286,6 +304,67 @@ const cases = [
     imports + `delete import.meta.dirname;\n${guard(use(dirname))}`,
     0,
   ],
+  ...metadataWrites.map(([name, write]) => [
+    `indirect-meta-write-${name}`,
+    imports + guard(`${write}\n${use(filename)}`, "filename"),
+    0,
+  ]),
+  [
+    "typed-assignment-target",
+    imports +
+      guard(
+        '({ value: import.meta.filename! } = { value: "changed" });\n' +
+          use(filename),
+        "filename"
+      ),
+    0,
+    { target: "source.mts" },
+  ],
+  [
+    "destructured-core-module-mutation",
+    imports +
+      `({ value: path.dirname } = { value: () => "custom" });\n${guard(use(dirname))}`,
+    0,
+  ],
+  [
+    "loop-core-module-mutation",
+    imports +
+      `for (path.dirname of [() => "custom"]) {}\n${guard(use(dirname))}`,
+    0,
+  ],
+  [
+    "destructured-global-constructor-mutation",
+    imports +
+      `({ URL } = { URL: class {} });\n${guard(use("fileURLToPath(new URL(import.meta.url))"), "filename")}`,
+    0,
+  ],
+  [
+    "default-initializer-is-a-read",
+    imports +
+      guard(
+        `const { value = import.meta.filename } = {};\n${use(filename)}\nvoid value;`,
+        "filename"
+      ),
+    1,
+  ],
+  [
+    "computed-pattern-key-is-a-read",
+    imports +
+      guard(
+        `const { [import.meta.filename]: value } = {};\n${use(filename)}\nvoid value;`,
+        "filename"
+      ),
+    1,
+  ],
+  [
+    "loop-iterable-is-a-read",
+    imports +
+      guard(
+        `for (const value of [import.meta.filename]) void value;\n${use(filename)}`,
+        "filename"
+      ),
+    1,
+  ],
   [
     "core-module-mutation",
     imports + `path.dirname = () => "custom";\n${guard(use(dirname))}`,
@@ -388,7 +467,7 @@ for (const [name, source, expected, options = {}] of cases) {
     const root = await fixtureRoot();
     try {
       await writeRuleConfig(root);
-      const target = "source.mjs";
+      const target = options.target ?? "source.mjs";
       await writeFile(path.join(root, target), source + "\n");
       const before = await runOxlint(root, target);
       assert.equal(before.diagnostics.length, expected, before.stdout);
@@ -523,6 +602,39 @@ const evaluateSource = async (root, target, flags = []) => {
   );
   return JSON.parse(stdout);
 };
+
+test("metadata writes through patterns and loop targets retain runtime results", async () => {
+  const root = await fixtureRoot();
+  try {
+    await writeRuleConfig(root);
+    const target = "mutated.mjs";
+    for (const [name, write] of metadataWrites) {
+      const source =
+        imports +
+        `export const getLocation = () => {
+  if (typeof import.meta.filename === "string") {
+    ${write}
+    return fileURLToPath(import.meta.url);
+  }
+  return "unavailable";
+};\n`;
+      await writeFile(path.join(root, target), source);
+      const original = await evaluateSource(root, target);
+      assert.equal(original, path.join(root, target), name);
+      const fixed = await runOxlint(root, target, true);
+      assert.equal(fixed.status, 0, `${name}: ${fixed.stdout}`);
+      assert.equal(fixed.diagnostics.length, 0, name);
+      assert.equal(
+        await readFile(path.join(root, target), "utf8"),
+        source,
+        name
+      );
+      assert.equal(await evaluateSource(root, target), original, name);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 // Model another host that exposes import.meta.url but may omit either native
 // path property. This built-in VM test runs in CI without Next or webpack.
