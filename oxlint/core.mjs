@@ -117,6 +117,9 @@ export default defineConfig({
   plugins: ultraciteCore.plugins,
   rules: {
     ...boundaryRules,
+    // Preserve declaration merging when enforcing object declaration style.
+    "typescript/consistent-type-definitions": "off",
+    "howells/consistent-type-definitions": "error",
     // Schema and geometry names use "shape" as a domain term. A substring
     // check cannot distinguish those contracts from a vague structural name.
     "anti-slop/no-shape-in-symbol-names": "off",

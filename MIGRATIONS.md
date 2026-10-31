@@ -2,7 +2,25 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
-## 3.9.2: portable module paths and layout animation
+## 3.9.2: declaration merging, portable module paths and layout animation
+
+### Declaration style and explicit augmentations
+
+Core, React, Next and standalone Playwright replace `typescript/consistent-type-definitions` with `howells/consistent-type-definitions`, preserving the default `"interface"` preference. The existing Howells plugin carries the rule. Ordinary object declarations, namespaces and new ambient declarations in script declaration files remain checked.
+
+In `"type"` mode, interfaces inside an explicit global or string-literal module augmentation remain interfaces so declaration merging keeps working. Import, export or `import.meta` syntax establishes the external module context. Native autofixes changed valid React CSS properties and table metadata augmentations into aliases that failed compilation; the shared rule leaves those merge contracts intact.
+
+Move any explicit preference to the new rule key, keeping its value. For example, a project that already prefers aliases uses:
+
+```ts
+rules: {
+  "howells/consistent-type-definitions": ["error", "type"],
+}
+```
+
+Replace the old key instead of keeping both: an explicit native `"type"` preference would contradict the shared counterpart's default `"interface"` preference. The native rule is replaced centrally; a consumer disable is unnecessary.
+
+Module classification is deliberately limited. The parser's module flag does not establish TypeScript's external-module status under forced or NodeNext detection. Implicit or ambiguous augmentation contexts still report the preference finding, but receive no potentially destructive fix. Full implicit-module support requires compiler context. Do not add artificial module markers to evade the diagnostic. Fixes also withhold a rewrite that would discard a comment; the finding remains for a manual edit that preserves it.
 
 ### Portable module paths
 

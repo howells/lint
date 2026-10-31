@@ -156,6 +156,7 @@ const supportedInEnclosingBranch = (node, property) => {
 export const createPreferSupportedImportMetaPropertiesRule = (context) => {
   const sourceCode = context.sourceCode;
   const variables = new WeakMap();
+  let hasModuleMeta = false;
 
   const variableFor = (identifier) => {
     if (variables.has(identifier)) return variables.get(identifier);
@@ -407,12 +408,14 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     });
 
   return {
+    MetaProperty(node) {
+      hasModuleMeta ||= isImportMeta(node);
+    },
     "Program:exit"(program) {
+      // Ordinary files need neither an extra tree walk nor a scope manager.
+      if (!hasModuleMeta) return;
       const nodes = [];
       walk(program, (node) => nodes.push(node));
-      // Avoid constructing the scope manager for ordinary files. The native
-      // rule only has work in a file that actually contains import.meta.
-      if (!nodes.some(isImportMeta)) return;
       if (hasMutationHazard(nodes)) return;
 
       const candidates = [];

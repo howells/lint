@@ -14,6 +14,7 @@ import {
   createNoRawTypeUtilitiesRule,
   createTransitionAfterFocusHelperRule,
 } from "./howells-policy-tailwind.mjs";
+import { createConsistentTypeDefinitionsRule } from "./howells-policy-types.mjs";
 
 const BANNED_SUFFIXES = [
   { kebab: "wrapper", pascal: "Wrapper" },
@@ -463,6 +464,19 @@ const plugin = {
     name: "howells",
   },
   rules: {
+    "consistent-type-definitions": {
+      meta: {
+        type: "suggestion",
+        docs: {
+          description:
+            "Enforce object declaration style without changing explicit augmentation interfaces.",
+        },
+        messages: {},
+        fixable: "code",
+        schema: [{ enum: ["interface", "type"] }],
+      },
+      create: createConsistentTypeDefinitionsRule,
+    },
     "prefer-supported-import-meta-properties": {
       meta: {
         type: "suggestion",

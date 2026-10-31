@@ -47,6 +47,7 @@ const nextPresetUrl = pathToFileURL(
 const playwrightPresetUrl = pathToFileURL(
   path.join(repoRoot, "oxlint", "playwright.mjs")
 ).href;
+
 const shadcnPresetUrl = pathToFileURL(
   path.join(repoRoot, "oxlint", "shadcn.mjs")
 ).href;
@@ -3045,3 +3046,87 @@ export default { extends: [core], overrides: [{ files: ["**/*.test.ts"], plugins
     await rm(root, { force: true, recursive: true });
   }
 });
+
+for (const [name, presetUrl] of [
+  ["Core", corePresetUrl],
+  ["React", reactPresetUrl],
+  ["Next", nextPresetUrl],
+  ["Playwright", playwrightPresetUrl],
+]) {
+  test(`${name} uses semantic declaration style with the same default and explicit preference`, async () => {
+    const root = await makeFixtureRoot();
+    try {
+      await writeFixture(
+        root,
+        "oxlint.config.mjs",
+        `import preset from "${presetUrl}";\nexport default { extends: [preset] };\n`
+      );
+      await writeFixture(
+        root,
+        "src/preference.ts",
+        "export type RecordValue = { value: string };\n"
+      );
+      const defaultResult = await runOxlint(root, ["src/preference.ts"]);
+      assert.equal(defaultResult.status, 1);
+      const defaultReport = JSON.parse(defaultResult.stdout);
+      assert.equal((defaultReport.diagnostics ?? defaultReport).length, 1);
+      assert.equal(
+        diagnosticsForRule(
+          defaultResult.stdout,
+          "howells(consistent-type-definitions)"
+        ).length,
+        1
+      );
+      assert.equal(
+        diagnosticsForRule(
+          defaultResult.stdout,
+          "typescript(consistent-type-definitions)"
+        ).length,
+        0
+      );
+
+      await writeFixture(
+        root,
+        "oxlint.config.mjs",
+        `import preset from "${presetUrl}";\nexport default { extends: [preset], rules: { "howells/consistent-type-definitions": ["error", "type"] } };\n`
+      );
+      await writeFixture(
+        root,
+        "src/contract.ts",
+        "export interface Contract { value: string }\n"
+      );
+      await writeFixture(
+        root,
+        "src/preference.ts",
+        [
+          'import type { Contract } from "./contract";',
+          "",
+          'declare module "./contract" { interface Contract { extra?: string } }',
+          'export const contract: Contract = { extra: "extra", value: "value" };',
+          "export interface RecordValue { value: string }",
+          "",
+        ].join("\n")
+      );
+      const typeResult = await runOxlint(root, ["src/preference.ts"]);
+      assert.equal(typeResult.status, 1);
+      const typeReport = JSON.parse(typeResult.stdout);
+      assert.equal((typeReport.diagnostics ?? typeReport).length, 1);
+      assert.equal(
+        diagnosticsForRule(
+          typeResult.stdout,
+          "howells(consistent-type-definitions)"
+        ).length,
+        1
+      );
+      assert.equal(
+        diagnosticsForRule(
+          typeResult.stdout,
+          "typescript(consistent-type-definitions)"
+        ).length,
+        0
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+}
