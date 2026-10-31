@@ -5,6 +5,7 @@ import {
   createNoDeepPackageImportsRule,
   createNoOutOfBoundsPackageImportsRule,
 } from "./howells-policy-imports.mjs";
+import { createPreferSupportedImportMetaPropertiesRule } from "./howells-policy-module-meta.mjs";
 import { createNoRawMotionNamespaceRule } from "./howells-policy-motion.mjs";
 import {
   createDesignTokenAlphaRule,
@@ -462,6 +463,19 @@ const plugin = {
     name: "howells",
   },
   rules: {
+    "prefer-supported-import-meta-properties": {
+      meta: {
+        type: "suggestion",
+        docs: {
+          description:
+            "Prefer native module-location properties when an enclosing branch establishes their availability, preserving portable resolution and directory separators otherwise.",
+        },
+        fixable: "code",
+        messages: {},
+        schema: [],
+      },
+      create: createPreferSupportedImportMetaPropertiesRule,
+    },
     "no-generic-component-suffix": {
       meta: {
         type: "suggestion",

@@ -2,6 +2,10 @@
 
 ## 3.9.2 - 2026-10-31
 
+### Fixed
+
+- Replace native `unicorn/prefer-import-meta-properties` with `howells/prefer-supported-import-meta-properties` in core and its inherited presets. It prefers a native filename or dirname only where an enclosing branch establishes that property, preserves unknown-context and absent-property portable resolution, and retains URL-directory trailing separators. Binding, mutation and initialization checks keep fixes within the established contract. Portable real-binary tests cover all four presets, guarded fixes, independent anti-slop behavior, exact directory strings and native hosts with either or both path properties absent. Tool and dependency versions are unchanged.
+
 ### Changed
 
 - Make `react-doctor/no-layout-property-animation` opt-in in the shared React preset, inherited by Next. Instruments' specified accordion and pattern ribbon grow together; MaterialGraph's measured specification panel moves its centered photograph as content arrives. Transform or layout-projection rewrites change those intermediate states. The blanket rule no longer gates any layout animation by default, including numeric dimensions and positional offsets; this is a policy change, not an intrinsic-size exemption or a claim about runtime performance. The plugin and exported rule sets remain available for explicit audits. Other performance checks stay enabled, with real-file tests covering both presets, the Playwright overlay and explicit opt-in.

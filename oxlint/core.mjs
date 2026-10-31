@@ -157,6 +157,10 @@ export default defineConfig({
         max: 45,
       },
     ],
+    // Bundlers can omit native path properties. The counterpart establishes
+    // their support per branch and preserves URL-directory trailing separators.
+    "howells/prefer-supported-import-meta-properties": "error",
+    "unicorn/prefer-import-meta-properties": "off",
     "howells/no-runtime-dynamic-imports": "error",
     "howells/require-disable-reason": "error",
     // `no-bitwise` exists to catch `&` or `|` typed for `&&` or `||`. In

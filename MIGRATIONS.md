@@ -2,7 +2,31 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
-## 3.9.2: make the blanket layout-animation audit opt-in
+## 3.9.2: portable module paths and layout animation
+
+### Portable module paths
+
+Core, React, Next and standalone Playwright replace `unicorn/prefer-import-meta-properties` with `howells/prefer-supported-import-meta-properties`. The existing Howells plugin carries the rule; no new dependency or plugin entry is needed.
+
+An enclosing string check must establish the particular native path property before the rule prefers it. Node engine support alone cannot establish that a bundler supplies `import.meta.dirname` or `import.meta.filename`. Unguarded portable URL resolution and absent-property fallback branches stay valid. A dirname check does not establish filename availability.
+
+Keep an existing portable calculation. A module that deliberately prefers a native property while remaining portable can also write its actual capability fallback directly:
+
+```ts
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here =
+  import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
+```
+
+The rule still reports supported filename and dirname constructions, resolves Node helper bindings and initialized constant aliases, and avoids fixes across mutation, escape or initialization boundaries. An interior comment is retained by reporting without autofix. URL-directory conversions such as `fileURLToPath(new URL(".", import.meta.url))` keep their trailing separator; bare `import.meta.dirname` is not an equivalent string.
+
+The proof is deliberately local. Deferred function bodies, custom predicate functions, early-return dominance and computed property guards are not inferred. Other runtime-validation rules still apply; do not add an artificial guard or helper solely to satisfy this preference.
+
+Remove old consumer disables and inline suppressions for `unicorn/prefer-import-meta-properties`: the shared preset replaces the native rule once. Also remove explicit native-rule opt-ins. They restore its execution-context assumption and unsafe fixes even when the semantic counterpart is enabled. No consumer exception is needed to retain portable module paths.
+
+### Layout animation audits
 
 React and Next no longer enable `react-doctor/no-layout-property-animation` by default. This also applies when either preset is composed with the Playwright overlay. Core and standalone Playwright are unchanged.
 
