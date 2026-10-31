@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.9.1 - 2026-10-31
+
+### Changed
+
+- Retire `anti-slop/no-shape-in-symbol-names` in the shared core policy, inherited by React, Next and standalone Playwright. Its substring ban rejects canonical schema identifiers, geometry terms and imported contract names. Other anti-slop rules remain enabled. Real-file regression tests cover all four presets and prove that input-boundary checks still report.
+
 ## 3.8.0 - 2026-10-17
 
 ### Fixed

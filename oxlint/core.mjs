@@ -117,6 +117,9 @@ export default defineConfig({
   plugins: ultraciteCore.plugins,
   rules: {
     ...boundaryRules,
+    // Schema and geometry names use "shape" as a domain term. A substring
+    // check cannot distinguish those contracts from a vague structural name.
+    "anti-slop/no-shape-in-symbol-names": "off",
     // Oxlint's option names differ from typescript-eslint's override option.
     "class-methods-use-this": [
       "error",

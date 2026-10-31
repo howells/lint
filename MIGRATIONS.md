@@ -2,6 +2,12 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## 3.9.1: preserve domain vocabulary
+
+Core, React, Next and standalone Playwright no longer reject an identifier merely because it contains `shape`. Schema contracts such as `shapeId` and `valueShapes`, geometry concepts and imported contracts may use that vocabulary. Renaming a stored key or published API to satisfy a substring check changes the contract without improving the model.
+
+The shared policy retires only `anti-slop/no-shape-in-symbol-names`. Other anti-slop checks remain enabled, including input-boundary validation and type-assertion requirements. Keep canonical domain names; no consumer rule override or alias is needed. Remove any consumer exception for this rule after upgrading.
+
 ## 3.8.0: correct switches, test matchers and class contracts
 
 Core, React, Next and standalone Playwright inherit the rule changes. No tool versions change: Oxlint stays pinned to 1.86.0.

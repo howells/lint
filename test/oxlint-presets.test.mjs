@@ -1145,6 +1145,60 @@ test("Next preset accepts a route file's segment exports beside its component", 
   }
 });
 
+for (const [name, presetUrl] of [
+  ["Core", corePresetUrl],
+  ["React", reactPresetUrl],
+  ["Next", nextPresetUrl],
+  ["Playwright", playwrightPresetUrl],
+]) {
+  test(`${name} permits canonical shape vocabulary and retains other anti-slop checks`, async () => {
+    const root = await makeFixtureRoot();
+
+    try {
+      await writeFixture(
+        root,
+        "oxlint.config.mjs",
+        `import preset from "${presetUrl}";\nexport default { extends: [preset] };\n`
+      );
+      await writeFixture(
+        root,
+        "src/reference.ts",
+        "export const geometryShape = { radius: 1 } as const;\n"
+      );
+      await writeFixture(
+        root,
+        "src/vocabulary.ts",
+        [
+          'import { geometryShape } from "./reference";',
+          "export interface AttributeDefinition { readonly shapeId: string; }",
+          'export const valueShapes = ["text", "number"] as const;',
+          "export const radius = geometryShape.radius;",
+          "export const read = (value: unknown) => typeof value;",
+          "",
+        ].join("\n")
+      );
+
+      const result = await runOxlint(root);
+      assert.equal(result.status, 1);
+      assert.equal(
+        diagnosticsForRule(result.stdout, "anti-slop(no-shape-in-symbol-names)")
+          .length,
+        0
+      );
+      assert.ok(
+        diagnosticsForRule(result.stdout, "anti-slop(no-runtime-typeof)")
+          .length > 0
+      );
+      assert.ok(
+        diagnosticsForRule(result.stdout, "anti-slop(no-unknown-parameters)")
+          .length > 0
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+}
+
 // Anti-slop and the Vitest preset are part of the standard core lane, not an
 // opt-in overlay. Both come from Ultracite, and both are easy to lose silently
 // if the extends list is reordered or a rule moves upstream.
