@@ -1,0 +1,628 @@
+--- a/internal/rules/strict_void_return/strict_void_return.go
++++ b/internal/rules/strict_void_return/strict_void_return.go
+@@ -148,6 +148,50 @@
+ 			return false
+ 		}
+ 
++		isNonCallableObjectType := func(t *checker.Type) bool {
++			hasObject := false
++			return utils.VisitUnionTypeParts(t, func(part *checker.Type) bool {
++				if utils.IsTypeFlagSet(part, checker.TypeFlagsNull|checker.TypeFlagsUndefined) {
++					return true
++				}
++				if !utils.Every(utils.IntersectionTypeParts(part), utils.IsObjectType) ||
++					len(utils.GetCallSignatures(ctx.TypeChecker, part)) != 0 {
++					return false
++				}
++				hasObject = true
++				return true
++			}) && hasObject
++		}
++
++		hasApplicableArguments := func(callNode *ast.Expression, signature *checker.Signature) bool {
++			parameters := checker.Signature_parameters(signature)
++			minArgs, maxArgs := signature.MinArgumentCount(), len(parameters)
++			if signature.HasRestParameter() && len(parameters) > 0 {
++				maxArgs = len(callNode.Arguments())
++				restType := ctx.TypeChecker.GetTypeOfSymbolAtLocation(parameters[len(parameters)-1], callNode)
++				if checker.IsTupleType(restType) {
++					tuple := restType.Target().AsTupleType()
++					minArgs = max(minArgs, len(parameters)-1+checker.TupleType_minLength(tuple))
++					if checker.TupleType_combinedFlags(tuple)&checker.ElementFlagsVariable == 0 {
++						maxArgs = len(parameters) - 1 + len(tuple.ElementFlags())
++					}
++				}
++			}
++			if len(callNode.Arguments()) < minArgs || len(callNode.Arguments()) > maxArgs {
++				return false
++			}
++			for index, argument := range callNode.Arguments() {
++				if argument.Kind == ast.KindSpreadElement {
++					return false
++				}
++				parameterType := checker.Checker_getContextualTypeForArgumentAtIndex(ctx.TypeChecker, callNode, index)
++				if parameterType == nil || !checker.Checker_isTypeAssignableTo(ctx.TypeChecker, ctx.TypeChecker.GetTypeAtLocation(argument), parameterType) {
++					return false
++				}
++			}
++			return true
++		}
++
+ 		checkFunctionCallNode := func(callNode *ast.Expression) {
+ 			if len(callNode.Arguments()) == 0 {
+ 				return
+@@ -161,8 +205,10 @@
+ 				return utils.GetConstructSignatures(ctx.TypeChecker, typePart)
+ 			}))
+ 
++			hasSpreadArgument := false
+ 			for argIdx, argNode := range callNode.Arguments() {
+ 				if argNode.Kind == ast.KindSpreadElement {
++					hasSpreadArgument = true
+ 					continue
+ 				}
+ 
+@@ -191,6 +237,18 @@
+ 				}
+ 
+ 				if utils.Some(argExpectedReturnTypes, isVoid) && utils.Every(argExpectedReturnTypes, isNullishOrAny) {
++					if !hasSpreadArgument {
++						signature := checker.Checker_getResolvedSignature(ctx.TypeChecker, callNode, nil, checker.CheckModeNormal)
++						if signature != nil && signature.Flags()&checker.SignatureFlagsIsSignatureCandidateForOverloadFailure == 0 {
++							// This API uses the instantiated, resolved signature and expands rest/tuple positions.
++							// A structural contract must not inherit callback expectations from unrelated overloads.
++							parameterType := checker.Checker_getContextualTypeForArgumentAtIndex(ctx.TypeChecker, callNode, argIdx)
++							// Generic overload failure can return an unflagged candidate: prove applicability too.
++							if isNonCallableObjectType(parameterType) && hasApplicableArguments(callNode, signature) {
++								continue
++							}
++						}
++					}
+ 					reportIfNonVoidFunction(argNode)
+ 				}
+ 			}
+--- /dev/null
++++ b/internal/rules/strict_void_return/resolved_parameter_test.go
+@@ -0,0 +1,210 @@
++package strict_void_return
++
++import (
++	"testing"
++
++	"github.com/typescript-eslint/tsgolint/internal/rule_tester"
++	"github.com/typescript-eslint/tsgolint/internal/rules/fixtures"
++)
++
++func TestStrictVoidReturnResolvedParameter(t *testing.T) {
++	t.Parallel()
++
++	const tagged = `
++const tagged = Object.assign(() => 1, { custom: () => "custom" });
++`
++	const customPromisify = `
++declare const custom: unique symbol;
++interface CustomPromisifySymbol<T extends Function> { [custom]: T; }
++interface CustomPromisifyLegacy<T extends Function> { __promisify__: T; }
++type CustomPromisify<T extends Function> = CustomPromisifySymbol<T> | CustomPromisifyLegacy<T>;
++declare function promisify<T extends Function>(fn: CustomPromisify<T>): T;
++declare function promisify(fn: (callback: (error: unknown) => void) => void): () => Promise<void>;
++declare function promisify(fn: Function): Function;
++interface ChildProcess { pid?: number; }
++interface PromiseWithChild<T> extends Promise<T> { child: ChildProcess; }
++declare function execFile(file: string, callback?: (error: unknown, stdout: string) => void): ChildProcess;
++declare namespace execFile {
++  function __promisify__(file: string): PromiseWithChild<{ stdout: string; stderr: string }>;
++}
++`
++
++	valid := []struct{ name, code string }{
++		{"custom_promisify_inferred", customPromisify + `const run = promisify(execFile);`},
++		{"custom_promisify_explicit", customPromisify + `const run = promisify<typeof execFile.__promisify__>(execFile);`},
++		{"generic_tagged_inferred", tagged + `
++declare function select<F extends Function>(fn: { custom: F }): F;
++declare function select(fn: () => void): () => void;
++const selected = select(tagged);
++const text: string = selected();`},
++		{"generic_tagged_explicit", tagged + `
++declare function select<F extends Function>(fn: { custom: F }): F;
++declare function select(fn: () => void): () => void;
++const selected = select<() => string>(tagged);`},
++		{"instantiated_parameter", tagged + `
++declare function select<T>(fn: T): T;
++declare function select(fn: () => void): void;
++select<{ custom: () => string }>(tagged);`},
++		{"optional_structural", tagged + `
++declare function select<F extends Function>(fn?: { custom: F }): F;
++declare function select(fn?: () => void): void;
++select(tagged);`},
++		{"nullable_structural_union", tagged + `
++declare function select(fn: { custom: () => string } | { other: true } | null | undefined): void;
++declare function select(fn: () => void): void;
++select(tagged);`},
++		{"structural_intersection", tagged + `
++declare function select(fn: { custom: () => string } & { name: string }): void;
++declare function select(fn: () => void): void;
++select(tagged);`},
++		{"array_rest_structural", tagged + `
++declare function select(...fns: { custom: () => string }[]): void;
++declare function select(first: () => void, second: () => void): void;
++select(tagged, tagged);`},
++		{"tuple_rest_structural", tagged + `
++declare function select(...args: [number, { custom: () => string }, { custom: () => string }?]): void;
++declare function select(count: number, first: () => void, second?: () => void): void;
++select(1, tagged, tagged);`},
++		{"variadic_tuple_rest_structural", tagged + `
++declare function select(...args: [number, ...{ custom: () => string }[]]): void;
++declare function select(count: number, first: () => void, second: () => void): void;
++select(1, tagged, tagged);`},
++		{"instantiated_tuple_rest", tagged + `
++declare function select<T extends unknown[]>(...args: T): void;
++declare function select(count: number, cb: () => void): void;
++select<[number, { custom: () => string }]>(1, tagged);`},
++		{"constructor_structural", tagged + `
++declare const Select: {
++  new (fn: { custom: () => string }): object;
++  new (fn: () => void): object;
++};
++new Select(tagged);`},
++		{"symbol_structural", `
++declare const key: unique symbol;
++declare function select<T>(fn: { [key]: T }): T;
++declare function select(fn: () => void): void;
++const value = Object.assign(() => 1, { [key]: "custom" });
++select(value);`},
++	}
++	for _, tc := range valid {
++		t.Run(tc.name, func(t *testing.T) {
++			rule_tester.RunRuleTester(fixtures.GetRootDir(), "tsconfig.minimal.json", t,
++				&StrictVoidReturnRule, []rule_tester.ValidTestCase{{Code: tc.code}}, nil)
++		})
++	}
++
++	invalid := []struct {
++		name, code string
++		errors     []rule_tester.InvalidTestCaseError
++	}{
++		{"ordinary_value", `declare function use(cb: () => void): void;
++use(() => 42);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidReturn", Line: 2}}},
++		{"ordinary_async", `declare function use(cb: () => void): void;
++use(async () => {});`, []rule_tester.InvalidTestCaseError{{MessageId: "asyncFunc", Line: 2}}},
++		{"assignment", `const cb: () => void = () => 42;`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidReturn", Line: 1}}},
++		{"optional_callback", `declare function use(cb?: () => void): void;
++use(() => 42);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidReturn", Line: 2}}},
++		{"nullable_callback_union", `declare function use(cb: (() => void) | null | undefined): void;
++use(() => 42);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidReturn", Line: 2}}},
++		{"structural_callback_union", tagged + `
++declare function use(cb: { custom: () => string } | (() => void)): void;
++declare function use(cb: () => void): void;
++use(tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"callable_intersection", tagged + `
++declare function use(cb: { custom: () => string } & (() => void)): void;
++declare function use(cb: () => void): void;
++use(tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"array_rest_callbacks", `declare function use(...cb: (() => void)[]): void;
++use(() => 1, async () => {});`, []rule_tester.InvalidTestCaseError{
++			{MessageId: "nonVoidReturn", Line: 2}, {MessageId: "asyncFunc", Line: 2}}},
++		{"tuple_rest_callbacks", `declare function use(...cb: [() => void, (() => void)?]): void;
++use(() => 1, async () => {});`, []rule_tester.InvalidTestCaseError{
++			{MessageId: "nonVoidReturn", Line: 2}, {MessageId: "asyncFunc", Line: 2}}},
++		{"variadic_rest_callbacks", `declare function use(...cb: [() => void, ...(() => void)[]]): void;
++use(() => 1, async () => {}, () => 2);`, []rule_tester.InvalidTestCaseError{
++			{MessageId: "nonVoidReturn", Line: 2}, {MessageId: "asyncFunc", Line: 2}, {MessageId: "nonVoidReturn", Line: 2}}},
++		{"rest_callback_union", `declare function use(...cb: ((() => void) | undefined)[]): void;
++use(() => 1, () => 2);`, []rule_tester.InvalidTestCaseError{
++			{MessageId: "nonVoidReturn", Line: 2}, {MessageId: "nonVoidReturn", Line: 2}}},
++		{"void_any_overloads", `declare function use(cb: () => void): void;
++declare function use(cb: () => any): void;
++use(() => 42);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidReturn", Line: 3}}},
++		{"any_void_overloads", `declare function use(cb: () => any): void;
++declare function use(cb: () => void): void;
++use(() => 42);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidReturn", Line: 3}}},
++		{"structural_overload_not_selected", tagged + `
++declare function use(cb: () => void): void;
++declare function use(cb: { custom: () => string }): void;
++use(tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"instantiated_callable_parameter", tagged + `
++declare function use<T>(cb: T): void;
++declare function use(cb: () => void): void;
++use<() => void>(tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"inferred_callable_parameter", tagged + `
++declare function use<T>(cb: T): void;
++declare function use(cb: () => void): void;
++use(tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"unknown_parameter", `declare function use(cb: unknown): void;
++declare function use(cb: () => void): void;
++use(() => 42);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidReturn", Line: 3}}},
++		{"any_parameter", `declare function use(cb: any): void;
++declare function use(cb: () => void): void;
++use(() => 42);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidReturn", Line: 3}}},
++		{"unresolved_type_parameter", `declare function use<T>(cb: T): void;
++declare function use(cb: () => void): void;
++function outer<T extends { custom: () => string }>(cb: T & (() => number)) {
++  use<T>(cb);
++}`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 4}}},
++		{"nonobject_union_uncertainty", tagged + `
++declare function use(cb: { custom: () => string } | string): void;
++declare function use(cb: () => void): void;
++use(tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"rest_container_is_not_argument_contract", tagged + `
++declare function use(...cb: (() => void)[]): void;
++declare function use(cb: () => void): void;
++use(tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"tuple_container_is_not_argument_contract", tagged + `
++declare function use(...cb: [() => void]): void;
++declare function use(cb: () => void): void;
++use(tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"custom_execFile_genuine_void_callback", customPromisify + `
++declare function use(cb: (file: string) => void): void;
++use(execFile);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 17}}},
++		{"constructor_callback", `declare const Use: { new (cb: () => void): object };
++new Use(() => 42);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidReturn", Line: 2}}},
++		{"failed_generic_overload", tagged + `
++declare function use<T>(kind: "structural", cb: { custom: T }): void;
++declare function use(kind: "callback", cb: () => void): void;
++use("neither", tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"inapplicable_structural_argument", tagged + `
++declare function use<T>(cb: { missing: T }): void;
++declare function use(cb: () => void, required: number): void;
++use(tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"missing_required_argument", tagged + `
++declare function use<T>(cb: { custom: T }, required: number): void;
++declare function use(cb: () => void): void;
++use<() => string>(tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"spread_argument_position_uncertain", tagged + `
++declare function use<T>(count: number, contract: { custom: T }, cb: () => void): void;
++declare function use(count: number, contract: () => void, cb: () => void): void;
++const prefix: [number, typeof tagged] = [1, tagged];
++use(...prefix, () => 42);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidReturn", Line: 7}}},
++		{"missing_required_tuple_element", tagged + `
++declare function use<T>(...args: [{ custom: T }, number]): void;
++declare function use(cb: () => void): void;
++use<() => string>(tagged);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"excess_tuple_element", tagged + `
++declare function use<T>(...args: [{ custom: T }]): void;
++declare function use(cb: () => void, required: number): void;
++use<() => string>(tagged, 1);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 6}}},
++		{"instantiated_rest_callback", `declare function use<T extends unknown[]>(...args: T): void;
++declare function use(cb: () => void): void;
++use<[() => void]>(() => 42);`, []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidReturn", Line: 3}}},
++	}
++	for _, tc := range invalid {
++		t.Run(tc.name, func(t *testing.T) {
++			rule_tester.RunRuleTester(fixtures.GetRootDir(), "tsconfig.minimal.json", t,
++				&StrictVoidReturnRule, nil, []rule_tester.InvalidTestCase{{Code: tc.code, Errors: tc.errors}})
++		})
++	}
++}
+--- /dev/null
++++ b/internal/rules/strict_void_return/node_promisify_test.go
+@@ -0,0 +1,36 @@
++package strict_void_return
++
++import (
++	"testing"
++
++	"github.com/typescript-eslint/tsgolint/internal/rule_tester"
++	"github.com/typescript-eslint/tsgolint/internal/rules/fixtures"
++)
++
++func TestStrictVoidReturnNodePromisify(t *testing.T) {
++	t.Parallel()
++	rule_tester.RunRuleTester(fixtures.GetRootDir(), "tsconfig.includeTypes.json", t, &StrictVoidReturnRule,
++		[]rule_tester.ValidTestCase{
++			{Code: `
++import { execFile } from "node:child_process";
++import { promisify } from "node:util";
++const run = promisify(execFile);
++const child = run("file").child;
++`},
++			{Code: `
++import { execFile } from "node:child_process";
++import { promisify } from "node:util";
++const run = promisify<typeof execFile.__promisify__>(execFile);
++const text: Promise<{ stdout: string; stderr: string }> = run("file");
++const bytes: Promise<{ stdout: Buffer; stderr: Buffer }> = run("file", { encoding: "buffer" });
++const child = run("file").child;
++`},
++		},
++		[]rule_tester.InvalidTestCase{
++			{Code: `
++import { execFile } from "node:child_process";
++declare function accept(callback: (file: string) => void): void;
++accept(execFile);
++`, Errors: []rule_tester.InvalidTestCaseError{{MessageId: "nonVoidFunc", Line: 4}}},
++		})
++}
+--- a/internal/rule_tester/__snapshots__/strict-void-return.snap
++++ b/internal/rule_tester/__snapshots__/strict-void-return.snap
+@@ -1,3 +1,290 @@
++
++[TestStrictVoidReturnNodePromisify/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (4:8 - 4:15)
++Message: Value-returning function used in a context where a void function is expected.
++   3 | declare function accept(callback: (file: string) => void): void;
++   4 | accept(execFile);
++     |        ~~~~~~~~
++   5 | 
++---
++
++[TestStrictVoidReturnResolvedParameter/any_parameter/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (3:11 - 3:12)
++Message: Value returned in a context where a void return is expected.
++   2 | declare function use(cb: () => void): void;
++   3 | use(() => 42);
++     |           ~~
++---
++
++[TestStrictVoidReturnResolvedParameter/any_void_overloads/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (3:11 - 3:12)
++Message: Value returned in a context where a void return is expected.
++   2 | declare function use(cb: () => void): void;
++   3 | use(() => 42);
++     |           ~~
++---
++
++[TestStrictVoidReturnResolvedParameter/array_rest_callbacks/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (2:11 - 2:11)
++Message: Value returned in a context where a void return is expected.
++   1 | declare function use(...cb: (() => void)[]): void;
++   2 | use(() => 1, async () => {});
++     |           ~
++
++Diagnostic 2: asyncFunc (2:14 - 2:27)
++Message: Async function used in a context where a void function is expected.
++   1 | declare function use(...cb: (() => void)[]): void;
++   2 | use(() => 1, async () => {});
++     |              ~~~~~~~~~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/assignment/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (1:30 - 1:31)
++Message: Value returned in a context where a void return is expected.
++   1 | const cb: () => void = () => 42;
++     |                              ~~
++---
++
++[TestStrictVoidReturnResolvedParameter/callable_intersection/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:5 - 6:10)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: () => void): void;
++   6 | use(tagged);
++     |     ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/constructor_callback/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (2:15 - 2:16)
++Message: Value returned in a context where a void return is expected.
++   1 | declare const Use: { new (cb: () => void): object };
++   2 | new Use(() => 42);
++     |               ~~
++---
++
++[TestStrictVoidReturnResolvedParameter/custom_execFile_genuine_void_callback/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (17:5 - 17:12)
++Message: Value-returning function used in a context where a void function is expected.
++  16 | declare function use(cb: (file: string) => void): void;
++  17 | use(execFile);
++     |     ~~~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/excess_tuple_element/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:19 - 6:24)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: () => void, required: number): void;
++   6 | use<() => string>(tagged, 1);
++     |                   ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/failed_generic_overload/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:16 - 6:21)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(kind: "callback", cb: () => void): void;
++   6 | use("neither", tagged);
++     |                ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/inapplicable_structural_argument/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:5 - 6:10)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: () => void, required: number): void;
++   6 | use(tagged);
++     |     ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/inferred_callable_parameter/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:5 - 6:10)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: () => void): void;
++   6 | use(tagged);
++     |     ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/instantiated_callable_parameter/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:17 - 6:22)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: () => void): void;
++   6 | use<() => void>(tagged);
++     |                 ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/instantiated_rest_callback/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (3:25 - 3:26)
++Message: Value returned in a context where a void return is expected.
++   2 | declare function use(cb: () => void): void;
++   3 | use<[() => void]>(() => 42);
++     |                         ~~
++---
++
++[TestStrictVoidReturnResolvedParameter/missing_required_argument/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:19 - 6:24)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: () => void): void;
++   6 | use<() => string>(tagged);
++     |                   ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/missing_required_tuple_element/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:19 - 6:24)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: () => void): void;
++   6 | use<() => string>(tagged);
++     |                   ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/nonobject_union_uncertainty/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:5 - 6:10)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: () => void): void;
++   6 | use(tagged);
++     |     ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/nullable_callback_union/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (2:11 - 2:12)
++Message: Value returned in a context where a void return is expected.
++   1 | declare function use(cb: (() => void) | null | undefined): void;
++   2 | use(() => 42);
++     |           ~~
++---
++
++[TestStrictVoidReturnResolvedParameter/optional_callback/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (2:11 - 2:12)
++Message: Value returned in a context where a void return is expected.
++   1 | declare function use(cb?: () => void): void;
++   2 | use(() => 42);
++     |           ~~
++---
++
++[TestStrictVoidReturnResolvedParameter/ordinary_async/invalid-0 - 1]
++Diagnostic 1: asyncFunc (2:5 - 2:18)
++Message: Async function used in a context where a void function is expected.
++   1 | declare function use(cb: () => void): void;
++   2 | use(async () => {});
++     |     ~~~~~~~~~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/ordinary_value/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (2:11 - 2:12)
++Message: Value returned in a context where a void return is expected.
++   1 | declare function use(cb: () => void): void;
++   2 | use(() => 42);
++     |           ~~
++---
++
++[TestStrictVoidReturnResolvedParameter/rest_callback_union/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (2:11 - 2:11)
++Message: Value returned in a context where a void return is expected.
++   1 | declare function use(...cb: ((() => void) | undefined)[]): void;
++   2 | use(() => 1, () => 2);
++     |           ~
++
++Diagnostic 2: nonVoidReturn (2:20 - 2:20)
++Message: Value returned in a context where a void return is expected.
++   1 | declare function use(...cb: ((() => void) | undefined)[]): void;
++   2 | use(() => 1, () => 2);
++     |                    ~
++---
++
++[TestStrictVoidReturnResolvedParameter/rest_container_is_not_argument_contract/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:5 - 6:10)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: () => void): void;
++   6 | use(tagged);
++     |     ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/spread_argument_position_uncertain/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (7:22 - 7:23)
++Message: Value returned in a context where a void return is expected.
++   6 | const prefix: [number, typeof tagged] = [1, tagged];
++   7 | use(...prefix, () => 42);
++     |                      ~~
++---
++
++[TestStrictVoidReturnResolvedParameter/structural_callback_union/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:5 - 6:10)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: () => void): void;
++   6 | use(tagged);
++     |     ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/structural_overload_not_selected/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:5 - 6:10)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: { custom: () => string }): void;
++   6 | use(tagged);
++     |     ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/tuple_container_is_not_argument_contract/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (6:5 - 6:10)
++Message: Value-returning function used in a context where a void function is expected.
++   5 | declare function use(cb: () => void): void;
++   6 | use(tagged);
++     |     ~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/tuple_rest_callbacks/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (2:11 - 2:11)
++Message: Value returned in a context where a void return is expected.
++   1 | declare function use(...cb: [() => void, (() => void)?]): void;
++   2 | use(() => 1, async () => {});
++     |           ~
++
++Diagnostic 2: asyncFunc (2:14 - 2:27)
++Message: Async function used in a context where a void function is expected.
++   1 | declare function use(...cb: [() => void, (() => void)?]): void;
++   2 | use(() => 1, async () => {});
++     |              ~~~~~~~~~~~~~~
++---
++
++[TestStrictVoidReturnResolvedParameter/unknown_parameter/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (3:11 - 3:12)
++Message: Value returned in a context where a void return is expected.
++   2 | declare function use(cb: () => void): void;
++   3 | use(() => 42);
++     |           ~~
++---
++
++[TestStrictVoidReturnResolvedParameter/unresolved_type_parameter/invalid-0 - 1]
++Diagnostic 1: nonVoidFunc (4:10 - 4:11)
++Message: Value-returning function used in a context where a void function is expected.
++   3 | function outer<T extends { custom: () => string }>(cb: T & (() => number)) {
++   4 |   use<T>(cb);
++     |          ~~
++   5 | }
++---
++
++[TestStrictVoidReturnResolvedParameter/variadic_rest_callbacks/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (2:11 - 2:11)
++Message: Value returned in a context where a void return is expected.
++   1 | declare function use(...cb: [() => void, ...(() => void)[]]): void;
++   2 | use(() => 1, async () => {}, () => 2);
++     |           ~
++
++Diagnostic 2: asyncFunc (2:14 - 2:27)
++Message: Async function used in a context where a void function is expected.
++   1 | declare function use(...cb: [() => void, ...(() => void)[]]): void;
++   2 | use(() => 1, async () => {}, () => 2);
++     |              ~~~~~~~~~~~~~~
++
++Diagnostic 3: nonVoidReturn (2:36 - 2:36)
++Message: Value returned in a context where a void return is expected.
++   1 | declare function use(...cb: [() => void, ...(() => void)[]]): void;
++   2 | use(() => 1, async () => {}, () => 2);
++     |                                    ~
++---
++
++[TestStrictVoidReturnResolvedParameter/void_any_overloads/invalid-0 - 1]
++Diagnostic 1: nonVoidReturn (3:11 - 3:12)
++Message: Value returned in a context where a void return is expected.
++   2 | declare function use(cb: () => any): void;
++   3 | use(() => 42);
++     |           ~~
++---
+ 
+ [TestStrictVoidReturnRule/invalid-0 - 1]
+ Diagnostic 1: nonVoidReturn (3:11 - 3:14)

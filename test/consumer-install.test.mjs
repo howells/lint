@@ -16,13 +16,30 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import { verifyNativePackage } from "./native-engine-fixture.mjs";
+
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   ".."
 );
 
-test("packed package installs without ESLint or TypeScript and loads the Next, Playwright, shadcn, GDP and boundary presets", async () => {
+// pnpm's .cmd launcher cannot be execFile'd on Windows. pnpm test supplies its
+// Node entrypoint, so matrix jobs use exactly the same manager as the scripts.
+const execPnpm = (args, options) => {
+  const entrypoint = process.env.npm_execpath;
+  if (entrypoint && /pnpm\.(?:[cm]?js)$/u.test(entrypoint)) {
+    return execFileAsync(process.execPath, [entrypoint, ...args], options);
+  }
+  assert.notEqual(
+    process.platform,
+    "win32",
+    "Run this test with pnpm test on Windows."
+  );
+  return execFileAsync("pnpm", args, options);
+};
+
+test("packed package installs without ESLint or TypeScript and loads the Next, Playwright, shadcn, GDP and boundary presets", async (t) => {
   const root = await realpath(
     await mkdtemp(path.join(tmpdir(), "howells-lint-consumer-"))
   );
@@ -31,13 +48,15 @@ test("packed package installs without ESLint or TypeScript and loads the Next, P
     // The destination is a fresh directory, so the tarball is whatever lands in
     // it. Reading the name from disk rather than from `pnpm pack --json` keeps
     // the test immune to anything a lifecycle script writes to stdout.
-    await execFileAsync("pnpm", ["pack", "--pack-destination", root], {
-      cwd: repoRoot,
-    });
-    const packed = await readdir(root);
-    const tarballs = packed.filter((entry) => entry.endsWith(".tgz"));
-    assert.equal(tarballs.length, 1, `expected one tarball, got ${tarballs}`);
-    const filename = path.join(root, tarballs[0]);
+    let filename = process.env.HOWELLS_LINT_TARBALL;
+    if (!filename) {
+      await execPnpm(["pack", "--pack-destination", root], { cwd: repoRoot });
+      const packed = await readdir(root);
+      const tarballs = packed.filter((entry) => entry.endsWith(".tgz"));
+      assert.equal(tarballs.length, 1, `expected one tarball, got ${tarballs}`);
+      filename = path.join(root, tarballs[0]);
+    }
+    filename = path.resolve(filename);
 
     await writeFile(
       path.join(root, "package.json"),
@@ -47,6 +66,10 @@ test("packed package installs without ESLint or TypeScript and loads the Next, P
           type: "module",
           dependencies: {
             "@howells/lint": `file:${filename}`,
+          },
+          devDependencies: {
+            "@types/node": "24.13.2",
+            "undici-types": "7.18.2",
           },
         },
         null,
@@ -74,13 +97,9 @@ test("packed package installs without ESLint or TypeScript and loads the Next, P
       'export const Portrait = () => <figure className="p-[13px]" />;\n'
     );
 
-    const installResult = await execFileAsync(
-      "pnpm",
-      ["install", "--ignore-scripts"],
-      {
-        cwd: root,
-      }
-    );
+    const installResult = await execPnpm(["install", "--ignore-scripts"], {
+      cwd: root,
+    });
 
     assert.doesNotMatch(
       `${installResult.stdout}${installResult.stderr}`,
@@ -106,6 +125,22 @@ test("packed package installs without ESLint or TypeScript and loads the Next, P
         "utf8"
       )
     );
+    const sourcePackage = JSON.parse(
+      await readFile(path.join(repoRoot, "package.json"), "utf8")
+    );
+    for (const key of [
+      "version",
+      "bin",
+      "exports",
+      "dependencies",
+      "engines",
+    ]) {
+      assert.deepEqual(
+        packageJson[key],
+        sourcePackage[key],
+        `packed ${key} changed`
+      );
+    }
     const oxlintBin = path.join(
       root,
       "node_modules",
@@ -249,6 +284,13 @@ test("packed package installs without ESLint or TypeScript and loads the Next, P
       `${boundaryResult.stdout}${boundaryResult.stderr}`,
       /boundaries\(dependencies\)/
     );
+
+    await verifyNativePackage({
+      t,
+      packageRoot: path.join(root, "node_modules", "@howells", "lint"),
+      fixtureRoot: root,
+      tarball: filename,
+    });
   } finally {
     await rm(root, { force: true, recursive: true });
   }

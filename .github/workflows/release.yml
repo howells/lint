@@ -21,31 +21,167 @@ on:
   push:
     tags:
       - "v*"
+  # Builds and executes the same gates without publishing, on any selected ref.
+  workflow_dispatch:
 
 permissions:
   contents: read
-  # Required for Trusted Publishing. Without it npm gets no OIDC token and
-  # falls back to looking for credentials that do not exist here.
-  id-token: write
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
-
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.artifact.outputs.version }}
+      sha256: ${{ steps.artifact.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v5
-
       - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
           cache: pnpm
-          registry-url: https://registry.npmjs.org
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.4"
+          cache: false
 
-      # Trusted Publishing needs npm 11.5.1 or newer. The pinned Node ships
-      # 11.12.1, so there is nothing to install. Assert it rather than let a
-      # future Node downgrade surface as an unexplained auth failure.
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check the tag matches the version
+        if: github.event_name == 'push'
+        run: |
+          tagged="${GITHUB_REF_NAME#v}"
+          declared="$(node -p 'require("./package.json").version')"
+          if [ "$tagged" != "$declared" ]; then
+            echo "tag v$tagged does not match package.json $declared" >&2
+            exit 1
+          fi
+
+      # Fixed archive/patch hashes, Go version and flags; includes the native
+      # source suite. Every output must match the committed binary hashes.
+      - name: Build all six native backends
+        run: pnpm native:build --work-dir "$RUNNER_TEMP/native-build"
+
+      # Preserve the format, lint, complete Node suite and peer-dependency gates.
+      # prepush also rejects an incomplete or stale native bundle before packing.
+      - run: pnpm prepush
+
+      # Pack once with pnpm, which expands catalog:/workspace: specifiers.
+      # This exact tarball is executed on every target and then published.
+      - name: Pack
+        run: pnpm pack --pack-destination "$RUNNER_TEMP/packed-package"
+
+      - name: Record packed artifact
+        id: artifact
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from "node:fs";
+          import { createHash } from "node:crypto";
+          const { version } = JSON.parse(readFileSync("package.json"));
+          const bytes = readFileSync(`${process.env.RUNNER_TEMP}/packed-package/howells-lint-${version}.tgz`);
+          const sha256 = createHash("sha256").update(bytes).digest("hex");
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\nsha256=${sha256}\n`);
+          console.log(`howells-lint-${version}.tgz sha256 ${sha256}`);
+          NODE
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packed-package
+          path: ${{ runner.temp }}/packed-package/*.tgz
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-source-tests
+          path: ${{ runner.temp }}/native-build/native-tests.jsonl
+          if-no-files-found: warn
+
+  native-protocol:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        # Official standard hosted runners (both public and private repos):
+        # https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+        include:
+          - target: linux-x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - target: darwin-x64
+            runner: macos-15-intel
+          - target: darwin-arm64
+            runner: macos-15
+          - target: win32-x64
+            runner: windows-2025
+          - target: win32-arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      HOWELLS_LINT_TARBALL: ${{ runner.temp }}/packed-package/howells-lint-${{ needs.build.outputs.version }}.tgz
+      HOWELLS_LINT_NATIVE_EVIDENCE: ${{ runner.temp }}/native-protocol-${{ matrix.target }}.json
+      EXPECTED_NATIVE_TARGET: ${{ matrix.target }}
+      EXPECTED_PACKED_SHA256: ${{ needs.build.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+      - uses: actions/download-artifact@v4
+        with:
+          name: packed-package
+          path: ${{ runner.temp }}/packed-package
+
+      - name: Verify actual runner and tarball identity
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFileSync } from "node:fs";
+          import { createHash } from "node:crypto";
+          assert.equal(`${process.platform}-${process.arch}`, process.env.EXPECTED_NATIVE_TARGET);
+          assert.equal(createHash("sha256").update(readFileSync(process.env.HOWELLS_LINT_TARBALL)).digest("hex"), process.env.EXPECTED_PACKED_SHA256);
+          NODE
+
+      # No source build: the test installs this tarball
+      # with lifecycle scripts disabled, then runs the actual Oxlint protocol.
+      # Smoke children have an empty PATH: no Go or package manager at runtime.
+      - name: Execute packed consumer and native enforcement controls
+        run: pnpm test test/consumer-install.test.mjs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-protocol-${{ matrix.target }}
+          path: ${{ env.HOWELLS_LINT_NATIVE_EVIDENCE }}
+          if-no-files-found: warn
+
+  publish:
+    needs: [build, native-protocol]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # Only this job can obtain the npm Trusted Publishing OIDC token.
+      id-token: write
+    env:
+      HOWELLS_LINT_TARBALL: ${{ runner.temp }}/packed-package/howells-lint-${{ needs.build.outputs.version }}.tgz
+      EXPECTED_PACKED_SHA256: ${{ needs.build.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          name: packed-package
+          path: ${{ runner.temp }}/packed-package
+
+      # Trusted Publishing requires npm >=11.5.1. The pinned Node includes it.
       - name: Check npm can do Trusted Publishing
         run: |
           have="$(npm --version)"
@@ -56,46 +192,18 @@ jobs:
           fi
           echo "npm $have"
 
-      - run: pnpm install --frozen-lockfile
-
-      # The tag is the only thing a human types, so it is the thing to verify.
-      # A tag that disagrees with package.json would publish a version nobody
-      # asked for, under a tag that points somewhere else.
-      - name: Check the tag matches the version
+      - name: Verify the tested tarball before publishing
         run: |
-          tagged="${GITHUB_REF_NAME#v}"
-          declared="$(node -p 'require("./package.json").version')"
-          if [ "$tagged" != "$declared" ]; then
-            echo "tag v$tagged does not match package.json $declared" >&2
-            exit 1
-          fi
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFileSync } from "node:fs";
+          import { createHash } from "node:crypto";
+          const { version } = JSON.parse(readFileSync("package.json"));
+          assert.equal(process.env.GITHUB_REF_NAME, `v${version}`);
+          assert.equal(createHash("sha256").update(readFileSync(process.env.HOWELLS_LINT_TARBALL)).digest("hex"), process.env.EXPECTED_PACKED_SHA256);
+          NODE
 
-      # The same gate that guards a pull request: format check, lint with
-      # warnings denied, the test suite, and the peer-dependency check that
-      # keeps ESLint out of the graph.
-      - run: pnpm prepush
-
-      # `pnpm pack` rather than publishing the directory. npm does not
-      # understand pnpm's `catalog:` and `workspace:` specifiers, so publishing
-      # a directory in a workspace that uses them ships them unexpanded and
-      # produces a tarball nobody can install. That bug reached the registry
-      # from a sibling repo once already. This package has no such specifier
-      # today, and the packed file list is identical either way, so the cost is
-      # nothing and the shape stays correct if one is ever added.
-      - name: Pack
-        run: pnpm pack --pack-destination /tmp
-
-      # Access comes from `publishConfig` in package.json rather than a flag
-      # here, so one declaration governs every publish of this package.
-      #
-      # `--provenance` is required, despite npm documenting Trusted Publishing
-      # as attaching provenance by itself. Measured as a controlled pair:
-      # `@instruments/colorscope@9.1.0` published from a trusted-publishing
-      # workflow without the flag and its attestations endpoint answers
-      # `{"error":"Not found"}` long after the release became installable;
-      # `@howells/lint@3.2.5` and `@3.3.0` published the same way with the flag
-      # and each carries two attestations, the npm publish one and SLSA
-      # provenance. Same mechanism, same account, different flag, different
-      # outcome. Dropping it loses provenance silently.
+      # Access remains in publishConfig. Keep the explicit provenance flag:
+      # Trusted Publishing without it has previously omitted SLSA attestations.
       - name: Publish
-        run: npm publish /tmp/howells-lint-*.tgz --provenance
+        run: npm publish "$HOWELLS_LINT_TARBALL" --provenance

@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "upstreamVersion": "7.0.2004",
+  "sources": [
+    {
+      "repo": "oxc-project/tsgolint",
+      "revision": "a61289117febcb1a60cf3bc75ef2b6bbccc4b665",
+      "tree": "8e4b0f8dd05eb95844862243056c0379ca24a148",
+      "url": "https://codeload.github.com/oxc-project/tsgolint/tar.gz/a61289117febcb1a60cf3bc75ef2b6bbccc4b665",
+      "bytes": 717497,
+      "sha256": "bca30a5863408e0da619918592ee052b0d44bfc1a2e5bfb72cda52d4b3d453e6",
+      "gitlinks": [
+        {
+          "path": "typescript-go",
+          "mode": "160000",
+          "type": "commit",
+          "sha": "2bd066d87f5bafd315be9f40889d0a60b9e58e0b"
+        }
+      ],
+      "archive": "tsgolint-a61289117febcb1a60cf3bc75ef2b6bbccc4b665.tar.gz",
+      "directory": "tsgolint"
+    },
+    {
+      "repo": "microsoft/typescript-go",
+      "revision": "2bd066d87f5bafd315be9f40889d0a60b9e58e0b",
+      "tree": "ed2c2c12c401b84bd5888d0b889737495aa93a20",
+      "url": "https://codeload.github.com/microsoft/typescript-go/tar.gz/2bd066d87f5bafd315be9f40889d0a60b9e58e0b",
+      "bytes": 20375158,
+      "sha256": "5ccb47dbb3f68cd0da58b71e6f445eee36a50bd3e9f9f330cc23a97b88500119",
+      "gitlinks": [
+        {
+          "path": "_submodules/TypeScript",
+          "mode": "160000",
+          "type": "commit",
+          "sha": "4d4f005c8541e0255a9d8791205fdce326e462bc"
+        }
+      ],
+      "archive": "typescript-go-2bd066d87f5bafd315be9f40889d0a60b9e58e0b.tar.gz",
+      "directory": "tsgolint/typescript-go"
+    }
+  ],
+  "initializationPatches": [
+    {
+      "path": "patches/0001-Adapt-project-service-for-single-run-mode.patch",
+      "sha256": "52dca882c7720248d1d22cdef73b8f0bda90e93289fa2fa3813e0fb3b6ffe561"
+    },
+    {
+      "path": "patches/0002-patch-expose-more-functions-via-the-shim-with-type-f.patch",
+      "sha256": "f7d87e74cee9ef2cb0c02017b7057643728cf2b816f4d3b95ac15a8307cfc8a7"
+    },
+    {
+      "path": "patches/0003-fix-early-return-from-invalid-tsconfig-for-better-er.patch",
+      "sha256": "9077e7b8954aa0895b019ccb8b9cef7ab3b9f106d87aef15e7267d10e2cfc5fd"
+    },
+    {
+      "path": "patches/0004-fix-collections-avoid-internal-json-import-in-ordere.patch",
+      "sha256": "a610609935fdae28d2ee6163abf97652e69429a845a5276808b758992796e953"
+    },
+    {
+      "path": "patches/0005-perf-vfs-cache-ReadFile-results-in-cachedvfs.patch",
+      "sha256": "c05d113614347b9c3e9a3b59622da79335f98038a67b0207ace9e63937e70fd0"
+    },
+    {
+      "path": "patches/0006-perf-add-opt-in-node-count-checker-assignment.patch",
+      "sha256": "d0acf8dfc2a11c5e1def5f4ecb78eae4be1f24a0c7049d2c7158787eaaaa5977"
+    }
+  ],
+  "upstreamManifests": {
+    "go.mod": "5ce7148643633351832eab44bee8c0d4b6d788dc17e652a35c44c969a49b280c",
+    "go.sum": "6766deac97258f7589d239c0745b3f828faf5f77caceb971f74c52decd6cbc1a",
+    "go.work": "c2e25c3808013135f8cbc233b0c4acd486c899bb996cb007867208fed9d3ea9a",
+    "go.work.sum": "587bd6d01638cdbd58a74006d0d5be99cf800450e2bb580c5585bb0d93d9fef4"
+  },
+  "repairPatch": "strict-void-return.patch",
+  "workspaceSum": "go.work.sum",
+  "toolchain": "go1.26.4",
+  "buildFlags": ["-trimpath", "-ldflags=-s -w", "-buildvcs=false"],
+  "buildEnvironment": {
+    "CGO_ENABLED": "0",
+    "GOAMD64": "v1",
+    "GOARM64": "v8.0",
+    "GOEXPERIMENT": "",
+    "GOFIPS140": "off",
+    "GOFLAGS": "-mod=readonly",
+    "GOENV": "off",
+    "GOTOOLCHAIN": "local"
+  },
+  "testTypes": [
+    {
+      "name": "@types/node",
+      "version": "24.13.2",
+      "integrity": "sha512-fRa09kZTgu8o71KFcDjUFuc7F+dEbZYZmkI0mg5YBTRs0yMKjYHsq/c0urDKeDb+D5qVgXOdFcuu+DZPKOITwA==",
+      "sha256": "14001301bdc69d627b03ef6c9b8266dad8d6b121016b79c85b4821deb73481aa",
+      "bytes": 461927,
+      "url": "https://registry.npmjs.org/@types/node/-/node-24.13.2.tgz"
+    },
+    {
+      "name": "undici-types",
+      "version": "7.18.2",
+      "integrity": "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==",
+      "sha256": "4d92799b0e619468a30f70eff033c1a27e713134a4ff353e1a6794f67e425497",
+      "bytes": 27712,
+      "url": "https://registry.npmjs.org/undici-types/-/undici-types-7.18.2.tgz"
+    }
+  ],
+  "targets": {
+    "darwin-arm64": {
+      "goos": "darwin",
+      "goarch": "arm64",
+      "path": "bin/darwin-arm64/tsgolint",
+      "sha256": "e6fdf433618b582c0188a4bceb85cb30b639fa28db5bb25a4a7084caafed74f7",
+      "bytes": 22165474
+    },
+    "darwin-x64": {
+      "goos": "darwin",
+      "goarch": "amd64",
+      "path": "bin/darwin-x64/tsgolint",
+      "sha256": "0fd75d734af1213bd5d31b6f4b9d8944a8178959760fb9474de2020b9271a43d",
+      "bytes": 22964816
+    },
+    "linux-arm64": {
+      "goos": "linux",
+      "goarch": "arm64",
+      "path": "bin/linux-arm64/tsgolint",
+      "sha256": "0e2ccac885975ee5a59fa9ffd52dd0db89b407fe0a0c6c1e5f8e2e97d6184f65",
+      "bytes": 21627042
+    },
+    "linux-x64": {
+      "goos": "linux",
+      "goarch": "amd64",
+      "path": "bin/linux-x64/tsgolint",
+      "sha256": "c0d0cec1231df9ab221a5157a5e4d03d2723631136dc56e60937f5060cd3feda",
+      "bytes": 22573218
+    },
+    "win32-arm64": {
+      "goos": "windows",
+      "goarch": "arm64",
+      "path": "bin/win32-arm64/tsgolint.exe",
+      "sha256": "a315bfcb9709689a10e8c55b5f610496d5ec4dd23692bc7bc37e0c311fb24a5a",
+      "bytes": 21918208
+    },
+    "win32-x64": {
+      "goos": "windows",
+      "goarch": "amd64",
+      "path": "bin/win32-x64/tsgolint.exe",
+      "sha256": "7ff91d9116d7cfdd749ba80718af0b7cf1aa8ebfda9df3ba834ae2330ea4d21a",
+      "bytes": 23063552
+    }
+  },
+  "files": {
+    "go.work.sum": "67bc6e87d1cf13236af7bc668daf99b5d17b7473d21483c62ca2c579b92ec28c",
+    "licenses/github.com--dlclark--regexp2--v2-v2.8.3-LICENSE": "9be5d04bb4d706914d5bf943710da4afeb42048f7c529902fb57c82762a991a9",
+    "licenses/github.com--go-json-experiment--json-v0.0.0-20260820222146-c27c302e5fc3-LICENSE": "14a34c4db2d21bf9cf80d028b802cd22fed9bf597a6c2db7ce30ee6ffd04967a",
+    "licenses/github.com--klauspost--cpuid--v2-v2.2.10-LICENSE": "5d966570d7a442d4e969892860a914e542c97f262c873baee8f0aa48e1f40212",
+    "licenses/github.com--mackerelio--go-osstat-v0.2.7-LICENSE.txt": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+    "licenses/github.com--zeebo--xxh3-v1.1.0-LICENSE": "f19854b341534d1f2314c0c70d9cd2bb4fa1f7c86fffdc4444ca33cccce412ba",
+    "licenses/go-LICENSE.txt": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+    "licenses/go-PATENTS.txt": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+    "licenses/golang.org--x--sync-v0.23.0-LICENSE": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+    "licenses/golang.org--x--sync-v0.23.0-PATENTS": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+    "licenses/golang.org--x--sys-v0.48.0-LICENSE": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+    "licenses/golang.org--x--sys-v0.48.0-PATENTS": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+    "licenses/golang.org--x--text-v0.42.0-LICENSE": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+    "licenses/golang.org--x--text-v0.42.0-PATENTS": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+    "licenses/tsgolint-MIT.txt": "c211cc5336d2d47f21322aca35c8149699de621edc447294b617048d05a745ce",
+    "licenses/typescript-go-Apache-2.0.txt": "a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47",
+    "licenses/typescript-go-NOTICE.txt": "f5c708b59114507b8b27b48181b6883d106bbca0c1634bbee45b5e344237b66b",
+    "licenses/typescript-go-fswatch-MIT.txt": "5881a9f5f9ef3d070b831fd4ad0608885c2a42c983dcb91515def0d90bd06245",
+    "strict-void-return.patch": "0e0612cd52617c59c8295ee5afa5e162ec9798d809f333ac88865fb5187d5e82"
+  }
+}
