@@ -11,11 +11,9 @@ const PATH_SUBPATH_MODULES = new Set([
 const URL_MODULES = new Set(["url", "node:url"]);
 const PROCESS_MODULES = new Set(["process", "node:process"]);
 const LOADER_MODULES = new Set(["module", "node:module"]);
+const EVALUATOR_MODULES = new Set(["vm", "node:vm"]);
+const EVALUATOR_GLOBALS = new Set(["eval", "Function"]);
 const GLOBAL_ALIASES = new Set(["globalThis", "global", "window", "self"]);
-const MUTATING_RECEIVER_METHODS = new Set([
-  "__defineGetter__",
-  "__defineSetter__",
-]);
 const POSSIBLE_WRAPPERS = new Set([
   "ParenthesizedExpression",
   "ChainExpression",
@@ -378,7 +376,9 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
                 ? "process"
                 : includeObjects && LOADER_MODULES.has(specifier)
                   ? "loader"
-                  : undefined;
+                  : includeObjects && EVALUATOR_MODULES.has(specifier)
+                    ? "evaluator"
+                    : undefined;
         if (
           !module ||
           imported.importKind === "type" ||
@@ -459,7 +459,9 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
             ? { module: "process" }
             : includeObjects && LOADER_MODULES.has(name)
               ? { module: "loader" }
-              : undefined;
+              : includeObjects && EVALUATOR_MODULES.has(name)
+                ? { module: "evaluator" }
+                : undefined;
     }
     return undefined;
   };
@@ -493,6 +495,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     }
     const resolved = possibleBuiltin(expression);
     if (resolved?.module === "loader") return "loader";
+    if (resolved?.module === "evaluator") return "evaluator";
     if (
       resolved?.module === "process" &&
       (!resolved.property || resolved.property === "default")
@@ -514,6 +517,11 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     if (expression?.type === "Identifier") {
       if (["require", "module"].some((name) => isGlobal(expression, name)))
         return "loader";
+      if (
+        EVALUATOR_GLOBALS.has(expression.name) &&
+        isGlobal(expression, expression.name)
+      )
+        return "evaluator";
       if (
         GLOBAL_ALIASES.has(expression.name) &&
         isGlobal(expression, expression.name)
@@ -540,6 +548,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
     if (owner === "globalThis") {
       if (GLOBAL_ALIASES.has(property)) return "globalThis";
       if (["process", "URL"].includes(property)) return property;
+      if (EVALUATOR_GLOBALS.has(property)) return "evaluator";
       if (["require", "module"].includes(property)) return "loader";
       if (property === undefined) return "unknown";
     }
@@ -559,6 +568,7 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
       if (property === undefined) return "unknown";
     }
     if (owner === "unknown" || owner === "lookup") return "unknown";
+    if (owner === "evaluator") return "evaluator";
     return undefined;
   };
 
@@ -612,26 +622,46 @@ export const createPreferSupportedImportMetaPropertiesRule = (context) => {
           isWrite(parent)
         );
       }
-      if (node.type === "CallExpression" && isGlobal(node.callee, "eval"))
-        return true;
       const invoked =
         node.type === "CallExpression"
           ? unwrapPossible(node.callee)
           : node.type === "TaggedTemplateExpression"
             ? unwrapPossible(node.tag)
             : undefined;
-      if (
-        invoked?.type === "MemberExpression" &&
-        MUTATING_RECEIVER_METHODS.has(memberName(invoked))
-      ) {
+      if (invoked?.type === "MemberExpression") {
         const receiver = unwrapPossible(invoked.object);
         const resolved = possibleBuiltin(receiver);
-        // A method call passes its object as `this`; property-read exemptions
-        // must not let the accessor methods mutate that implicit receiver.
+        const runtime = runtimeObject(receiver);
+        const method = possibleBuiltin(invoked);
+        const modeledHelper =
+          (method?.module === "path" && method.property === "dirname") ||
+          (method?.module === "url" && method.property === "fileURLToPath");
+        const modeledRuntime =
+          (runtimeObject(invoked) === "lookup" && possibleBuiltin(node)) ||
+          runtimeObject(invoked) === "URLParse";
+        const stringRead =
+          runtime === "URLInstance" &&
+          ["toString", "toJSON"].includes(memberName(invoked)) &&
+          node.type === "CallExpression" &&
+          node.arguments.length === 0;
+        const descriptorRead =
+          ["__lookupGetter__", "__lookupSetter__"].includes(
+            memberName(invoked)
+          ) &&
+          node.type === "CallExpression" &&
+          node.arguments.length === 1 &&
+          node.arguments[0].type === "Literal" &&
+          typeof node.arguments[0].value === "string";
+        // A method receives its object as `this`. Unknown calls can mutate it,
+        // return it (valueOf), or expose it through a new function (bind).
         if (
-          isImportMeta(receiver) ||
-          runtimeObject(receiver) ||
-          (resolved && !resolved.property)
+          (isImportMeta(receiver) || runtime || resolved) &&
+          !(
+            node.type === "CallExpression" &&
+            (modeledHelper || modeledRuntime)
+          ) &&
+          !stringRead &&
+          !descriptorRead
         )
           return true;
       }

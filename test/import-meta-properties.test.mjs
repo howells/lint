@@ -147,6 +147,75 @@ const uninitializedAliases = [
 ];
 const mutationRoutes = [
   ...[
+    ["direct", 'path.valueOf().dirname = () => "changed";'],
+    [
+      "optional",
+      'Object.assign(path?.valueOf(), { dirname: () => "changed" });',
+    ],
+    [
+      "alias",
+      'const target = path; const alias = target.valueOf(); alias.dirname = () => "changed";',
+    ],
+  ].map(([name, mutation]) => [
+    `receiver-return-path-${name}`,
+    mutation,
+    dirname,
+    "dirname",
+    "changed",
+  ]),
+  ...[
+    ["constructor", "", "URL.valueOf().prototype"],
+    ["prototype", "", "URL.prototype.valueOf()"],
+    [
+      "instance",
+      "const target = new URL(import.meta.url);",
+      "target.valueOf().constructor.prototype",
+    ],
+    [
+      "parsed",
+      "const target = URL.parse(import.meta.url);",
+      "target?.valueOf().constructor.prototype",
+    ],
+    [
+      "imported",
+      'import { URL as NativeURL } from "node:url"; const target = new NativeURL(import.meta.url);',
+      "target.valueOf().constructor.prototype",
+    ],
+    [
+      "bound",
+      "const BoundURL = URL.bind(null);",
+      "new BoundURL(import.meta.url).constructor.prototype",
+    ],
+  ].map(([name, setup, receiver]) => [
+    `receiver-return-url-${name}`,
+    `${setup} Object.defineProperty(${receiver}, "pathname", { get: () => "/changed" });`,
+    filename,
+    "filename",
+    "/changed",
+  ]),
+  [
+    "receiver-return-process",
+    'process.valueOf().getBuiltinModule = () => ({ fileURLToPath: () => "changed" });',
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ],
+  ...[
+    ["direct", "", "eval"],
+    ["indirect", "", "(0, eval)"],
+    ["alias", "const run = eval;", "run"],
+    ["optional", "", "eval?."],
+    ["global", "", "globalThis.eval"],
+    ["constructor", "", "Function"],
+    ["vm", 'import { runInThisContext } from "node:vm";', "runInThisContext"],
+  ].map(([name, setup, invoke]) => [
+    `evaluator-${name}`,
+    `${setup} ${invoke}(${JSON.stringify('process.getBuiltinModule = () => ({ fileURLToPath: () => "changed" });')})${name === "constructor" ? "()" : ""};`,
+    'process.getBuiltinModule("node:url").fileURLToPath(import.meta.url)',
+    "filename",
+    "changed",
+  ]),
+  ...[
     ["direct", "path.__defineGetter__"],
     ["quoted", 'path["__defineGetter__"]'],
     ["optional", "path?.__defineGetter__?."],
@@ -527,6 +596,27 @@ const cases = [
   ["unguarded-filename", imports + use(filename), 0],
   ["guarded-dirname", imports + guard(use(dirname)), 1],
   ["guarded-filename", imports + guard(use(filename), "filename"), 1],
+  [
+    "modeled-url-string-method",
+    imports +
+      "const target = new URL(import.meta.url); console.log(target.toString());" +
+      guard(use(filename), "filename"),
+    1,
+  ],
+  [
+    "evaluator-typeof-read",
+    imports +
+      "console.log(typeof eval, typeof Function);" +
+      guard(use(dirname)),
+    1,
+  ],
+  [
+    "unused-vm-import",
+    imports +
+      'import { runInThisContext as unused } from "node:vm";' +
+      guard(use(dirname)),
+    1,
+  ],
   [
     "receiver-method-read",
     imports + "void path.__defineGetter__;" + guard(use(dirname)),
