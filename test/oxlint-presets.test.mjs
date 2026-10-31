@@ -599,6 +599,67 @@ test("core preset lets promise-typed stubs be async without awaiting", async () 
   }
 });
 
+for (const [name, presetUrl] of [
+  ["Core", corePresetUrl],
+  ["React", reactPresetUrl],
+  ["Next", nextPresetUrl],
+  ["Playwright", playwrightPresetUrl],
+]) {
+  test(`${name} permits callback Promise bridges while rejecting async executors`, async () => {
+    const root = await makeFixtureRoot();
+    try {
+      await writeFixture(
+        root,
+        "oxlint.config.mjs",
+        `import preset from "${presetUrl}";\nexport default { extends: [preset] };\n`
+      );
+      await writeFixture(
+        root,
+        "src/callback.ts",
+        "export const wait = async (): Promise<void> => { await new Promise<void>((resolve) => { setTimeout(resolve, 10); }); };\n"
+      );
+      await writeFixture(
+        root,
+        "src/unsafe.ts",
+        "export const unsafe = async (): Promise<void> => { await new Promise<void>(async (resolve) => { await Promise.resolve(); resolve(); }); };\n"
+      );
+      await writeFixture(
+        root,
+        "src/returned.ts",
+        "export const returned = async (): Promise<void> => { await new Promise<void>((resolve) => { resolve(); return 1; }); };\n"
+      );
+      const result = await runOxlint(root);
+      assert.equal(result.status, 1, result.stdout);
+      assert.equal(
+        JSON.parse(result.stdout).diagnostics.filter((finding) =>
+          finding.filename.endsWith("callback.ts")
+        ).length,
+        0,
+        result.stdout
+      );
+      assert.equal(
+        diagnosticsForRule(result.stdout, "promise(avoid-new)").length,
+        0,
+        result.stdout
+      );
+      assert.equal(
+        diagnosticsForRule(result.stdout, "eslint(no-async-promise-executor)")
+          .length,
+        1,
+        result.stdout
+      );
+      assert.equal(
+        diagnosticsForRule(result.stdout, "eslint(no-promise-executor-return)")
+          .length,
+        1,
+        result.stdout
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+}
+
 test("core preset lets a hash use its bitwise operators", async () => {
   const root = await makeFixtureRoot();
 

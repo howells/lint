@@ -2,7 +2,13 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
-## 3.9.2: declaration merging, portable module paths and layout animation
+## 3.9.2: declaration merging, portable paths, Promise bridges and layout animation
+
+### Callback-to-Promise bridges
+
+Core, React, Next and standalone Playwright no longer enable `promise/avoid-new`. Browser event, timer and message callbacks can use `new Promise` directly. The blanket constructor ban pushed those bridges toward `Promise.withResolvers`, which is absent from some browsers in Next's default support range. A Node engine pin does not establish browser API support, and syntax compilation does not provide missing runtime APIs.
+
+This permits Promise constructors generally; it does not classify whether a particular constructor is necessary. Prefer an existing promise when one is available. Keep executors synchronous and clean up timers and event listeners. Executor safety and Promise correctness rules remain enabled, including `no-async-promise-executor`, `no-promise-executor-return`, `promise/no-multiple-resolved` and typed floating/misused-promise checks. No consumer rule cut or deferred helper is needed for a legitimate callback bridge.
 
 ### Declaration style and explicit augmentations
 

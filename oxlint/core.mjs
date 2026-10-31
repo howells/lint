@@ -191,6 +191,9 @@ export default defineConfig({
         threshold: 0,
       },
     ],
+    // Callback APIs need Promise constructors in browsers that support Next
+    // but not Promise.withResolvers. Keep executor-safety checks enabled.
+    "promise/avoid-new": "off",
     // Ultracite enables both core `require-await` and typed
     // `typescript/promise-function-async`. Together they contradict: the typed
     // rule forces `async` onto every promise-returning function, and core
