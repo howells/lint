@@ -2,6 +2,29 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## 3.9.2: make the blanket layout-animation audit opt-in
+
+React and Next no longer enable `react-doctor/no-layout-property-animation` by default. This also applies when either preset is composed with the Playwright overlay. Core and standalone Playwright are unchanged.
+
+Real layout can be part of the interaction contract. Instruments' design specifies a growing accordion and a height-bound pattern ribbon with proportional masks. MaterialGraph's specification panel animates its measured content height so the centered photograph moves with it as data arrives. Transform or layout-projection animation changes the intermediate layout-dependent states in these interactions. Moving the same animation into CSS or an indirect object merely hides it from the rule.
+
+This is a change to the blanket rule's role, not an automatic intrinsic-size exception. Numeric dimensions and positional offsets are no longer rejected by default either. Layout animation still has a runtime cost; this policy change makes no claim about its measured performance. Prefer compositor animation when it preserves the product behavior, and measure frame costs when evaluating a necessary layout animation. Other React Doctor and Howells performance checks remain enabled.
+
+Projects whose product contract bans layout animation can explicitly opt in. The existing plugin and exported rule sets remain available; no extra dependency or plugin entry is needed:
+
+```ts
+import react from "@howells/lint/oxlint/react";
+
+export default {
+  extends: [react],
+  rules: {
+    "react-doctor/no-layout-property-animation": "error",
+  },
+};
+```
+
+The same rule entry works with the Next preset. Remove old consumer suppressions or disables after upgrading when adopting the shared default; keep any intentional explicit opt-in.
+
 ## 3.9.1: preserve domain vocabulary
 
 Core, React, Next and standalone Playwright no longer reject an identifier merely because it contains `shape`. Schema contracts such as `shapeId` and `valueShapes`, geometry concepts and imported contracts may use that vocabulary. Renaming a stored key or published API to satisfy a substring check changes the contract without improving the model.

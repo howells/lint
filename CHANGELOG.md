@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.9.2 - 2026-10-31
+
+### Changed
+
+- Make `react-doctor/no-layout-property-animation` opt-in in the shared React preset, inherited by Next. Instruments' specified accordion and pattern ribbon grow together; MaterialGraph's measured specification panel moves its centered photograph as content arrives. Transform or layout-projection rewrites change those intermediate states. The blanket rule no longer gates any layout animation by default, including numeric dimensions and positional offsets; this is a policy change, not an intrinsic-size exemption or a claim about runtime performance. The plugin and exported rule sets remain available for explicit audits. Other performance checks stay enabled, with real-file tests covering both presets, the Playwright overlay and explicit opt-in.
+
 ## 3.9.1 - 2026-10-31
 
 ### Changed

@@ -17,5 +17,9 @@ export default defineConfig({
   extends: [core, ultraciteReact, ultraciteReactDoctor, shadcn],
   rules: {
     "howells/no-generic-component-suffix": "error",
+    // Intrinsic-size transitions can require real layout, including effects on
+    // siblings and proportional masks. Keep this blanket cost heuristic
+    // available for an explicit audit rather than changing those interactions.
+    "react-doctor/no-layout-property-animation": "off",
   },
 });

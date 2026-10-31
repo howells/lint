@@ -1199,6 +1199,94 @@ for (const [name, presetUrl] of [
   });
 }
 
+for (const [name, presetUrl, overlay] of [
+  ["React", reactPresetUrl, false],
+  ["Next", nextPresetUrl, false],
+  ["Next with Playwright overlay", nextPresetUrl, true],
+]) {
+  test(`${name} makes the layout-animation audit opt-in and retains other performance checks`, async () => {
+    const root = await makeFixtureRoot();
+    const config = [
+      `import preset from "${presetUrl}";`,
+      ...(overlay
+        ? [
+            `import { playwrightJsPlugins, playwrightOverride } from "${playwrightPresetUrl}";`,
+          ]
+        : []),
+      "export default {",
+      "  extends: [preset],",
+      ...(overlay
+        ? [
+            "  jsPlugins: playwrightJsPlugins,",
+            '  overrides: [playwrightOverride(["e2e/**/*.{ts,tsx}"])],',
+          ]
+        : []),
+    ];
+    const code = "react-doctor(no-layout-property-animation)";
+    const blurCode = "react-doctor(no-large-animated-blur)";
+
+    try {
+      await writeTypedFixtureConfig(root, [...config, "};"].join("\n"));
+      const sources = {
+        "accordion.tsx":
+          'export const Accordion = () => <m.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ height: { duration: 0.55 } }} />;',
+        "measured.tsx":
+          'export const Measured = ({ height }: { height: number | null }) => <m.div animate={{ height: height ?? "auto" }} initial={false} transition={{ duration: 0.36 }} />;',
+        "numeric.tsx":
+          "export const Numeric = () => <m.div initial={{ width: 20 }} animate={{ width: 100, left: 20 }} />;",
+        "blur.tsx":
+          'export const Blurred = () => <m.div animate={{ filter: "blur(20px)" }} />;',
+      };
+      for (const [file, source] of Object.entries(sources)) {
+        await writeFixture(root, `src/${file}`, source);
+      }
+
+      const defaultResult = await runOxlint(root);
+      assert.equal(
+        diagnosticsForRule(defaultResult.stdout, code).length,
+        0,
+        defaultResult.stdout
+      );
+      assert.equal(
+        diagnosticsForRule(defaultResult.stdout, blurCode).length,
+        1,
+        defaultResult.stdout
+      );
+
+      await writeFixture(
+        root,
+        "oxlint.config.mjs",
+        [
+          ...config,
+          '  rules: { "react-doctor/no-layout-property-animation": "error" },',
+          "};",
+        ].join("\n")
+      );
+      const optedIn = await runOxlint(root);
+      const findings = diagnosticsForRule(optedIn.stdout, code);
+      assert.equal(findings.length, 7, optedIn.stdout);
+      for (const [file, count] of [
+        ["accordion.tsx", 3],
+        ["measured.tsx", 1],
+        ["numeric.tsx", 3],
+      ]) {
+        assert.equal(
+          findings.filter((finding) => finding.filename.endsWith(file)).length,
+          count,
+          optedIn.stdout
+        );
+      }
+      assert.equal(
+        diagnosticsForRule(optedIn.stdout, blurCode).length,
+        1,
+        optedIn.stdout
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+}
+
 // Anti-slop and the Vitest preset are part of the standard core lane, not an
 // opt-in overlay. Both come from Ultracite, and both are easy to lose silently
 // if the extends list is reordered or a rule moves upstream.
