@@ -1,9 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { createNoArrayMethodThisArgumentRule } from "./howells-policy-array-methods.mjs";
 import {
   createNoDeepPackageImportsRule,
   createNoOutOfBoundsPackageImportsRule,
+  createNoRuntimeDynamicImportsRule,
 } from "./howells-policy-imports.mjs";
 import { createPreferSupportedImportMetaPropertiesRule } from "./howells-policy-module-meta.mjs";
 import { createNoRawMotionNamespaceRule } from "./howells-policy-motion.mjs";
@@ -392,18 +394,6 @@ function createRequireDisableReasonRule(context) {
   };
 }
 
-function createNoRuntimeDynamicImportsRule(context) {
-  return {
-    ImportExpression(node) {
-      context.report({
-        node,
-        message:
-          "Runtime dynamic imports make package loading harder to trace and validate. Use a static import instead.",
-      });
-    },
-  };
-}
-
 const LOWERCASE_TAG_PATTERN = /^[a-z]/u;
 
 // Generic, cross-project version of the "no naked host element" doctrine. A raw
@@ -542,12 +532,35 @@ const plugin = {
       meta: {
         type: "problem",
         docs: {
-          description: "Disallow runtime import() expressions.",
+          description:
+            "Disallow runtime import() expressions, optionally permitting proven local modules.",
         },
         messages: {},
-        schema: [],
+        schema: [
+          {
+            type: "object",
+            properties: {
+              allowLocalModules: { type: "boolean", default: false },
+            },
+            additionalProperties: false,
+          },
+        ],
       },
       create: createNoRuntimeDynamicImportsRule,
+    },
+    "no-array-method-this-argument": {
+      meta: {
+        type: "suggestion",
+        docs: {
+          description:
+            "Disallow array iteration thisArg arguments while preserving proven Node stream operators.",
+        },
+        messages: {
+          thisArg: "Avoid using 'thisArg' with array iteration methods",
+        },
+        schema: [],
+      },
+      create: createNoArrayMethodThisArgumentRule,
     },
     "no-raw-jsx-elements": {
       meta: {

@@ -2,7 +2,37 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
-## 3.9.2: declaration merging, portable paths, Promise bridges and layout animation
+## 3.9.2: applicability corrections and browser compatibility
+
+These notes describe the unreleased policy. Version 3.9.1 remains the published release; publication of 3.9.2 requires approval. The changes are not certification that any consumer has reached zero findings or preserved its complete behavior.
+
+### Node stream operator options
+
+Core, React, Next and standalone Playwright replace native `unicorn/no-array-method-this-argument` with `howells/no-array-method-this-argument`. Node's `Readable.map(callback, options)` uses the second argument for concurrency and cancellation, not an array `thisArg`. Keep the API, option values, order and error behavior intact:
+
+```ts
+import { Readable } from "node:stream";
+
+const shards = Readable.from(indices).map(readShard, { concurrency: 4 });
+```
+
+The counterpart retains the pinned native candidate matcher, callback filtering and library exclusions. Its exemption covers only `every`, `filter`, `find`, `flatMap`, `forEach`, `map` and `some` directly on a proven `Readable.from(...)` result. The constructor must resolve lexically to a value import of `Readable`, or default/namespace `.Readable`, from `node:stream` or `stream`. Imported local names are resolved by binding identity; no spelling or options-object heuristic establishes a stream.
+
+Shadows, type-only or foreign imports, stream variables, subclasses and chains remain unproved and retain native findings. A detected use of any runtime stream import beyond a direct factory invocation invalidates the exemption for that file, including constructor/prototype mutation, aliases, reflection, re-exports and escaping references. Alternative detected module access through `require`, `import()` or `getBuiltinModule` also invalidates it. This is a file-local proof under standard Node builtins, not whole-program monkeypatch analysis. Neither the counterpart nor the native rule offers fixes or suggestions.
+
+No consumer disable or source rewrite is needed for the proven stream form. Move an explicit array-rule preference to `howells/no-array-method-this-argument` when adopting the shared behavior. The original native key remains a normal explicit opt-in and retains its stream report if intentionally enabled.
+
+### Deferred local modules
+
+`howells/no-runtime-dynamic-imports` adds `{ allowLocalModules: true }`. The plugin option defaults to false, retaining the blanket ban and diagnostic for standalone users. Core enables it, inherited by React, Next and standalone Playwright. Existing test-file exemptions remain.
+
+An accepted import is a fixed relative **string literal** resolving to an existing JavaScript/TypeScript file owned by the same package, for example `await import("./generated-schemes.ts")`. This preserves deferred corpus evaluation and local code splitting without hiding package dependencies. There is no autofix; replacing the import with a static import can change module evaluation and SDK import costs.
+
+The rule resolves relative specifiers as module URLs, then checks real files and the nearest valid `package.json` for both source and target. It rejects workspace/package escapes, nested package boundaries, `node_modules`, symlink redirects, missing files/manifests and invalid metadata. Conventional `apps/*` and `packages/*` directories without their own manifest cannot borrow the root package's ownership. Extension and directory searching are not performed.
+
+The target's transitive runtime graph must also be provably acyclic and confined to that package. Fixed local ESM imports/re-exports and Node builtins are supported; type-only edges do not load code. Foreign package dependencies, unresolved/extensionless edges, computed imports, CommonJS `require` and parse failures leave this proof unestablished and keep the loader reported. The proof uses the existing Oxc parser; no compiler or ESLint dependency is added. This extra check covers Oxlint 1.86's omission of dynamic edges from `import/no-cycle` and `import/no-self-import`; those native rules remain enabled.
+
+Templates, including those without substitutions, percent-encoded specifiers, backslashes, control characters, query strings and fragments remain reported. Existing boundary analyzers consume raw string specifiers, so the allowance requires the same path interpretation in those analyzers and the module loader. Package and computed `import()` expressions remain rejected, and feature-layer/workspace/dependency rules continue to apply. No file allowlist, wrapper or consumer rule cut is needed. Keep literal dependencies and generated targets available on disk; if ownership or the graph cannot be proved, use the finding to resolve that uncertainty rather than widening the policy locally.
 
 ### Callback-to-Promise bridges
 
