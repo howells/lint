@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.10.2 - 2026-11-05
+
+### Fixed
+
+- `howells-fix` applies `anti-slop/require-readable-spacing` in test files. Its fixes are blank lines only, which cannot change an assertion, so they join formatting as the changes made to tests; every other fix stays report-only there. Without this, the new rule's findings in tests could only be fixed by hand.
+
 ## 3.10.1 - 2026-11-05
 
 ### Fixed

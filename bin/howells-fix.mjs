@@ -3,6 +3,7 @@
 import { globSync, statSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import { exitFromStages, runStage } from "./empty-target-set.mjs";
 import {
@@ -29,11 +30,15 @@ import { hasStdinFlag, refuseStdin } from "./stdin-mode.mjs";
 // dangerous belongs to the file, not the rule: every consumer runs `howells-fix`
 // from a pre-commit hook, so any fix landing in a test file lands unreviewed.
 // So the whole class is excluded here rather than rule by rule in the preset.
-// Test files are still linted - the second stage below reports on them - and
-// oxfmt still formats them, because formatting moves whitespace and cannot
-// change what an assertion asserts.
+// Test files are still linted - a later stage reports on them - and oxfmt
+// still formats them, because formatting moves whitespace and cannot change
+// what an assertion asserts. For the same reason, rules whose fixes are
+// whitespace alone (`oxlint/test-whitespace.mjs`) are fixed in test files.
 const TEST_FILE_GLOBS = ["**/*.test.*", "**/*.spec.*"];
 const TEST_FILE_PATTERN = /\.(?:test|spec)\.[^./\\]+$/u;
+const TEST_WHITESPACE_CONFIG = fileURLToPath(
+  new URL("../oxlint/test-whitespace.mjs", import.meta.url)
+);
 
 const isDirectory = (target) => {
   try {
@@ -113,6 +118,16 @@ const lintFixStage = runStage(
 const stages = [formatStage, lintFixStage];
 
 if (testTargets.length > 0) {
+  // Whitespace-only fixes, under a config that enables nothing else.
+  stages.push(
+    runStage("oxlint", "oxlint", [
+      "--config",
+      TEST_WHITESPACE_CONFIG,
+      "--fix",
+      ...oxlintExcludeArgs(resolvedTargets),
+      ...testTargets,
+    ])
+  );
   stages.push(
     runStage(
       "oxlint",

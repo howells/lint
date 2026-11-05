@@ -93,7 +93,7 @@ test("still fails on a genuine unfixable lint error", async () => {
 // the rule. `no-useless-escape` carries a safe fix under Oxlint's defaults, so
 // it is applied in `src.mjs` and only reported in `src.test.mjs`.
 test("reports a fixable finding in a test file without rewriting it", async () => {
-  const testSource = 'const pattern = "a\\/b";\nexport { pattern };\n';
+  const testSource = 'const pattern = "a\\/b";\n\nexport { pattern };\n';
   const result = await runFix(
     {
       "src.mjs": testSource,
@@ -106,6 +106,21 @@ test("reports a fixable finding in a test file without rewriting it", async () =
   assert.match(result.output, /src\.test\.mjs.+no-useless-escape/su);
   assert.equal(
     result.contents["src.mjs"],
-    'const pattern = "a/b";\nexport { pattern };\n'
+    'const pattern = "a/b";\n\nexport { pattern };\n'
   );
+});
+
+// Blank lines cannot change what an assertion asserts, so the whitespace-only
+// rules in `oxlint/test-whitespace.mjs` are fixed in test files too. The
+// escape beside them stays as written.
+test("fixes readable spacing in a test file and nothing else", async () => {
+  const testSource =
+    'const pattern = "a\\/b";\nif (pattern) {\n  console.log(pattern);\n}\nexport { pattern };\n';
+  const result = await runFix({ "src.test.mjs": testSource }, ["."]);
+
+  assert.equal(
+    result.contents["src.test.mjs"],
+    'const pattern = "a\\/b";\n\nif (pattern) {\n  console.log(pattern);\n}\n\nexport { pattern };\n'
+  );
+  assert.match(result.output, /src\.test\.mjs.+no-useless-escape/su);
 });
