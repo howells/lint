@@ -1,5 +1,5 @@
 /*
- * Vendored from eslint-plugin-playwright 2.11.0 (MIT, see LICENSE beside
+ * Vendored from eslint-plugin-playwright 2.12.2 (MIT, see LICENSE beside
  * this file). Oxlint runs it through its JS-plugin bridge. The published
  * package declares ESLint as a required peer, which pnpm installs in every
  * consumer; this copy needs only `globals`, so nothing installs ESLint.
@@ -201,7 +201,14 @@ var findModifiersAndMatcher = (chain, members, stage) => {
     const name = getStringValue(member);
     if (name === "soft" || name === "poll") {
       if (modifiers2.length > 0) {
-        return "modifier-unknown";
+        const softThenPoll =
+          name === "poll" &&
+          stage === "modifiers" &&
+          modifiers2.length === 1 &&
+          getStringValue(modifiers2[0]) === "soft";
+        if (!softThenPoll) {
+          return "modifier-unknown";
+        }
       }
     } else if (name === "resolves" || name === "rejects") {
       const lastModifier = getStringValue(modifiers2.at(-1));
@@ -1382,6 +1389,91 @@ var missing_playwright_await_default = createRule({
   },
 });
 
+// src/rules/no-action-timeout.ts
+var actionMethods = /* @__PURE__ */ new Set([
+  "blur",
+  "check",
+  "clear",
+  "click",
+  "dblclick",
+  "dispatchEvent",
+  "dragAndDrop",
+  "dragTo",
+  "fill",
+  "focus",
+  "hover",
+  "press",
+  "pressSequentially",
+  "selectOption",
+  "selectText",
+  "setChecked",
+  "setInputFiles",
+  "tap",
+  "type",
+  "uncheck",
+]);
+function findTimeoutOption(node) {
+  const arg = node.arguments.at(-1);
+  return arg?.type === "ObjectExpression"
+    ? arg.properties.find(
+        (property) =>
+          property.type === "Property" &&
+          getStringValue(property.key) === "timeout"
+      )
+    : void 0;
+}
+var no_action_timeout_default = createRule({
+  create(context) {
+    const allowed = new Set(context.options[0]?.allow ?? []);
+    return {
+      MemberExpression(node) {
+        const method = getStringValue(node.property);
+        if (
+          !actionMethods.has(method) ||
+          allowed.has(method) ||
+          node.parent.type !== "CallExpression" ||
+          node.parent.callee !== node
+        ) {
+          return;
+        }
+        const timeout = findTimeoutOption(node.parent);
+        if (timeout) {
+          context.report({
+            data: { method },
+            messageId: "noActionTimeout",
+            node: timeout,
+          });
+        }
+      },
+    };
+  },
+  meta: {
+    docs: {
+      description: "Disallow the `timeout` option on actions",
+      recommended: false,
+      url: "https://github.com/mskelton/eslint-plugin-playwright/tree/main/docs/rules/no-action-timeout.md",
+    },
+    messages: {
+      noActionTimeout:
+        "Unexpected `timeout` option on `{{ method }}()`. Configure timeouts globally instead.",
+    },
+    schema: [
+      {
+        additionalProperties: false,
+        properties: {
+          allow: {
+            items: { type: "string" },
+            type: "array",
+            uniqueItems: true,
+          },
+        },
+        type: "object",
+      },
+    ],
+    type: "suggestion",
+  },
+});
+
 // src/rules/no-commented-out-tests.ts
 function getTestNames(context) {
   const settings = context.settings;
@@ -1730,6 +1822,72 @@ var no_eval_default = createRule({
   },
 });
 
+// src/rules/no-export.ts
+function isDeclaredInScope(scope, name) {
+  let currentScope = scope;
+  while (currentScope) {
+    const variable = currentScope.set.get(name);
+    if (variable && variable.defs.length > 0) {
+      return true;
+    }
+    currentScope = currentScope.upper;
+  }
+  return false;
+}
+var no_export_default = createRule({
+  create(context) {
+    const exportNodes = [];
+    let hasTestCase = false;
+    return {
+      "AssignmentExpression > MemberExpression"(node) {
+        let { object, property } = node;
+        if (object.type === "MemberExpression") {
+          ({ object, property } = object);
+        }
+        if (
+          !isIdentifier(object, "module") ||
+          isDeclaredInScope(context.sourceCode.getScope(object), "module")
+        ) {
+          return;
+        }
+        if (isIdentifier(property, /^exports?$/)) {
+          exportNodes.push(node);
+        }
+      },
+      CallExpression(node) {
+        if (isTypeOfFnCall(context, node, ["describe", "test"])) {
+          hasTestCase = true;
+        }
+      },
+      "ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, TSExportAssignment"(
+        node
+      ) {
+        exportNodes.push(node);
+      },
+      "Program:exit"() {
+        if (!hasTestCase) {
+          return;
+        }
+        for (const node of exportNodes) {
+          context.report({ messageId: "unexpectedExport", node });
+        }
+      },
+    };
+  },
+  meta: {
+    docs: {
+      description: "Disallow using `export` in files containing tests",
+      recommended: false,
+      url: "https://github.com/mskelton/eslint-plugin-playwright/tree/main/docs/rules/no-export.md",
+    },
+    messages: {
+      unexpectedExport: "Do not export from a test file",
+    },
+    schema: [],
+    type: "suggestion",
+  },
+});
+
 // src/rules/no-focused-test.ts
 var no_focused_test_default = createRule({
   create(context) {
@@ -1896,7 +2054,247 @@ var no_hooks_default = createRule({
         additionalProperties: false,
         properties: {
           allow: {
-            contains: ["beforeAll", "beforeEach", "afterAll", "afterEach"],
+            items: {
+              enum: ["beforeAll", "beforeEach", "afterAll", "afterEach"],
+              type: "string",
+            },
+            type: "array",
+          },
+        },
+        type: "object",
+      },
+    ],
+    type: "suggestion",
+  },
+});
+
+// src/rules/no-identical-title.ts
+var newDescribeContext = () => ({
+  describeTitles: [],
+  testTitles: [],
+});
+var no_identical_title_default = createRule({
+  create(context) {
+    const contexts = [newDescribeContext()];
+    return {
+      CallExpression(node) {
+        const currentLayer = contexts[contexts.length - 1];
+        const call = parseFnCall(context, node);
+        if (!call) {
+          return;
+        }
+        if (call.type === "describe") {
+          contexts.push(newDescribeContext());
+        }
+        if (call.type !== "describe" && call.type !== "test") {
+          return;
+        }
+        const [argument] = node.arguments;
+        if (!argument || !isStringNode(argument)) {
+          return;
+        }
+        const title = getStringValue(argument);
+        const titles =
+          call.type === "describe"
+            ? currentLayer.describeTitles
+            : currentLayer.testTitles;
+        if (titles.includes(title)) {
+          context.report({
+            messageId:
+              call.type === "describe"
+                ? "multipleDescribeTitle"
+                : "multipleTestTitle",
+            node: argument,
+          });
+        }
+        titles.push(title);
+      },
+      "CallExpression:exit"(node) {
+        if (isTypeOfFnCall(context, node, ["describe"])) {
+          contexts.pop();
+        }
+      },
+    };
+  },
+  meta: {
+    docs: {
+      description: "Disallow identical titles",
+      recommended: true,
+      url: "https://github.com/mskelton/eslint-plugin-playwright/tree/main/docs/rules/no-identical-title.md",
+    },
+    messages: {
+      multipleDescribeTitle:
+        "Describe block title is used multiple times in the same describe block",
+      multipleTestTitle:
+        "Test title is used multiple times in the same describe block",
+    },
+    schema: [],
+    type: "suggestion",
+  },
+});
+
+// src/rules/no-magic-timeouts.ts
+function evaluate(node) {
+  if (node.type === "Literal") {
+    return typeof node.value === "number" ? node.value : void 0;
+  }
+  if (
+    node.type === "UnaryExpression" &&
+    (node.operator === "-" || node.operator === "+")
+  ) {
+    const value = evaluate(node.argument);
+    return value === void 0 ? void 0 : node.operator === "-" ? -value : value;
+  }
+  if (node.type === "BinaryExpression") {
+    const left =
+      node.left.type === "PrivateIdentifier" ? void 0 : evaluate(node.left);
+    const right = evaluate(node.right);
+    if (left === void 0 || right === void 0) {
+      return void 0;
+    }
+    switch (node.operator) {
+      case "*":
+        return left * right;
+      case "/":
+        return left / right;
+      case "+":
+        return left + right;
+      case "-":
+        return left - right;
+      default:
+        return void 0;
+    }
+  }
+  return void 0;
+}
+function isInsideConfig(node) {
+  let current = node;
+  while (current) {
+    if (
+      current.type === "CallExpression" &&
+      getStringValue(
+        current.callee.type === "MemberExpression"
+          ? current.callee.property
+          : current.callee
+      ) === "defineConfig"
+    ) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+function isCallArgument(object) {
+  const parent = object.parent;
+  return (
+    (parent?.type === "CallExpression" || parent?.type === "NewExpression") &&
+    parent.arguments.includes(object)
+  );
+}
+var no_magic_timeouts_default = createRule({
+  create(context) {
+    const {
+      allow = [],
+      minOccurrences = 1,
+      properties = ["timeout"],
+    } = context.options?.[0] ?? {};
+    const allowed = new Set(allow);
+    const timeoutProperties = new Set(properties);
+    const occurrences = /* @__PURE__ */ new Map();
+    function collect(node) {
+      const value = evaluate(node);
+      if (value === void 0 || allowed.has(value)) {
+        return;
+      }
+      const nodes = occurrences.get(value);
+      if (nodes) {
+        nodes.push(node);
+      } else {
+        occurrences.set(value, [node]);
+      }
+    }
+    return {
+      CallExpression(node) {
+        if (
+          node.callee.type === "MemberExpression" &&
+          getStringValue(node.callee.property) === "setTimeout" &&
+          node.arguments.length === 1 &&
+          node.arguments[0].type !== "SpreadElement"
+        ) {
+          collect(node.arguments[0]);
+        }
+      },
+      "Program:exit"() {
+        for (const nodes of occurrences.values()) {
+          if (nodes.length < minOccurrences) {
+            continue;
+          }
+          for (const node of nodes) {
+            context.report({
+              data: {
+                count: String(nodes.length),
+                value: context.sourceCode.getText(node),
+              },
+              messageId:
+                minOccurrences > 1 ? "repeatedMagicTimeout" : "noMagicTimeout",
+              node,
+            });
+          }
+        }
+      },
+      Property(node) {
+        if (node.computed && node.key.type !== "Literal") {
+          return;
+        }
+        if (!timeoutProperties.has(getStringValue(node.key))) {
+          return;
+        }
+        if (
+          node.value.type === "AssignmentPattern" ||
+          node.value.type === "RestElement"
+        ) {
+          return;
+        }
+        const object = node.parent;
+        if (object?.type !== "ObjectExpression") {
+          return;
+        }
+        if (!isCallArgument(object)) {
+          return;
+        }
+        if (isInsideConfig(object)) {
+          return;
+        }
+        collect(node.value);
+      },
+    };
+  },
+  meta: {
+    docs: {
+      description: "Disallow magic numbers as Playwright timeout values",
+      recommended: false,
+      url: "https://github.com/mskelton/eslint-plugin-playwright/tree/main/docs/rules/no-magic-timeouts.md",
+    },
+    messages: {
+      noMagicTimeout:
+        "Avoid the magic timeout `{{ value }}`. Extract it to a named constant, or configure it globally in your Playwright config.",
+      repeatedMagicTimeout:
+        "The magic timeout `{{ value }}` is used {{ count }} times in this file. Extract it to a named constant, or configure it globally in your Playwright config.",
+    },
+    schema: [
+      {
+        additionalProperties: false,
+        properties: {
+          allow: {
+            items: { type: "number" },
+            type: "array",
+          },
+          minOccurrences: {
+            minimum: 1,
+            type: "integer",
+          },
+          properties: {
+            items: { type: "string" },
             type: "array",
           },
         },
@@ -2346,32 +2744,82 @@ var no_restricted_roles_default = createRule({
 });
 
 // src/rules/no-skipped-test.ts
+function resolveVariable(context, node) {
+  let scope = context.sourceCode.getScope(node);
+  while (scope) {
+    const variable = scope.variables.find((v) => v.name === node.name);
+    if (variable) {
+      return variable;
+    }
+    scope = scope.upper;
+  }
+}
+function isTestInfo(context, node) {
+  if (node.type !== "Identifier") {
+    return false;
+  }
+  const def = resolveVariable(context, node)?.defs[0];
+  if (def?.type !== "Parameter") {
+    return false;
+  }
+  const fn = def.node;
+  if (!isFunction(fn) || fn.params[1] !== def.name) {
+    return false;
+  }
+  const parent = fn.parent;
+  if (parent?.type !== "CallExpression" || !parent.arguments.includes(fn)) {
+    return false;
+  }
+  const call = parseFnCall(context, parent);
+  return (
+    call?.group === "test" || call?.group === "hook" || call?.group === "step"
+  );
+}
 var no_skipped_test_default = createRule({
   create(context) {
+    const options = context.options[0] || {};
+    const disallowFixme = !!options.disallowFixme;
+    const allowConditional =
+      typeof options.allowConditional === "object"
+        ? {
+            fixme: !!options.allowConditional.fixme,
+            skip: !!options.allowConditional.skip,
+          }
+        : {
+            fixme: !!options.allowConditional,
+            skip: !!options.allowConditional,
+          };
+    const isSkipAnnotation = (value) =>
+      value === "skip" || (disallowFixme && value === "fixme");
     return {
       CallExpression(node) {
-        const options = context.options[0] || {};
-        const allowConditional = !!options.allowConditional;
-        const disallowFixme = !!options.disallowFixme;
+        let isStandalone = false;
+        let skipNode;
         const call = parseFnCall(context, node);
         if (
-          call?.group !== "test" &&
-          call?.group !== "describe" &&
-          call?.group !== "step"
+          call?.group === "test" ||
+          call?.group === "describe" ||
+          call?.group === "step"
         ) {
-          return;
+          isStandalone = call.type === "config";
+          skipNode = call.members.find((member) =>
+            isSkipAnnotation(getStringValue(member))
+          );
+        } else if (
+          node.callee.type === "MemberExpression" &&
+          isSkipAnnotation(getStringValue(node.callee.property)) &&
+          isTestInfo(context, node.callee.object)
+        ) {
+          isStandalone = true;
+          skipNode = node.callee.property;
         }
-        const skipNode = call.members.find((member) => {
-          const value = getStringValue(member);
-          return value === "skip" || (disallowFixme && value === "fixme");
-        });
         if (!skipNode) {
           return;
         }
-        const isStandalone = call.type === "config";
+        const annotation = getStringValue(skipNode);
         if (
           isStandalone &&
-          allowConditional &&
+          allowConditional[annotation] &&
           (node.arguments.length !== 0 ||
             findParent(node, "BlockStatement")?.parent?.type ===
               "IfStatement" ||
@@ -2379,14 +2827,13 @@ var no_skipped_test_default = createRule({
         ) {
           return;
         }
-        const annotation = getStringValue(skipNode);
         context.report({
           data: { annotation },
           messageId: "noSkippedTest",
           node: isStandalone ? node : skipNode,
           suggest: [
             {
-              data: { annotation: getStringValue(skipNode) },
+              data: { annotation },
               fix: (fixer) => {
                 return isStandalone
                   ? fixer.remove(node.parent)
@@ -2419,8 +2866,24 @@ var no_skipped_test_default = createRule({
         additionalProperties: false,
         properties: {
           allowConditional: {
+            anyOf: [
+              {
+                type: "boolean",
+              },
+              {
+                additionalProperties: false,
+                properties: {
+                  fixme: {
+                    type: "boolean",
+                  },
+                  skip: {
+                    type: "boolean",
+                  },
+                },
+                type: "object",
+              },
+            ],
             default: false,
-            type: "boolean",
           },
           disallowFixme: {
             default: false,
@@ -2616,6 +3079,128 @@ var no_standalone_expect_default = createRule({
     messages: {
       unexpectedExpect: "Expect must be inside of a test block",
     },
+    type: "suggestion",
+  },
+});
+
+// src/rules/no-template-literal-title.ts
+var methods3 = {
+  describe: "test.describe",
+  step: "test.step",
+  test: "test",
+};
+function quote(value) {
+  return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
+}
+var no_template_literal_title_default = createRule({
+  create(context) {
+    const { ignore } = {
+      ignore: [],
+      ...(context.options?.[0] ?? {}),
+    };
+    return {
+      CallExpression(node) {
+        const call = parseFnCall(context, node);
+        if (
+          call?.type !== "test" &&
+          call?.type !== "describe" &&
+          call?.type !== "step"
+        ) {
+          return;
+        }
+        const [title] = node.arguments;
+        if (title?.type !== "TemplateLiteral") {
+          return;
+        }
+        const method = methods3[call.type];
+        if (ignore.includes(method)) {
+          return;
+        }
+        if (title.expressions.length > 0) {
+          context.report({
+            data: { method },
+            messageId: "interpolatedTitle",
+            node: title,
+          });
+          return;
+        }
+        const cooked = title.quasis[0].value.cooked;
+        const fixable = typeof cooked === "string" && !/[\n\r]/.test(cooked);
+        context.report({
+          data: { method },
+          fix: fixable
+            ? (fixer) => fixer.replaceText(title, quote(cooked))
+            : void 0,
+          messageId: "staticTemplateLiteral",
+          node: title,
+        });
+      },
+    };
+  },
+  meta: {
+    docs: {
+      description:
+        "Disallow template literals in test, describe, and step titles",
+      recommended: false,
+      url: "https://github.com/mskelton/eslint-plugin-playwright/tree/main/docs/rules/no-template-literal-title.md",
+    },
+    fixable: "code",
+    messages: {
+      interpolatedTitle:
+        "Do not interpolate values into `{{method}}` titles. Titles are used by reporters and `--grep`, so they should be stable.",
+      staticTemplateLiteral:
+        "Use a string literal instead of a template literal for `{{method}}` titles.",
+    },
+    schema: [
+      {
+        additionalProperties: false,
+        properties: {
+          ignore: {
+            additionalItems: false,
+            items: {
+              enum: ["test", "test.describe", "test.step"],
+            },
+            type: "array",
+          },
+        },
+        type: "object",
+      },
+    ],
+    type: "suggestion",
+  },
+});
+
+// src/rules/no-test-return-statement.ts
+function getBody(node) {
+  const body = node.arguments.filter(isFunction).at(-1);
+  return body?.body.type === "BlockStatement" ? body.body.body : [];
+}
+var no_test_return_statement_default = createRule({
+  create(context) {
+    return {
+      CallExpression(node) {
+        if (!isTypeOfFnCall(context, node, ["test"])) {
+          return;
+        }
+        const returnStmt = getBody(node).find(
+          (statement) => statement.type === "ReturnStatement"
+        );
+        if (returnStmt) {
+          context.report({ messageId: "noReturnValue", node: returnStmt });
+        }
+      },
+    };
+  },
+  meta: {
+    docs: {
+      description: "Disallow explicitly returning from tests",
+      recommended: false,
+      url: "https://github.com/mskelton/eslint-plugin-playwright/tree/main/docs/rules/no-test-return-statement.md",
+    },
+    messages: {
+      noReturnValue: "Tests should not return a value",
+    },
+    schema: [],
     type: "suggestion",
   },
 });
@@ -3031,7 +3616,9 @@ var no_useless_await_default = createRule({
           !call.modifiers.some((modifier) =>
             isIdentifier(modifier, /^(resolves|rejects)$/)
           ) &&
-          !call.members.some((member) => isIdentifier(member, "poll")) &&
+          !call.modifiers.some(
+            (modifier) => getStringValue(modifier) === "poll"
+          ) &&
           expectMatchers.has(call.matcherName)
         ) {
           return fix(node.parent);
@@ -3413,6 +4000,95 @@ var prefer_comparison_matcher_default = createRule({
     messages: {
       useToBeComparison: "Prefer using `{{ preferredMatcher }}` instead",
     },
+    type: "suggestion",
+  },
+});
+
+// src/rules/prefer-ending-with-an-expect.ts
+function getBody2(node) {
+  return node.arguments.filter(isFunction).at(-1);
+}
+function getLastStatement(fn) {
+  if (fn.body.type !== "BlockStatement") {
+    return fn.body;
+  }
+  const lastStatement = fn.body.body.at(-1);
+  return lastStatement?.type === "ExpressionStatement"
+    ? lastStatement.expression
+    : lastStatement?.type === "ReturnStatement"
+      ? (lastStatement.argument ?? void 0)
+      : lastStatement;
+}
+var prefer_ending_with_an_expect_default = createRule({
+  create(context) {
+    const options = {
+      assertFunctionNames: [],
+      assertFunctionPatterns: [],
+      ...(context.options?.[0] ?? {}),
+    };
+    const patterns = options.assertFunctionPatterns.map(
+      (pattern) => new RegExp(pattern)
+    );
+    function isAssertion(node) {
+      if (node?.type === "AwaitExpression") {
+        return isAssertion(node.argument);
+      }
+      if (node?.type !== "CallExpression") {
+        return false;
+      }
+      const call = parseFnCall(context, node);
+      if (call?.type === "expect") {
+        return true;
+      }
+      if (call?.type === "step") {
+        const body = getBody2(node);
+        return !!body && isAssertion(getLastStatement(body));
+      }
+      return (
+        options.assertFunctionNames.some((name) => dig(node.callee, name)) ||
+        patterns.some((pattern) => dig(node.callee, pattern))
+      );
+    }
+    return {
+      CallExpression(node) {
+        if (parseFnCall(context, node)?.type !== "test") {
+          return;
+        }
+        const body = getBody2(node);
+        if (!body) {
+          return;
+        }
+        if (!isAssertion(getLastStatement(body))) {
+          context.report({ messageId: "mustEndWithExpect", node: node.callee });
+        }
+      },
+    };
+  },
+  meta: {
+    docs: {
+      description: "Prefer having the last statement in a test be an assertion",
+      recommended: false,
+      url: "https://github.com/mskelton/eslint-plugin-playwright/tree/main/docs/rules/prefer-ending-with-an-expect.md",
+    },
+    messages: {
+      mustEndWithExpect: "Tests should end with an assertion",
+    },
+    schema: [
+      {
+        additionalProperties: false,
+        properties: {
+          assertFunctionNames: {
+            items: { type: "string" },
+            type: "array",
+          },
+          assertFunctionPatterns: {
+            items: { type: "string" },
+            type: "array",
+          },
+        },
+        type: "object",
+      },
+    ],
     type: "suggestion",
   },
 });
@@ -4200,7 +4876,7 @@ var prefer_to_have_length_default = createRule({
 });
 
 // src/rules/prefer-web-first-assertions.ts
-var methods3 = {
+var methods4 = {
   allInnerTexts: {
     fixable: false,
     matcher: "toHaveText",
@@ -4278,8 +4954,8 @@ var prefer_web_first_assertions_default = createRule({
           return;
         }
         const method = getStringValue(call.callee.property);
-        const methodConfig = methods3[method];
-        if (!Object.hasOwn(methods3, method)) {
+        const methodConfig = methods4[method];
+        if (!Object.hasOwn(methods4, method)) {
           return;
         }
         const notModifier = fnCall.modifiers.find(
@@ -4375,6 +5051,87 @@ var prefer_web_first_assertions_default = createRule({
     messages: {
       useWebFirstAssertion: "Replace {{method}}() with {{matcher}}().",
     },
+    type: "suggestion",
+  },
+});
+
+// src/rules/require-annotation-reason.ts
+var DEFAULT_ANNOTATIONS = ["fixme", "skip"];
+var require_annotation_reason_default = createRule({
+  create(context) {
+    const { annotations = DEFAULT_ANNOTATIONS, pattern } =
+      context.options?.[0] ?? {};
+    const names = new Set(annotations);
+    const regex = pattern ? new RegExp(pattern, "u") : void 0;
+    return {
+      CallExpression(node) {
+        const call = parseFnCall(context, node);
+        if (call?.type !== "config") {
+          return;
+        }
+        const member = call.members.find((m) => names.has(getStringValue(m)));
+        if (!member) {
+          return;
+        }
+        const annotation = getStringValue(member);
+        const reasonNode = node.arguments[1];
+        if (!reasonNode) {
+          context.report({
+            data: { annotation },
+            messageId: "missingReason",
+            node,
+          });
+          return;
+        }
+        if (!isStringNode(reasonNode)) {
+          return;
+        }
+        const reason = getStringValue(reasonNode).trim();
+        if (!reason) {
+          context.report({
+            data: { annotation },
+            messageId: "missingReason",
+            node: reasonNode,
+          });
+          return;
+        }
+        if (regex && !regex.test(reason)) {
+          context.report({
+            data: { annotation, pattern: String(regex) },
+            messageId: "reasonMustMatch",
+            node: reasonNode,
+          });
+        }
+      },
+    };
+  },
+  meta: {
+    docs: {
+      description: "Require a reason for `.skip()` and `.fixme()` annotations",
+      recommended: false,
+      url: "https://github.com/mskelton/eslint-plugin-playwright/tree/main/docs/rules/require-annotation-reason.md",
+    },
+    messages: {
+      missingReason:
+        "The `.{{ annotation }}()` annotation should say why. Add a reason as the last argument.",
+      reasonMustMatch:
+        "The `.{{ annotation }}()` reason should match {{ pattern }}.",
+    },
+    schema: [
+      {
+        additionalProperties: false,
+        properties: {
+          annotations: {
+            items: { enum: ["fail", "fixme", "skip", "slow"], type: "string" },
+            type: "array",
+          },
+          pattern: {
+            type: "string",
+          },
+        },
+        type: "object",
+      },
+    ],
     type: "suggestion",
   },
 });
@@ -5692,6 +6449,7 @@ var plugin = {
     "max-expects": max_expects_default,
     "max-nested-describe": max_nested_describe_default,
     "missing-playwright-await": missing_playwright_await_default,
+    "no-action-timeout": no_action_timeout_default,
     "no-commented-out-tests": no_commented_out_tests_default,
     "no-conditional-expect": no_conditional_expect_default,
     "no-conditional-in-test": no_conditional_in_test_default,
@@ -5699,10 +6457,13 @@ var plugin = {
     "no-duplicate-slow": no_duplicate_slow_default,
     "no-element-handle": no_element_handle_default,
     "no-eval": no_eval_default,
+    "no-export": no_export_default,
     "no-focused-test": no_focused_test_default,
     "no-force-option": no_force_option_default,
     "no-get-by-title": no_get_by_title_default,
     "no-hooks": no_hooks_default,
+    "no-identical-title": no_identical_title_default,
+    "no-magic-timeouts": no_magic_timeouts_default,
     "no-nested-step": no_nested_step_default,
     "no-networkidle": no_networkidle_default,
     "no-nth-methods": no_nth_methods_default,
@@ -5714,6 +6475,8 @@ var plugin = {
     "no-skipped-test": no_skipped_test_default,
     "no-slowed-test": no_slowed_test_default,
     "no-standalone-expect": no_standalone_expect_default,
+    "no-template-literal-title": no_template_literal_title_default,
+    "no-test-return-statement": no_test_return_statement_default,
     "no-unnecessary-assertions": no_unnecessary_assertions_default,
     "no-unsafe-references": no_unsafe_references_default,
     "no-unused-locators": no_unused_locators_default,
@@ -5723,6 +6486,7 @@ var plugin = {
     "no-wait-for-selector": no_wait_for_selector_default,
     "no-wait-for-timeout": no_wait_for_timeout_default,
     "prefer-comparison-matcher": prefer_comparison_matcher_default,
+    "prefer-ending-with-an-expect": prefer_ending_with_an_expect_default,
     "prefer-equality-matcher": prefer_equality_matcher_default,
     "prefer-hooks-in-order": prefer_hooks_in_order_default,
     "prefer-hooks-on-top": prefer_hooks_on_top_default,
@@ -5735,6 +6499,7 @@ var plugin = {
     "prefer-to-have-count": prefer_to_have_count_default,
     "prefer-to-have-length": prefer_to_have_length_default,
     "prefer-web-first-assertions": prefer_web_first_assertions_default,
+    "require-annotation-reason": require_annotation_reason_default,
     "require-hook": require_hook_default,
     "require-soft-assertions": require_soft_assertions_default,
     "require-tags": require_tags_default,
@@ -5763,6 +6528,7 @@ var sharedConfig = {
     "playwright/no-eval": "warn",
     "playwright/no-focused-test": "error",
     "playwright/no-force-option": "warn",
+    "playwright/no-identical-title": "warn",
     "playwright/no-nested-step": "warn",
     "playwright/no-networkidle": "error",
     "playwright/no-page-pause": "warn",

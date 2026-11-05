@@ -100,29 +100,29 @@
     "prepack": "node scripts/check-native.mjs"
   },
   "dependencies": {
+    "@boundaries/config": "1.0.0",
     "@boundaries/elements": "3.3.1",
+    "@boundaries/policies": "1.0.0",
     "@gdp-ts/core": "0.1.0",
     "@howells/neon": "^0.2.0",
     "@manypkg/cli": "0.25.1",
     "chalk": "4.1.2",
     "cn": "0.4.0",
     "eslint-import-resolver-node": "0.3.9",
-    "eslint-module-utils": "2.12.1",
-    "globals": "17.12.0",
-    "handlebars": "4.7.10",
-    "micromatch": "4.0.8",
-    "oxc-parser": "0.151.0",
+    "eslint-module-utils": "2.14.0",
+    "globals": "17.14.0",
+    "oxc-parser": "0.157.0",
     "oxc-resolver": "11.24.2",
-    "oxfmt": "0.71.0",
-    "oxlint": "1.86.0",
-    "oxlint-plugin-react-doctor": "0.9.16",
-    "oxlint-tsgolint": "7.0.2004",
+    "oxfmt": "0.76.0",
+    "oxlint": "1.91.0",
+    "oxlint-plugin-react-doctor": "0.9.22",
+    "oxlint-tsgolint": "7.0.2005",
     "stable-hash-x": "0.1.1",
-    "ultracite": "8.0.0"
+    "ultracite": "8.1.1"
   },
   "devDependencies": {
     "@howells/husky": "^0.3.0",
-    "lint-staged": "^17.5.1"
+    "lint-staged": "^17.6.0"
   },
   "lint-staged": {
     "*.{js,ts,jsx,tsx,json,jsonc,css,md,mdx}": "node bin/howells-oxfmt.mjs --write"

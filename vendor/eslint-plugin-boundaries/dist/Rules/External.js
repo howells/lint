@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const config_1 = require("@boundaries/config");
 const elements_1 = require("@boundaries/elements");
 const Settings_1 = require("../Settings");
 const Shared_1 = require("../Shared");
@@ -111,34 +112,7 @@ exports.default = (0, Support_1.dependencyRule)({
     ruleName: RULE_EXTERNAL,
     description: `Check dependencies to external and core libraries`,
     deprecated: (0, Settings_1.deprecatedRuleInfo)(Shared_1.RULE_NAMES_MAP.DEPENDENCIES),
-    schema: (0, Settings_1.rulesOptionsSchema)({
-        isLegacy: true,
-        targetMatcherOptions: {
-            type: "object",
-            properties: {
-                specifiers: {
-                    type: "array",
-                    items: {
-                        type: "string",
-                    },
-                },
-                path: {
-                    anyOf: [
-                        {
-                            type: "string",
-                        },
-                        {
-                            type: "array",
-                            items: {
-                                type: "string",
-                            },
-                        },
-                    ],
-                },
-            },
-            additionalProperties: false,
-        },
-    }),
+    schema: (0, config_1.getRuleOptionsSchema)(RULE_EXTERNAL),
 }, function ({ dependency, node, context, settings, options }) {
     (0, Settings_1.warnMigrationToDependencies)(Shared_1.RULE_NAMES_MAP.EXTERNAL);
     // Validate and warn about deprecated rule option syntax (legacy
@@ -146,13 +120,16 @@ exports.default = (0, Support_1.dependencyRule)({
     (0, Settings_1.validateAndWarnRuleOptions)(options, Shared_1.RULE_NAMES_MAP.EXTERNAL, settings.legacyWarnings);
     const origin = dependency.to.module.origin;
     if (origin === elements_1.ORIGINS_MAP.EXTERNAL || origin === elements_1.ORIGINS_MAP.CORE) {
-        const rules = transformToDependenciesRules(options?.policies ?? options?.rules ?? []);
+        const policies = transformToDependenciesRules(options?.policies ?? options?.rules ?? []);
         (0, Dependencies_1.evaluatePoliciesAndReport)({
-            rules,
+            options: (0, config_1.normalizeDependenciesRuleOptions)({
+                default: options?.default,
+                message: options?.message,
+                policies,
+            }),
             settings,
             context,
             node,
-            options,
             dependency,
         });
     }

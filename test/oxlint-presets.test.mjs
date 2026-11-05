@@ -241,8 +241,10 @@ test("GDP trusted modules may mint proofs but cannot export the prover", async (
       'import type { Named, Proof } from "@gdp-ts/core";',
       "",
       'const prover = defineProof("UserIsProjectAdmin");',
+      "",
       "export interface UserIsProjectAdmin<U, P>",
       '  extends Proof<"UserIsProjectAdmin", [U, P]> {}',
+      "",
       "export const checkProjectAdmin = <U, P>(",
       "  user: Named<U, string>,",
       "  project: Named<P, string>",
@@ -2799,16 +2801,46 @@ test("switch options reject redundant defaults and require open-type defaults in
       `import core from "${corePresetUrl}"; export default { extends: [core] };`
     );
     const sources = {
-      "union.ts":
-        'export const choose = (value: "a" | "b"): number => { let result = 0; switch (value) { case "a": { result = 1; break; } case "b": { result = 2; break; } } return result; };',
+      "union.ts": [
+        'export const choose = (value: "a" | "b"): number => {',
+        "  let result = 0;",
+        "",
+        "  switch (value) {",
+        '    case "a": {',
+        "      result = 1;",
+        "      break;",
+        "    }",
+        "",
+        '    case "b": {',
+        "      result = 2;",
+        "      break;",
+        "    }",
+        "  }",
+        "",
+        "  return result;",
+        "};",
+        "",
+      ].join("\n"),
       "redundant-default.ts":
         'export const choose = (value: "a" | "b"): number => { switch (value) { case "a": { return 1; } case "b": { return 2; } default: { return 3; } } };',
       "missing-union.ts":
         'export const choose = (value: "a" | "b"): number => { switch (value) { case "a": { return 1; } } return 0; };',
       "open.ts":
         'export const choose = (value: string): number => { switch (value) { case "a": { return 1; } } return 0; };',
-      "open-default.ts":
-        'export const choose = (value: string): number => { switch (value) { case "a": { return 1; } default: { return 0; } } };',
+      "open-default.ts": [
+        "export const choose = (value: string): number => {",
+        "  switch (value) {",
+        '    case "a": {',
+        "      return 1;",
+        "    }",
+        "",
+        "    default: {",
+        "      return 0;",
+        "    }",
+        "  }",
+        "};",
+        "",
+      ].join("\n"),
       "useless-case.ts":
         'export const choose = (value: string): number => { switch (value) { case "a": default: { return 0; } } };',
     };
@@ -3163,7 +3195,9 @@ for (const [name, presetUrl] of [
           'import type { Contract } from "./contract";',
           "",
           'declare module "./contract" { interface Contract { extra?: string } }',
+          "",
           'export const contract: Contract = { extra: "extra", value: "value" };',
+          "",
           "export interface RecordValue { value: string }",
           "",
         ].join("\n")

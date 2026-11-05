@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = getNoUnknownDependenciesRule;
+const config_1 = require("@boundaries/config");
 const elements_1 = require("@boundaries/elements");
 const Debug_1 = require("../Debug");
 const Settings_1 = require("../Settings");
@@ -70,26 +71,10 @@ function getNoUnknownDependenciesRule(ruleName = Shared_1.RULE_NAMES_MAP.NO_UNKN
         deprecated: ruleName === Shared_1.RULE_NAMES_MAP.NO_UNKNOWN
             ? (0, Settings_1.deprecatedRuleInfo)(Shared_1.RULE_NAMES_MAP.NO_UNKNOWN_DEPENDENCIES)
             : undefined,
-        schema: [
-            {
-                type: "object",
-                properties: {
-                    require: {
-                        type: "string",
-                        enum: Object.values(Shared_1.NO_UNKNOWN_DEPENDENCIES_REQUIRE_MAP),
-                        description: "Which classification axes the dependency target must be known on to be valid. " +
-                            '"any" (default): known on at least one axis is enough; reports only when unknown on both. ' +
-                            '"element": the element axis must be known; reports when the element is unknown. ' +
-                            '"file": the file axis must be known; reports when the file is unknown. ' +
-                            '"all": both axes must be known; reports when either is unknown.',
-                    },
-                },
-                additionalProperties: false,
-            },
-        ],
+        schema: (0, config_1.getRuleOptionsSchema)(ruleName),
     }, function ({ dependency, node, context, options }) {
         if (ruleName === Shared_1.RULE_NAMES_MAP.NO_UNKNOWN) {
-            (0, Debug_1.warnOnce)(`Rule name "${Shared_1.RULE_NAMES_MAP.NO_UNKNOWN}" is deprecated. Use "${Shared_1.RULE_NAMES_MAP.NO_UNKNOWN_DEPENDENCIES}" instead.`, (0, Settings_1.migrationToV7GuideLink)("no-unknown-renamed-to-no-unknown-dependencies"));
+            (0, Debug_1.warnOnce)(`Rule name "${Shared_1.RULE_NAMES_MAP.NO_UNKNOWN}" is deprecated. Use "${Shared_1.RULE_NAMES_MAP.NO_UNKNOWN_DEPENDENCIES}" instead.`, (0, config_1.migrationToV7GuideLink)("no-unknown-renamed-to-no-unknown-dependencies"));
         }
         const requireMode = options?.require ?? Shared_1.NO_UNKNOWN_DEPENDENCIES_REQUIRE_MAP.ANY;
         const reportedAxes = getReportedAxes(requireMode, dependency.to.element.isUnknown, dependency.to.file.isUnknown);

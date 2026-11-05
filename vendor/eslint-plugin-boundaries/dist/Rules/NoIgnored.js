@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = getNoIgnoredDependenciesRule;
+const config_1 = require("@boundaries/config");
 const Debug_1 = require("../Debug");
 const Settings_1 = require("../Settings");
 const Shared_1 = require("../Shared");
@@ -15,7 +16,7 @@ const Support_1 = require("./Support");
  */
 function getNoIgnoredDependenciesRule(ruleName = Shared_1.RULE_NAMES_MAP.NO_IGNORED_DEPENDENCIES) {
     return (0, Support_1.dependencyRule)({
-        schema: [],
+        schema: (0, config_1.getRuleOptionsSchema)(ruleName),
         ruleName,
         description: `Prevent dependencies to ignored files from recognized elements`,
         deprecated: ruleName === Shared_1.RULE_NAMES_MAP.NO_IGNORED
@@ -23,7 +24,7 @@ function getNoIgnoredDependenciesRule(ruleName = Shared_1.RULE_NAMES_MAP.NO_IGNO
             : undefined,
     }, function ({ dependency, node, context }) {
         if (ruleName === Shared_1.RULE_NAMES_MAP.NO_IGNORED) {
-            (0, Debug_1.warnOnce)(`Rule name "${Shared_1.RULE_NAMES_MAP.NO_IGNORED}" is deprecated. Use "${Shared_1.RULE_NAMES_MAP.NO_IGNORED_DEPENDENCIES}" instead.`, (0, Settings_1.migrationToV7GuideLink)("no-ignored-renamed-to-no-ignored-dependencies"));
+            (0, Debug_1.warnOnce)(`Rule name "${Shared_1.RULE_NAMES_MAP.NO_IGNORED}" is deprecated. Use "${Shared_1.RULE_NAMES_MAP.NO_IGNORED_DEPENDENCIES}" instead.`, (0, config_1.migrationToV7GuideLink)("no-ignored-renamed-to-no-ignored-dependencies"));
         }
         if (dependency.to.file.isIgnored) {
             context.report({

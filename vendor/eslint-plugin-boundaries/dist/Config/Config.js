@@ -19,8 +19,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.strictLegacy = exports.strict = exports.recommended = void 0;
 exports.createConfig = createConfig;
+const config_1 = require("@boundaries/config");
 const index_1 = __importDefault(require("../index"));
-const Settings_1 = require("../Settings");
 const Shared_1 = require("../Shared");
 const Recommended_1 = __importDefault(require("./Recommended"));
 const Strict_1 = __importDefault(require("./Strict"));
@@ -52,7 +52,7 @@ function renamePluginRules(pluginName, rules) {
         if (!allowedPrefixes.has(rulePrefix)) {
             throw new Error(`Invalid rule key "${key}". When using createConfig, all rules must belong to eslint-plugin-boundaries. You can prefix them with the original plugin name "${Shared_1.PLUGIN_NAME}/", or with the provided plugin name "${pluginName}/".`);
         }
-        if (!(0, Settings_1.isRuleShortName)(ruleName)) {
+        if (!(0, config_1.isRuleShortName)(ruleName)) {
             throw new Error(`Invalid rule name "${ruleName}". When using createConfig, all rules must belong to eslint-plugin-boundaries.`);
         }
         let newKey;
@@ -109,7 +109,7 @@ function createConfig(config, name = Shared_1.PLUGIN_NAME) {
         const settings = config.settings;
         if (settings) {
             for (const key of Object.keys(settings)) {
-                if (!(0, Settings_1.isSettingsKey)(key)) {
+                if (!(0, config_1.isSettingsKey)(key)) {
                     throw new Error(`Invalid settings key "${key}". When using createConfig, all settings keys must belong to eslint-plugin-boundaries.`);
                 }
             }

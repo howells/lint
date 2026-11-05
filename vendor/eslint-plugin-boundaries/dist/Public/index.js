@@ -17,3 +17,4 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./Config.types"), exports);
 __exportStar(require("./Settings.types"), exports);
 __exportStar(require("./Rules.types"), exports);
+__exportStar(require("./Messages.types"), exports);

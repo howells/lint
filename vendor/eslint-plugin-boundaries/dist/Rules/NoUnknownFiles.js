@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const config_1 = require("@boundaries/config");
 const Elements_1 = require("../Elements");
 const Settings_1 = require("../Settings");
 const Shared_1 = require("../Shared");
@@ -8,7 +9,7 @@ const { RULE_NO_UNKNOWN_FILES } = Shared_1.SETTINGS;
 const noUnknownFilesRule = {
     ...(0, Support_1.meta)({
         ruleName: RULE_NO_UNKNOWN_FILES,
-        schema: [],
+        schema: (0, config_1.getRuleOptionsSchema)(RULE_NO_UNKNOWN_FILES),
         description: `Prevent creating files not recognized by any element or file patterns`,
     }),
     create: function (context) {

@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-boundaries",
-  "version": "7.2.0",
+  "version": "7.4.1",
   "private": true,
   "description": "Unmodified upstream runtime loaded by Oxlint; vendored to avoid the ESLint peer dependency.",
   "license": "MIT",

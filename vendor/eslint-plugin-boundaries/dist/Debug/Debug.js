@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.warn = warn;
 exports.warnOnce = warnOnce;
+exports.warnDiagnostics = warnDiagnostics;
 exports.debugDescription = debugDescription;
 exports.printDependenciesRuleResult = printDependenciesRuleResult;
 const elements_1 = require("@boundaries/elements");
@@ -40,12 +41,10 @@ function isDebugEnabled(settingEnabled) {
     return settingEnabled || isDebugModeEnabled();
 }
 /**
- * Prints a log line to stdout with optional color formatting.
+ * Prints a log line with the given console method.
  *
  * @param message - Message text to print.
- * @param options - Optional parameters for color and log level.
- * @param options.color - Optional color key from the internal color map.
- * @param options.level - Optional log level determining which console method to use (default is "log").
+ * @param level - Console method to print the message with.
  */
 function printLog(message, level) {
     // eslint-disable-next-line no-console
@@ -82,7 +81,6 @@ function getLogPrefix(logLevel) {
  * @param options - Optional parameters for log level.
  * @param options.level - Log level determining the title formatting (default is "debug").
  * @param options.message - Message text to print within the block.
- * @param level - Log level determining the title formatting (default is "debug").
  */
 function printBlock(title, { level, message, }) {
     const header = `${getLogPrefix(level)} ${title}`;
@@ -128,6 +126,16 @@ function warnOnce(title, message) {
     warns.add(messageKey);
     warn(title, message);
     return true;
+}
+/**
+ * Prints each diagnostic returned by `@boundaries/config` as a warning, in order, once per title and detail.
+ *
+ * @param diagnostics - Diagnostics to print.
+ */
+function warnDiagnostics(diagnostics) {
+    for (const { title, detail } of diagnostics) {
+        warnOnce(title, detail);
+    }
 }
 /**
  * Emits debug output for file or dependency descriptions when enabled.

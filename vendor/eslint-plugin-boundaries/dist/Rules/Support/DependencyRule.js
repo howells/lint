@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.dependencyRule = dependencyRule;
+const config_1 = require("@boundaries/config");
 const Debug_1 = require("../../Debug");
 const Elements_1 = require("../../Elements");
 const Settings_1 = require("../../Settings");
@@ -31,13 +32,17 @@ function dependencyRule(ruleMeta, rule, ruleOptions = {}) {
             }
             return settings.dependencyNodes.reduce((visitors, { selector, kind, name }) => {
                 visitors[selector] = (node) => {
-                    /* istanbul ignore next - Defensive check */
-                    if (!(0, Shared_1.isString)(node.value)) {
-                        (0, Debug_1.warnOnce)(`Dependency node value is not a string, skipping node.`, `Please check your ${ADDITIONAL_DEPENDENCY_NODES} setting. ${(0, Settings_1.moreInfoSettingsLink)()}`);
+                    const dependencySource = (0, Elements_1.getDependencySource)(node);
+                    if (dependencySource.source === null) {
+                        // Sources only known at runtime, like "import(name as string)", are skipped silently
+                        if (!dependencySource.runtime) {
+                            (0, Debug_1.warnOnce)(`Dependency node value is not a string, skipping node.`, `Please check your ${ADDITIONAL_DEPENDENCY_NODES} setting. ${(0, config_1.moreInfoSettingsLink)()}`);
+                        }
                         return;
                     }
                     const dependency = (0, Elements_1.dependencyDescription)({
                         node,
+                        source: dependencySource.source,
                         kind,
                         nodeKind: name,
                     }, context.filename, settings, context);

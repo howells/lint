@@ -256,7 +256,10 @@ overloaded(() => 42);
           "broken-override"
         );
         assert.equal(formatter.status, 0, formatter.stderr);
-        assert.match(formatter.stdout, /0\.71\.0/u);
+        const { oxfmt } = JSON.parse(
+          readFileSync(join(packageRoot, "package.json"), "utf8")
+        ).dependencies;
+        assert.equal(formatter.stdout.trim(), `Version: ${oxfmt}`);
       } finally {
         renameSync(`${manifestPath}.held`, manifestPath);
       }

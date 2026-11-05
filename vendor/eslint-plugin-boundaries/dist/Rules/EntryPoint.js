@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const config_1 = require("@boundaries/config");
 const elements_1 = require("@boundaries/elements");
 const Settings_1 = require("../Settings");
 const Shared_1 = require("../Shared");
@@ -48,7 +49,8 @@ function transformToDependenciesRules(rules) {
                     }
                     : undefined,
                 importKind: rule.importKind,
-                message: rule.message,
+                // The message of the user's policy at the index of the translated one, not of `rule`, as the rule always reported it: a policy with several targets shifts the messages of the next ones
+                message: rules[newRules.length]?.message,
             });
         }
     }
@@ -58,10 +60,7 @@ exports.default = (0, Support_1.dependencyRule)({
     ruleName: RULE_ENTRY_POINT,
     description: `Check elements entry point`,
     deprecated: (0, Settings_1.deprecatedRuleInfo)(Shared_1.RULE_NAMES_MAP.DEPENDENCIES),
-    schema: (0, Settings_1.rulesOptionsSchema)({
-        rulesMainKey: "target",
-        isLegacy: true,
-    }),
+    schema: (0, config_1.getRuleOptionsSchema)(RULE_ENTRY_POINT),
 }, function ({ dependency, node, context, settings, options }) {
     (0, Settings_1.warnMigrationToDependencies)(Shared_1.RULE_NAMES_MAP.ENTRY_POINT);
     // Validate and warn about deprecated rule option syntax (legacy
@@ -71,13 +70,16 @@ exports.default = (0, Support_1.dependencyRule)({
         dependency.to.element.types &&
         dependency.dependency.relationship.to !==
             elements_1.DEPENDENCY_RELATIONSHIPS_MAP.INTERNAL) {
-        const rules = transformToDependenciesRules(options?.policies ?? options?.rules ?? []);
+        const policies = transformToDependenciesRules(options?.policies ?? options?.rules ?? []);
         (0, Dependencies_1.evaluatePoliciesAndReport)({
-            rules,
+            options: (0, config_1.normalizeDependenciesRuleOptions)({
+                default: options?.default,
+                message: options?.message,
+                policies,
+            }),
             settings,
             context,
             node,
-            options,
             dependency,
         });
     }
