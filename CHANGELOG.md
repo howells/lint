@@ -1,13 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Changed
-
-- Oxlint 1.91.0, Oxfmt 0.76.0, Ultracite 8.1.1, `oxlint-plugin-react-doctor` 0.9.22, `oxc-parser` 0.157.0 and `globals` 17.14.0. Ultracite 8.1 adds `anti-slop/require-readable-spacing` (blank lines around declarations, multi-line bindings, blocks and control statements); consumers inherit it as Ultracite ships it, so expect new findings on first run. `lint:fix` applies them.
-- The bundled type-aware backend is tsgolint 7.0.2005 (Oxlint 1.91 requires at least that), still built with the `strict-void-return` correction. Its Go modules move to `golang.org/x/sys` 0.49.0, `x/text` 0.43.0, `x/sync` 0.24.0 and `regexp2` 2.8.4, with licenses and executable hashes updated in the manifest.
-- Vendored rules refreshed: `eslint-plugin-boundaries` 7.4.1, `eslint-plugin-playwright` 2.12.2 and `@shadcn/lint` 0.2.5. The boundaries runtime now takes `@boundaries/config` and `@boundaries/policies` and no longer needs direct `handlebars` or `micromatch` dependencies; `handlebars` stays at 4.7.10 through `@boundaries/elements`.
-
 ## 3.10.1 - 2026-11-05
 
 ### Fixed
@@ -16,6 +8,9 @@
 
 ### Changed
 
+- Oxlint 1.91.0, Oxfmt 0.76.0, Ultracite 8.1.1, `oxlint-plugin-react-doctor` 0.9.22, `oxc-parser` 0.157.0 and `globals` 17.14.0. Ultracite 8.1 adds `anti-slop/require-readable-spacing` (blank lines around declarations, multi-line bindings, blocks and control statements); consumers inherit it as Ultracite ships it, so expect new findings on first run. `lint:fix` applies them.
+- The bundled type-aware backend is tsgolint 7.0.2005 (Oxlint 1.91 requires at least that), still built with the `strict-void-return` correction. Its Go modules move to `golang.org/x/sys` 0.49.0, `x/text` 0.43.0, `x/sync` 0.24.0 and `regexp2` 2.8.4, with licenses and executable hashes updated in the manifest.
+- Vendored rules refreshed: `eslint-plugin-boundaries` 7.4.1, `eslint-plugin-playwright` 2.12.2 and `@shadcn/lint` 0.2.5. The boundaries runtime now takes `@boundaries/config` and `@boundaries/policies` and no longer needs direct `handlebars` or `micromatch` dependencies; `handlebars` stays at 4.7.10 through `@boundaries/elements`.
 - The six native tsgolint binaries are built locally and attached to the GitHub release, and publishing that release triggers `release.yml`, which checks each binary against its committed hash before packing. The release build no longer runs the upstream tsgolint and typescript-go Go test suites. `pnpm native:build` resolves a symlinked work directory, so `/tmp` and `mktemp` paths work on macOS.
 
 ## 3.10.0 - 2026-11-05
