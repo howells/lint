@@ -37,7 +37,7 @@ Scripts:
 }
 ```
 
-Monorepo roots use `turbo run lint && howells-workspace-check`. A repo with a backlog adds the ratchet: `"lint:ratchet": "howells-ratchet"` and `"lint:rebaseline": "howells-ratchet --write"`.
+Monorepo roots use `turbo run lint && howells-workspace-check`.
 
 ## Architecture boundaries
 
@@ -63,7 +63,6 @@ These ship with the package:
 
 - [Wiring a consumer repo](./docs/consumer-wiring.md)
 - [Exports and presets](./docs/exports.md)
-- [Lint ratchet](./docs/lint-ratchet.md)
 - [GDP authorization proofs](./docs/gdp.md)
 - [Migrations](./MIGRATIONS.md) and [changelog](./CHANGELOG.md)
 
@@ -80,5 +79,4 @@ Documentation, specifications and outstanding work live in Linear (howells, HOW)
 ```sh
 pnpm lint
 pnpm test
-pnpm prepush
 ```

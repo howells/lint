@@ -1,6 +1,6 @@
 ---
 name: howells-lint
-description: "Put a repo on @howells/lint so the preset actually loads, and add a ratchet when a backlog appears. Use for lint setup or a config named .mjs/.json. Not for prose (`deslop`), diff tells (`unslop`) or codebase review (`simplify`)."
+description: "Put a repo on @howells/lint so the preset actually loads. Use for lint setup or a config named .mjs/.json. Not for prose (`deslop`), diff tells (`unslop`) or codebase review (`simplify`)."
 ---
 
 # Howells lint
@@ -52,11 +52,10 @@ export default {
 
 ## A backlog that appears on first load
 
-Expect tens of thousands of findings in a repo that has never had the preset. Do not fix in place before the gate is green.
+Expect tens of thousands of findings in a repo that has never had the preset.
 
-1. Add a ratchet: a script that runs `oxlint --format json` per package, counts findings per package per rule, compares to a committed baseline, and fails only when a count rises. Commit the baseline at today's numbers. Pre-push is green from here and the backlog can only fall.
-2. Fix by rule, with a codemod (ts-morph) per rule, one commit and one typecheck-plus-test run per rule, rebaselining after each. Order by count. Rules whose autofix changes behaviour and must be checked against the test suite: `sort-keys`, `unicorn/no-useless-undefined`, `typescript/consistent-type-definitions`, `unicorn/catch-error-name`, `typescript/no-unnecessary-type-assertion`, `typescript/promise-function-async`, `new-cap`, `vitest/prefer-strict-equal`, `vitest/prefer-called-with`, `vitest/prefer-describe-function-title`, `vitest/prefer-import-in-mock`.
-3. Rules that need a human sentence per site stay in the baseline and burn down as files are touched: `anti-slop/require-safety-comment-for-type-assertion`, `typescript/strict-boolean-expressions`.
+1. Fix by rule, with a codemod (ts-morph) per rule, one commit and one typecheck-plus-test run per rule. Order by count. Rules whose autofix changes behaviour and must be checked against the test suite: `sort-keys`, `unicorn/no-useless-undefined`, `typescript/consistent-type-definitions`, `unicorn/catch-error-name`, `typescript/no-unnecessary-type-assertion`, `typescript/promise-function-async`, `new-cap`, `vitest/prefer-strict-equal`, `vitest/prefer-called-with`, `vitest/prefer-describe-function-title`, `vitest/prefer-import-in-mock`.
+2. Rules that need a human sentence per site burn down as files are touched: `anti-slop/require-safety-comment-for-type-assertion`, `typescript/strict-boolean-expressions`.
 
 ## Scripts
 

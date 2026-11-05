@@ -2,9 +2,9 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
-## 3.9.2: applicability corrections and browser compatibility
+## 3.10.0: applicability corrections and browser compatibility
 
-These notes describe the unreleased policy. Version 3.9.1 remains the published release; publication of 3.9.2 requires approval. The changes are not certification that any consumer has reached zero findings or preserved its complete behavior.
+These notes describe version 3.10.0 and the 3.9.2 corrections it carries (3.9.2 was never published). The changes are not certification that any consumer has reached zero findings or preserved its complete behavior.
 
 ### Node stream operator options
 
@@ -147,7 +147,7 @@ The Ultracite 8 refresh enables its GDP authorization-proof rules in core. React
 
 2. **Keep the trusted exceptions narrow.** `proofs/` modules may create proofs and use assertions, but must keep the prover private. `lib/ids.ts` permits branded-ID assertions while still rejecting forged proofs and proof creation. Other core rules, including anti-slop's safety-comment requirements, remain on in both locations. Do not move ordinary code into these directories simply to avoid findings.
 
-3. **Keep new findings visible while migrating.** A project with a backlog can use the [lint ratchet](./docs/lint-ratchet.md) and reduce it incrementally. Any temporary exact-file override needs a removal path; do not disable GDP across the project.
+3. **Keep new findings visible while migrating.** Reduce a backlog incrementally rather than switching rules off. Any temporary exact-file override needs a removal path; do not disable GDP across the project.
 
 4. **Application authorization still needs application code.** Lint rules do not retrofit permission checks. Applications adopting typed proofs install `@gdp-ts/core@0.1.0` as a runtime dependency, follow [the GDP recipe](./docs/gdp.md), and run their TypeScript check alongside linting.
 

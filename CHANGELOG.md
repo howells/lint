@@ -1,6 +1,10 @@
 # Changelog
 
-## 3.9.2 - unreleased
+## 3.10.0 - 2026-11-05
+
+### Removed
+
+- `howells-ratchet`, its `lint:ratchet` and `lint:rebaseline` wiring, `docs/lint-ratchet.md` and the `prepush` script. The finding-count gate is gone from the package; consumers delete their `lint:ratchet`, `lint:rebaseline` and `lint-baseline.json` and run `lint` as is. The pre-push hook that ran `prepush` is also removed, and the release workflow no longer runs it before packing.
 
 ### Fixed
 

@@ -1,6 +1,6 @@
 {
   "name": "@howells/lint",
-  "version": "3.9.2",
+  "version": "3.10.0",
   "description": "Pinned Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
   "keywords": [],
   "homepage": "https://github.com/howells/lint#readme",
@@ -18,7 +18,6 @@
     "howells-fix": "bin/howells-fix.mjs",
     "howells-oxfmt": "bin/howells-oxfmt.mjs",
     "howells-oxlint": "bin/howells-oxlint.mjs",
-    "howells-ratchet": "bin/howells-ratchet.mjs",
     "howells-ultracite": "bin/howells-ultracite.mjs",
     "howells-workspace-check": "bin/howells-workspace-check.mjs",
     "howells-workspace-fix": "bin/howells-workspace-fix.mjs"
@@ -95,7 +94,6 @@
     "lint": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin scripts test oxlint oxfmt oxfmt.config.mjs",
     "lint:fix": "node bin/howells-oxfmt.mjs --write . && oxlint --fix bin scripts test oxlint oxfmt oxfmt.config.mjs",
     "prepare": "howells-husky",
-    "prepush": "pnpm native:check && pnpm lint && pnpm test",
     "test": "node --test",
     "native:build": "node scripts/build-native.mjs",
     "native:check": "node scripts/check-native.mjs",

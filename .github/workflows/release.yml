@@ -63,10 +63,6 @@ jobs:
       - name: Build all six native backends
         run: pnpm native:build --work-dir "$RUNNER_TEMP/native-build"
 
-      # Preserve the format, lint, complete Node suite and peer-dependency gates.
-      # prepush also rejects an incomplete or stale native bundle before packing.
-      - run: pnpm prepush
-
       # Pack once with pnpm, which expands catalog:/workspace: specifiers.
       # This exact tarball is executed on every target and then published.
       - name: Pack

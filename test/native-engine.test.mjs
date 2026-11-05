@@ -26,7 +26,7 @@ test("the native selector rejects unsupported platforms explicitly", () => {
   );
 });
 
-test("the native bundle is complete before prepush or pack", () => {
+test("the native bundle is complete before pack", () => {
   checkNativeBundle(root);
 });
 
