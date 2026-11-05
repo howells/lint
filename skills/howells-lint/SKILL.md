@@ -1,6 +1,6 @@
 ---
 name: howells-lint
-description: "Put a repo on @howells/lint so the preset actually loads. Use for lint setup or a config named .mjs/.json. Not for prose (`deslop`), diff tells (`unslop`) or codebase review (`simplify`)."
+description: "Put a repo on @howells/lint so the preset actually loads. Use for lint setup or a config named .mjs/.json."
 ---
 
 # Howells lint
