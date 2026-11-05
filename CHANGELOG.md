@@ -16,7 +16,7 @@
 
 ### Changed
 
-- The release build no longer runs the upstream tsgolint and typescript-go Go test suites, and keeps Go's build and module caches between releases. Each built binary is still checked against its committed hash.
+- The six native tsgolint binaries are built locally and attached to the GitHub release, and publishing that release triggers `release.yml`, which checks each binary against its committed hash before packing. The release build no longer runs the upstream tsgolint and typescript-go Go test suites. `pnpm native:build` resolves a symlinked work directory, so `/tmp` and `mktemp` paths work on macOS.
 
 ## 3.10.0 - 2026-11-05
 

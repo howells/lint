@@ -7,6 +7,6 @@ pnpm lint
 pnpm test
 ```
 
-Releases: bump `package.json` and `CHANGELOG.md`, push a matching `vX.Y.Z` tag; `release.yml` publishes (see `docs/releasing.md`). Don't publish from a laptop.
+Releases: bump `package.json` and `CHANGELOG.md`, build the native binaries locally and publish a matching `vX.Y.Z` GitHub release with them attached; `release.yml` publishes to npm (see `docs/releasing.md`). Don't `npm publish` from a laptop.
 
 Don't overwrite others' uncommitted work.

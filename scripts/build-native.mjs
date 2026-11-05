@@ -8,6 +8,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -32,12 +33,14 @@ assert.ok(
   values["work-dir"],
   "Pass --work-dir with a new build directory outside the repository."
 );
-const work = resolve(values["work-dir"]);
+const requestedWork = resolve(values["work-dir"]);
 assert.ok(
-  !work.startsWith(packageRoot),
+  !requestedWork.startsWith(packageRoot),
   "Native build directories must be outside the repository."
 );
-mkdirSync(work); // Never reuse source trees or silently accept a previous build.
+mkdirSync(requestedWork); // Never reuse source trees or silently accept a previous build.
+// Go compares workspace paths literally, so a symlinked parent (macOS /tmp) must be resolved.
+const work = realpathSync(requestedWork);
 const archiveRoot = values["archive-dir"]
   ? resolve(values["archive-dir"])
   : join(work, "archives");

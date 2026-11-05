@@ -12,17 +12,16 @@
 # GitHub Actions, organisation `howells`, repository `lint`, workflow
 # `release.yml`. Nothing else is needed and nothing expires.
 #
-# To release: bump the version, merge to main, then push a matching `vX.Y.Z`
-# tag. The tag is the trigger; the job refuses to publish if the tag and
-# `package.json` disagree.
+# To release: bump the version and merge to main, build the six native
+# binaries locally (`pnpm native:build`), then publish a GitHub release
+# `vX.Y.Z` with them attached as `tsgolint-native.tgz` (see
+# docs/releasing.md). Publishing the release is the trigger; the job refuses
+# to publish if the tag and `package.json` disagree or a binary's hash differs.
 name: release
 
 on:
-  push:
-    tags:
-      - "v*"
-  # Builds and executes the same gates without publishing, on any selected ref.
-  workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -41,15 +40,9 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
-      - uses: actions/setup-go@v6
-        with:
-          go-version: "1.26.4"
-          cache: false
-
       - run: pnpm install --frozen-lockfile
 
       - name: Check the tag matches the version
-        if: github.event_name == 'push'
         run: |
           tagged="${GITHUB_REF_NAME#v}"
           declared="$(node -p 'require("./package.json").version')"
@@ -58,22 +51,15 @@ jobs:
             exit 1
           fi
 
-      # Go's build and module caches carry over between releases of the same
-      # pinned sources, so only a changed manifest or patch builds cold.
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ${{ runner.temp }}/go-build-cache
-            ${{ runner.temp }}/go-mod-cache
-          key: tsgolint-${{ hashFiles('vendor/tsgolint/manifest.json', 'vendor/tsgolint/*.patch', 'vendor/tsgolint/go.work.sum') }}
-
-      # Fixed archive/patch hashes, Go version and flags. Every output must
-      # match the committed binary hashes.
-      - name: Build all six native backends
+      # Built locally and attached to the release; every binary must match
+      # its committed hash.
+      - name: Fetch the native binaries attached to this release
         env:
-          GOCACHE: ${{ runner.temp }}/go-build-cache
-          GOMODCACHE: ${{ runner.temp }}/go-mod-cache
-        run: pnpm native:build --work-dir "$RUNNER_TEMP/native-build"
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" --pattern tsgolint-native.tgz --dir "$RUNNER_TEMP"
+          tar -xzf "$RUNNER_TEMP/tsgolint-native.tgz" -C vendor/tsgolint
+          pnpm native:check
 
       # Pack once with pnpm, which expands catalog:/workspace: specifiers.
       # This exact tarball is executed on every target and then published.
@@ -167,7 +153,6 @@ jobs:
   publish:
     needs: [build, native-protocol]
     timeout-minutes: 10
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
