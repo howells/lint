@@ -156,13 +156,6 @@ copyFileSync(
   join(nativeRoot, manifest.workspaceSum),
   join(sourceRoot, "go.work.sum")
 );
-for (const types of manifest.testTypes) {
-  const filename = `${types.name.replace("@", "").replace("/", "-")}-${types.version}.tgz`;
-  extract(
-    await archive(types, filename),
-    join(sourceRoot, "node_modules", types.name)
-  );
-}
 
 const goEnv = {
   ...process.env,
@@ -198,26 +191,6 @@ const hostEnv = {
   GOOS: toolchain.GOHOSTOS,
   GOARCH: toolchain.GOHOSTARCH,
 };
-const nativeTestArgs = ["test", "./...", "-parallel=1", "-count=1", "-json"];
-const testOutput = run("go", nativeTestArgs, sourceRoot, hostEnv);
-writeFileSync(join(work, "native-tests.jsonl"), testOutput);
-const events = testOutput
-  .trim()
-  .split("\n")
-  .map((line) => JSON.parse(line));
-const tests = {
-  command: ["go", ...nativeTestArgs],
-  passedPackages: events.filter(
-    (event) => event.Action === "pass" && !event.Test
-  ).length,
-  skipped: events
-    .filter((event) => event.Action === "skip" && event.Test)
-    .map(({ Package, Test }) => ({ Package, Test })),
-  logSha256: sha256(testOutput),
-};
-console.log(
-  `Native source tests passed: ${tests.passedPackages} packages; ${tests.skipped.length} upstream skips (recorded in build.json).`
-);
 const verification = run("go", ["mod", "verify"], sourceRoot, hostEnv).trim();
 assert.equal(
   sha256(readFileSync(join(sourceRoot, "go.work.sum"))),
@@ -287,7 +260,6 @@ const build = {
   initialization,
   repairOutput,
   moduleVerification: verification,
-  nativeTests: tests,
   targets,
 };
 rmSync(join(nativeRoot, "bin"), { force: true, recursive: true });

@@ -85,24 +85,6 @@
     "GOENV": "off",
     "GOTOOLCHAIN": "local"
   },
-  "testTypes": [
-    {
-      "name": "@types/node",
-      "version": "24.13.2",
-      "integrity": "sha512-fRa09kZTgu8o71KFcDjUFuc7F+dEbZYZmkI0mg5YBTRs0yMKjYHsq/c0urDKeDb+D5qVgXOdFcuu+DZPKOITwA==",
-      "sha256": "14001301bdc69d627b03ef6c9b8266dad8d6b121016b79c85b4821deb73481aa",
-      "bytes": 461927,
-      "url": "https://registry.npmjs.org/@types/node/-/node-24.13.2.tgz"
-    },
-    {
-      "name": "undici-types",
-      "version": "7.18.2",
-      "integrity": "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==",
-      "sha256": "4d92799b0e619468a30f70eff033c1a27e713134a4ff353e1a6794f67e425497",
-      "bytes": 27712,
-      "url": "https://registry.npmjs.org/undici-types/-/undici-types-7.18.2.tgz"
-    }
-  ],
   "targets": {
     "darwin-arm64": {
       "goos": "darwin",

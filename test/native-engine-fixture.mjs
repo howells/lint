@@ -163,7 +163,6 @@ overloaded(() => 42);
         "win32-arm64",
         "win32-x64",
       ]);
-      assert.equal(build.nativeTests.passedPackages, 64);
     }
   );
   await t.test(

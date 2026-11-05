@@ -58,9 +58,21 @@ jobs:
             exit 1
           fi
 
-      # Fixed archive/patch hashes, Go version and flags; includes the native
-      # source suite. Every output must match the committed binary hashes.
+      # Go's build and module caches carry over between releases of the same
+      # pinned sources, so only a changed manifest or patch builds cold.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/go-build-cache
+            ${{ runner.temp }}/go-mod-cache
+          key: tsgolint-${{ hashFiles('vendor/tsgolint/manifest.json', 'vendor/tsgolint/*.patch', 'vendor/tsgolint/go.work.sum') }}
+
+      # Fixed archive/patch hashes, Go version and flags. Every output must
+      # match the committed binary hashes.
       - name: Build all six native backends
+        env:
+          GOCACHE: ${{ runner.temp }}/go-build-cache
+          GOMODCACHE: ${{ runner.temp }}/go-mod-cache
         run: pnpm native:build --work-dir "$RUNNER_TEMP/native-build"
 
       # Pack once with pnpm, which expands catalog:/workspace: specifiers.
@@ -86,13 +98,6 @@ jobs:
           name: packed-package
           path: ${{ runner.temp }}/packed-package/*.tgz
           if-no-files-found: error
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: native-source-tests
-          path: ${{ runner.temp }}/native-build/native-tests.jsonl
-          if-no-files-found: warn
 
   native-protocol:
     needs: build

@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.10.1 - 2026-11-05
+
+### Fixed
+
+- Take `@boundaries/elements` 3.3.1 and pin `handlebars` to 4.7.10, which fixes three JavaScript-injection advisories (two critical) in 4.7.9.
+
+### Changed
+
+- The release build no longer runs the upstream tsgolint and typescript-go Go test suites, and keeps Go's build and module caches between releases. Each built binary is still checked against its committed hash.
+
 ## 3.10.0 - 2026-11-05
 
 ### Removed
@@ -8,7 +18,6 @@
 
 ### Fixed
 
-- Take `@boundaries/elements` 3.3.1 and pin `handlebars` to 4.7.10, which fixes three JavaScript-injection advisories (two critical) in 4.7.9.
 - Replace native `unicorn/no-array-method-this-argument` centrally with `howells/no-array-method-this-argument`. The native matcher and library exclusions remain; only directly proven Node `Readable.from(...)` operator receivers permit their options argument. Lexical import identity rejects shadows, type-only/foreign imports, and detected constructor/prototype mutation or escape. Ordinary and unknown receivers still report. Neither fixes nor suggestions are offered; the native rule remains available for explicit opt-in.
 - Add `allowLocalModules` to `howells/no-runtime-dynamic-imports`, defaulting to false, and enable it in core and inherited presets. Fixed relative string literals may defer existing same-package JavaScript/TypeScript modules with a statically traced, acyclic runtime graph. Trace actual static package and canonical CommonJS dependencies across Node/browser import/require profiles, including conditional exports and browser aliases; no arbitrary external packages are opaque leaves. Type-only edges are erased and fixed JSON/CSS assets and ordinary builtins can be leaves. Loader aliases/escapes, created loaders, computed dependency arguments and other unproved loading retain the finding. URL and real ownership checks preserve package/workspace boundaries and cycles; the initial import still rejects bare packages, templates, escaped/encoded paths, redirects and extension searching. Existing boundary rules remain enabled, with the graph check covering native dynamic-cycle/self-import omissions. Context-local caches avoid stale source/manifest proofs. No tool pins change. These applicability corrections do not certify consumer cleanup or approve publication.
 - Replace native declaration-style checking with `howells/consistent-type-definitions`, retaining its interface default and type preference while preserving explicit module/global augmentation interfaces. Ordinary declarations still report and fix. Ambiguous implicit modules and rewrites that would discard comments remain reported without unsafe fixes; migration notes explain the new preference key and compiler-context limit.
