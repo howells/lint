@@ -1,6 +1,6 @@
 # Vendored type-aware backend
 
-`@howells/lint` builds tsgolint 7.0.2004 with the native correction in `strict-void-return.patch`. The correction checks the applicable resolved signature before reporting callback return expectations from unrelated overloads. It preserves `typescript/strict-void-return: error` and ordinary callback enforcement, including value, async, assignment and void/any overloads.
+`@howells/lint` builds tsgolint 7.0.2005 with the native correction in `strict-void-return.patch`. The correction checks the applicable resolved signature before reporting callback return expectations from unrelated overloads. It preserves `typescript/strict-void-return: error` and ordinary callback enforcement, including value, async, assignment and void/any overloads.
 
 `manifest.json` pins both source archives and Git revisions, all six upstream initialization patches, the repair patch, workspace checksums, test declarations, Go 1.26.4, compiler flags, licenses and the six expected executable hashes. The TypeScript-Go nested TypeScript submodule is unused: the required libraries are committed in the pinned TypeScript-Go archive. The workspace checksum input completes the existing upstream module graph without changing module versions. `licenses/` contains the upstream, Go runtime and linked-module notices.
 
