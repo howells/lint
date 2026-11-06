@@ -1,6 +1,6 @@
 # Editing this package
 
-- Read `CONTEXT.md` before changing language in the README, presets or error strings. `docs/adr/` records why the lanes are arranged as they are.
+- Read `GLOSSARY.md` before changing language in the README, presets or error strings. `docs/adr/` records why the lanes are arranged as they are.
 - Shared presets absorb recurring failures. Where several repos need the same exception, change the preset here rather than the repos. A preset isn't a preference dump for one repo.
 - Don't weaken a shared rule for a single consumer without a documented migration exception carrying a removal path.
 - Don't rename a public binary or preset export without migration docs, tests and a `MIGRATIONS.md` entry.
