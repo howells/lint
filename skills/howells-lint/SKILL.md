@@ -27,7 +27,7 @@ Before renaming or deleting any lint or format config, search the repo for its f
    - `@howells/lint/oxlint/next` when `next` is a dependency
    - `@howells/lint/oxlint/playwright` as an overlay for E2E specs
 
-   In a monorepo the root gets `core` for its scripts and each app or package gets its own. A root `next` config with `disabledReactDoctorRules` for `packages/**` is the alternative when packages have no config of their own.
+   In a monorepo the root gets `core` for its scripts and each app or package gets its own.
 
 4. `oxfmt.config.ts` that re-exports or spreads `@howells/lint/oxfmt`. Oxfmt has no `extends` key; an object it does not recognise formats to its defaults in silence.
 5. Scripts: `"lint": "howells-check ."` and `"lint:fix": "howells-fix ."`. No `--config` in a monorepo package script: it defeats nested discovery.
