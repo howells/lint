@@ -15,6 +15,18 @@ const run = promisify(execFile);
 
 Do not switch the rule off in config. An `OXLINT_TSGOLINT_PATH` override still wins.
 
+### Three bespoke rules give way
+
+- `howells/no-array-method-this-argument` is deleted and `unicorn/no-array-method-this-argument` is back on. Remove config entries for either. A Node stream operator that takes options reports; disable that line with a reason:
+
+  ```ts
+  // oxlint-disable-next-line unicorn/no-array-method-this-argument -- Readable operator options, not a thisArg
+  const shards = Readable.from(indices).map(readShard, { concurrency: 4 });
+  ```
+
+- `howells/prefer-supported-import-meta-properties` is deleted. Remove config entries and disable comments that name it; an unknown rule in a disable comment is harmless, but `howells/require-disable-reason` still wants its reason. `unicorn/prefer-import-meta-properties` stays off.
+- `howells/no-runtime-dynamic-imports` now accepts any fixed `./` or `../` string literal. Disable comments added for an extensionless or cross-package relative `import()` can go.
+
 ## 3.10.0: applicability corrections and browser compatibility
 
 These notes describe version 3.10.0 and the 3.9.2 corrections it carries (3.9.2 was never published). The changes are not certification that any consumer has reached zero findings or preserved its complete behavior.

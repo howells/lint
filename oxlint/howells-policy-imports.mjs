@@ -4,24 +4,27 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createLocalModuleProof } from "./howells-policy-module-graph.mjs";
+/** A plain string literal that names a file relative to the importer. */
+const isFixedRelativeSpecifier = (source) =>
+  source?.type === "Literal" &&
+  typeof source.value === "string" &&
+  /^\.{1,2}\//u.test(source.value);
 
 export const createNoRuntimeDynamicImportsRule = (context) => {
   const allowLocalModules = context.options?.[0]?.allowLocalModules === true;
-  const isLocalModule = createLocalModuleProof(context.filename);
   return {
     ImportExpression(node) {
       if (
         allowLocalModules &&
         !node.options &&
         !node.phase &&
-        isLocalModule(node.source)
+        isFixedRelativeSpecifier(node.source)
       )
         return;
       context.report({
         node,
         message: allowLocalModules
-          ? "Use a static import instead. Deferred imports require a fixed relative string literal within the same package and a statically traced, acyclic runtime dependency graph."
+          ? "Use a static import instead. A deferred import must name its file with a fixed relative string literal."
           : "Runtime dynamic imports make package loading harder to trace and validate. Use a static import instead.",
       });
     },

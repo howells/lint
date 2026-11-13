@@ -81,7 +81,7 @@
     "access": "public"
   },
   "scripts": {
-    "lint": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin scripts test oxlint oxfmt oxfmt.config.mjs",
+    "lint": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin test oxlint oxfmt oxfmt.config.mjs",
     "lint:fix": "node bin/howells-oxfmt.mjs --write . && oxlint --fix bin scripts test oxlint oxfmt oxfmt.config.mjs",
     "prepare": "howells-husky",
     "test": "node --test"

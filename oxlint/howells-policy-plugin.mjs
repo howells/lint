@@ -1,13 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { createNoArrayMethodThisArgumentRule } from "./howells-policy-array-methods.mjs";
 import {
   createNoDeepPackageImportsRule,
   createNoOutOfBoundsPackageImportsRule,
   createNoRuntimeDynamicImportsRule,
 } from "./howells-policy-imports.mjs";
-import { createPreferSupportedImportMetaPropertiesRule } from "./howells-policy-module-meta.mjs";
 import { createNoRawMotionNamespaceRule } from "./howells-policy-motion.mjs";
 import {
   createDesignTokenAlphaRule,
@@ -467,19 +465,6 @@ const plugin = {
       },
       create: createConsistentTypeDefinitionsRule,
     },
-    "prefer-supported-import-meta-properties": {
-      meta: {
-        type: "suggestion",
-        docs: {
-          description:
-            "Prefer native module-location properties when an enclosing branch establishes their availability, preserving portable resolution and directory separators otherwise.",
-        },
-        fixable: "code",
-        messages: {},
-        schema: [],
-      },
-      create: createPreferSupportedImportMetaPropertiesRule,
-    },
     "no-generic-component-suffix": {
       meta: {
         type: "suggestion",
@@ -533,7 +518,7 @@ const plugin = {
         type: "problem",
         docs: {
           description:
-            "Disallow runtime import() expressions, optionally permitting proven local modules.",
+            "Disallow runtime import() expressions, optionally permitting a fixed relative specifier.",
         },
         messages: {},
         schema: [
@@ -547,20 +532,6 @@ const plugin = {
         ],
       },
       create: createNoRuntimeDynamicImportsRule,
-    },
-    "no-array-method-this-argument": {
-      meta: {
-        type: "suggestion",
-        docs: {
-          description:
-            "Disallow array iteration thisArg arguments while preserving proven Node stream operators.",
-        },
-        messages: {
-          thisArg: "Avoid using 'thisArg' with array iteration methods",
-        },
-        schema: [],
-      },
-      create: createNoArrayMethodThisArgumentRule,
     },
     "no-raw-jsx-elements": {
       meta: {

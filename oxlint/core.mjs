@@ -88,7 +88,7 @@ export default defineConfig({
     // that the module named in `vi.mock` be written as a dynamic import  -
     // "Substitute `./dep` with `import('./dep')`" - because that is what gives
     // the factory's `importOriginal()` its types. `no-runtime-dynamic-imports`
-    // rejects package and unproved imports. So a package `vi.mock` call reports
+    // rejects package and computed imports. So a package `vi.mock` call reports
     // under one rule or the other whichever way it is written, and neither
     // report is clearable. Measured on the 3.3.4 preset: the string form draws
     // `vitest(prefer-import-in-mock)`, and `vi.mock(import("./dep"), …)` draws
@@ -160,19 +160,15 @@ export default defineConfig({
         max: 45,
       },
     ],
-    // Bundlers can omit native path properties. The counterpart establishes
-    // their support per branch and preserves URL-directory trailing separators.
-    "howells/prefer-supported-import-meta-properties": "error",
+    // The native fix rewrites `fileURLToPath(import.meta.url)` to
+    // `import.meta.filename`, which bundlers leave undefined.
     "unicorn/prefer-import-meta-properties": "off",
-    // Fixed local chunks preserve deferred loading without concealing package
-    // dependencies. Unproved targets and package/workspace escapes still report.
+    // A fixed relative specifier keeps a deferred chunk traceable. Package and
+    // computed specifiers still report.
     "howells/no-runtime-dynamic-imports": [
       "error",
       { allowLocalModules: true },
     ],
-    // Node Readable operators take options, not Array.prototype's thisArg.
-    "howells/no-array-method-this-argument": "error",
-    "unicorn/no-array-method-this-argument": "off",
     "howells/require-disable-reason": "error",
     // `no-bitwise` exists to catch `&` or `|` typed for `&&` or `||`. In
     // TypeScript that mistake is already a compile error (TS2447: the operator
