@@ -1,6 +1,6 @@
 import { defineConfig } from "oxlint";
 
-import { boundaryJsPlugins } from "./boundaries.mjs";
+import { howellsJsPlugins } from "./boundaries.mjs";
 
 // The rules are vendored rather than installed: the published plugin depends on
 // `@typescript-eslint/parser`, which declares ESLint as a required peer, so
@@ -68,8 +68,8 @@ export const shadcnJsPlugins = [
 // move to, and `transition-[outline-color]` names a CSS property rather than a
 // design value at all. A repo cannot reach zero without either a judgement call
 // or a suppression, so at error severity the rule gates every upgrade behind
-// unrelated work. Core already takes this position for `complexity`,
-// `max-lines-per-function` and `max-statements`.
+// unrelated work. It is the only warning in core, React and Next: every other
+// rule there is at error or off, as Ultracite ships them.
 //
 // Consumers run `howells-check`, which does not pass `--deny-warnings`, so a
 // warning prints with its suggested replacement and exits 0. Add
@@ -141,6 +141,6 @@ export const componentSourceOverride = (files) => ({
 // which takes the whole lint run down; every preset carries the plugin so that
 // extending any one of them is enough to name a `howells/*` rule.
 export default defineConfig({
-  jsPlugins: [...boundaryJsPlugins, ...shadcnJsPlugins],
+  jsPlugins: [...howellsJsPlugins, ...shadcnJsPlugins],
   rules: shadcnRules,
 });

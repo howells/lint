@@ -1,5 +1,0 @@
-# Preserve hashed upstream inputs exactly, including their original line endings.
-manifest.json -text
-go.work.sum -text
-strict-void-return.patch -text
-licenses/* -text

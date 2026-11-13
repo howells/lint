@@ -1,6 +1,6 @@
 {
   "name": "@howells/lint",
-  "version": "3.10.2",
+  "version": "4.0.0",
   "description": "Pinned Oxlint/Oxfmt, Ultracite, and React Doctor presets for Howells projects.",
   "keywords": [],
   "homepage": "https://github.com/howells/lint#readme",
@@ -18,7 +18,6 @@
     "howells-fix": "bin/howells-fix.mjs",
     "howells-oxfmt": "bin/howells-oxfmt.mjs",
     "howells-oxlint": "bin/howells-oxlint.mjs",
-    "howells-ultracite": "bin/howells-ultracite.mjs",
     "howells-workspace-check": "bin/howells-workspace-check.mjs",
     "howells-workspace-fix": "bin/howells-workspace-fix.mjs"
   },
@@ -31,9 +30,7 @@
     "vendor/**",
     "docs/**/*.md",
     "README.md",
-    "MIGRATIONS.md",
-    "scripts/build-native.mjs",
-    "scripts/check-native.mjs"
+    "MIGRATIONS.md"
   ],
   "type": "commonjs",
   "exports": {
@@ -70,41 +67,25 @@
       "types": "./oxlint/react-doctor-rules.d.mts",
       "default": "./oxlint/react-doctor-rules.mjs"
     },
-    "./oxlint/neon": {
-      "types": "./oxlint/neon.d.mts",
-      "default": "./oxlint/neon.mjs"
-    },
     "./oxlint/shadcn": {
       "types": "./oxlint/shadcn.d.mts",
       "default": "./oxlint/shadcn.mjs"
     }
   },
   "publishConfig": {
-    "access": "public",
-    "executableFiles": [
-      "vendor/tsgolint/bin/darwin-arm64/tsgolint",
-      "vendor/tsgolint/bin/darwin-x64/tsgolint",
-      "vendor/tsgolint/bin/linux-arm64/tsgolint",
-      "vendor/tsgolint/bin/linux-x64/tsgolint",
-      "vendor/tsgolint/bin/win32-arm64/tsgolint.exe",
-      "vendor/tsgolint/bin/win32-x64/tsgolint.exe"
-    ]
+    "access": "public"
   },
   "scripts": {
-    "lint": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin scripts test oxlint oxfmt oxfmt.config.mjs",
-    "lint:fix": "node bin/howells-oxfmt.mjs --write . && oxlint --fix bin scripts test oxlint oxfmt oxfmt.config.mjs",
+    "lint": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin test oxlint oxfmt oxfmt.config.mjs",
+    "lint:fix": "node bin/howells-oxfmt.mjs --write . && oxlint --fix bin test oxlint oxfmt oxfmt.config.mjs",
     "prepare": "howells-husky",
-    "test": "node --test",
-    "native:build": "node scripts/build-native.mjs",
-    "native:check": "node scripts/check-native.mjs",
-    "prepack": "node scripts/check-native.mjs"
+    "test": "node --test \"test/**/*.test.mjs\""
   },
   "dependencies": {
     "@boundaries/config": "1.0.0",
     "@boundaries/elements": "3.3.1",
     "@boundaries/policies": "1.0.0",
     "@gdp-ts/core": "0.1.0",
-    "@howells/neon": "^0.2.0",
     "@manypkg/cli": "0.25.1",
     "chalk": "4.1.2",
     "cn": "0.4.0",

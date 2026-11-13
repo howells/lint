@@ -74,33 +74,9 @@ export const pathTargets = (targets) =>
   targets.filter((target) => !target.startsWith("!"));
 
 // The same translation over a raw argument list, for the binaries that forward
-// their arguments to Oxlint untouched. The flag pairing is the partition's, so a
-// value that follows a space-form flag is never mistaken for a target.
+// their arguments to Oxlint. The partition keeps a value that follows a
+// space-form flag with its flag, so it is never mistaken for a target.
 export const withOxlintExcludes = (args) => {
-  const translated = [];
-
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-
-    if (!arg.startsWith("-")) {
-      if (arg.startsWith("!")) {
-        translated.push("--ignore-pattern", arg.slice(1));
-      } else {
-        translated.push(arg);
-      }
-      continue;
-    }
-
-    translated.push(arg);
-
-    if (VALUE_FLAGS.has(arg) && !arg.includes("=")) {
-      const nextArg = args[index + 1];
-      if (nextArg !== undefined) {
-        translated.push(nextArg);
-        index += 1;
-      }
-    }
-  }
-
-  return translated;
+  const { options, targets } = partitionOxlintArgs(args);
+  return [...options, ...pathTargets(targets), ...oxlintExcludeArgs(targets)];
 };

@@ -1,7 +1,7 @@
 import { defineConfig } from "oxlint";
 import ultraciteGdp from "ultracite/oxlint/gdp";
 
-import { boundaryJsPlugins } from "./boundaries.mjs";
+import { howellsJsPlugins } from "./boundaries.mjs";
 
 // Keep Ultracite's rules and trusted-module overrides intact. Consumers only
 // install @howells/lint for lint tooling, so resolve the pinned plugin here
@@ -9,7 +9,7 @@ import { boundaryJsPlugins } from "./boundaries.mjs";
 export default defineConfig({
   ...ultraciteGdp,
   jsPlugins: [
-    ...boundaryJsPlugins,
+    ...howellsJsPlugins,
     ...ultraciteGdp.jsPlugins.map((plugin) => ({
       ...plugin,
       specifier: import.meta.resolve(plugin.specifier),

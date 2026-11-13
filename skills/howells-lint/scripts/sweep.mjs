@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 const root = process.argv[2] ?? process.cwd();
 const skip = new Set([
@@ -35,15 +35,19 @@ for (const d of pkgs) {
     continue;
   }
   const deps = { ...pj.dependencies, ...pj.devDependencies };
-  const usesLint = "@howells/lint" in deps;
-  const names = readdirSync(d).filter(
-    (n) => /^oxlint\.config\./.test(n) || n === ".oxlintrc.json"
+  const alias = Object.entries(deps).find(([, v]) =>
+    /^npm:@howells\/lint@/.test(v)
+  );
+  const usesLint = "@howells/lint" in deps || alias !== undefined;
+  const names = readdirSync(d).filter((n) =>
+    /^oxlint\.config\.|^\.oxlintrc\.jsonc?$/.test(n)
   );
   const lintScript = pj.scripts?.lint ?? "";
   const hasReact = "react" in deps;
   const hasNext = "next" in deps;
   if (!usesLint && names.length === 0) continue;
   const issues = [];
+  if (alias) issues.push(`aliased as ${alias[0]}`);
   const good = names.filter((n) => /\.(ts|mts)$/.test(n));
   const bad = names.filter((n) => !/\.(ts|mts)$/.test(n));
   let extendsWhat = "";
@@ -68,11 +72,6 @@ for (const d of pkgs) {
         : "no-howells";
     if (extendsWhat === "no-howells")
       issues.push("config does not import @howells/lint");
-    if (
-      /\bjsx\b|\bJSX\b|"jsx-a11y"|plugins/.test(src) &&
-      !/extends/.test(src)
-    ) {
-    }
     if (hasNext && !/next/.test(extendsWhat) && extendsWhat !== "no-howells")
       issues.push(`next app extends ${extendsWhat}`);
     else if (
@@ -114,7 +113,7 @@ for (const d of pkgs) {
     issues.push(`lint script: ${lintScript || "(none)"}`);
   rows.push({
     d: d.replace(root + "/", ""),
-    v: deps["@howells/lint"] ?? "-",
+    v: deps["@howells/lint"] ?? alias?.[1] ?? "-",
     cfg: names.join(",") || "-",
     ext: extendsWhat,
     issues,

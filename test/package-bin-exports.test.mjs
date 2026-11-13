@@ -26,10 +26,7 @@ test("package exposes one canonical high-level command surface", async () => {
   );
   assert.equal(packageJson.bin["howells-oxlint"], "bin/howells-oxlint.mjs");
   assert.equal(packageJson.bin["howells-oxfmt"], "bin/howells-oxfmt.mjs");
-  assert.equal(
-    packageJson.bin["howells-ultracite"],
-    "bin/howells-ultracite.mjs"
-  );
+  assert.equal(packageJson.bin["howells-ultracite"], undefined);
 
   // The Biome lane was removed in 2.0.0. Assert the binary, the presets, and
   // the dependency are all gone together — a leftover export that resolves to

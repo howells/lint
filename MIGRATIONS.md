@@ -2,6 +2,64 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## 4.0.0: back toward Ultracite
+
+### The stock type-aware engine
+
+The patched tsgolint build shipped in 3.10.0 to 3.10.2 is gone. Nothing changes in a consumer's config. `typescript/strict-void-return` again reports `promisify(execFile)`, which is a false positive in the upstream engine. Add a disable comment with a reason at each site:
+
+```ts
+// oxlint-disable-next-line typescript/strict-void-return -- promisify(execFile) picks an overload the rule misreads
+const run = promisify(execFile);
+```
+
+Do not switch the rule off in config. An `OXLINT_TSGOLINT_PATH` override still wins.
+
+### Ignore patterns need no spread
+
+When a root config has no `ignorePatterns` key, the bins pass the preset's ignore list to Oxlint. A config whose only entry was `ignorePatterns: [...ignorePatterns]` can drop it, unless an editor extension or a bare `oxlint` script reads the same config.
+
+A config that sets `ignorePatterns` owns the whole list, and the bins add nothing. Spread the preset's list into it if you want both.
+
+The preset's list is Ultracite's, and it names directories by build-output convention: `build`, `out`, `dist`, `generated`, `codegen` and others. A repo with no `ignorePatterns` and source in a directory of one of those names (`src/app/build/page.tsx`, `packages/x/src/build/`) stops linting that source on upgrade. Set `ignorePatterns` and re-include it:
+
+```ts
+import core, { ignorePatterns } from "@howells/lint/oxlint/core";
+
+export default {
+  extends: [core],
+  ignorePatterns: [...ignorePatterns, "!**/src/build/**"],
+};
+```
+
+### Exports and presets removed
+
+- `disabledReactDoctorRules` is gone. Give a package with no React its own `oxlint.config.ts` extending `core` rather than switching the React rules off under a root `next` config.
+- `boundarySettings` is gone; delete the import and the `settings: boundarySettings` line.
+- `boundaryJsPlugins` is now `howellsJsPlugins`.
+- `@howells/lint/oxlint/neon` is gone. A repo that wants the Neon import restrictions takes `createOxlintConfig()` from `@howells/neon/lint` directly.
+- The `howells-ultracite` bin is gone.
+
+### Severities follow Ultracite
+
+`complexity` moves from a warning at 15 to an error at Oxlint's default of 20, and applies in test files. `max-lines`, `max-lines-per-function` and `max-statements` are off. Remove config entries that restated the old thresholds. A function over 20 fails lint: split it, or disable the line with a reason. A config that sets `complexity` to `off` or `allow` keeps it off; delete that entry to take the shared policy.
+
+### More files count as tests
+
+`howells-fix` formats test files but does not apply lint fixes to them. That now covers `__tests__/` directories, type tests (`*.test-d.*`, `*.spec-d.*`) and `vitest.setup.*` / `test/setup.*`, as well as `*.test.*` and `*.spec.*`. Findings in those files still report; fix them by hand.
+
+### Three bespoke rules give way
+
+- `howells/no-array-method-this-argument` is deleted and `unicorn/no-array-method-this-argument` is back on. Remove config entries for either. A Node stream operator that takes options reports; disable that line with a reason:
+
+  ```ts
+  // oxlint-disable-next-line unicorn/no-array-method-this-argument -- Readable operator options, not a thisArg
+  const shards = Readable.from(indices).map(readShard, { concurrency: 4 });
+  ```
+
+- `howells/prefer-supported-import-meta-properties` is deleted. Remove config entries and disable comments that name it; an unknown rule in a disable comment is harmless, but `howells/require-disable-reason` still wants its reason. `unicorn/prefer-import-meta-properties` stays off.
+- `howells/no-runtime-dynamic-imports` now accepts any fixed `./` or `../` string literal. Disable comments added for an extensionless or cross-package relative `import()` can go.
+
 ## 3.10.0: applicability corrections and browser compatibility
 
 These notes describe version 3.10.0 and the 3.9.2 corrections it carries (3.9.2 was never published). The changes are not certification that any consumer has reached zero findings or preserved its complete behavior.
@@ -116,6 +174,16 @@ The same rule entry works with the Next preset. Remove old consumer suppressions
 Core, React, Next and standalone Playwright no longer reject an identifier merely because it contains `shape`. Schema contracts such as `shapeId` and `valueShapes`, geometry concepts and imported contracts may use that vocabulary. Renaming a stored key or published API to satisfy a substring check changes the contract without improving the model.
 
 The shared policy retires only `anti-slop/no-shape-in-symbol-names`. Other anti-slop checks remain enabled, including input-boundary validation and type-assertion requirements. Keep canonical domain names; no consumer rule override or alias is needed. Remove any consumer exception for this rule after upgrading.
+
+## 3.9.0: every disable comment says why
+
+`howells/require-disable-reason` is on at `error` in every preset. A disable comment, in any of the `oxlint-disable`, `eslint-disable`, `-next-line` and `-line` forms, must end with `--` and a reason:
+
+```ts
+// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- an SVG <g> cannot be a <button>
+```
+
+A repo arriving from 3.8 or earlier reports once per bare disable comment. There is no autofix, because the reason has to be written by someone who knows it. Delete the comments that no longer suppress anything first, then add reasons to the rest.
 
 ## 3.8.0: correct switches, test matchers and class contracts
 
@@ -312,6 +380,20 @@ Version 1.1.1 changes two consumer-visible behaviors:
 Version 1.1.0 corrects the runtime dependency graph used by Ultracite's Oxlint JS plugins. It keeps ESLint on the newest release supported by the complete GitHub plugin tree and pins a compatible TypeScript runtime for Ultracite and SonarJS. Consumers do not need peer overrides or direct lint-tool dependencies; remove any temporary ESLint or TypeScript override added for 1.0.0, update `@howells/lint`, and reinstall.
 
 The 1.1.0 binaries also pass the nearest `oxfmt.config.*` file to Oxfmt explicitly and fall back to the packaged Howells preset when no project config exists. This repairs 1.0.0's silent use of Oxfmt defaults. Run the project's `lint:fix` once after updating and review the resulting formatting changes.
+
+## Bins removed during 0.x
+
+A repo on 0.3.x or earlier may call bins that no longer exist. They were removed in 0.4.0:
+
+| Removed bin | What it ran | Use now |
+| --- | --- | --- |
+| `howells-lint` | Biome check | `howells-check` |
+| `howells-lint-strict` | Biome with a security and correctness subset | `howells-check` |
+| `howells-format` | Biome check with `--write` | `howells-fix` |
+| `howells-ox-check` | Oxfmt check then Oxlint | `howells-check` |
+| `howells-ox-fix` | Oxfmt write then Oxlint fix | `howells-fix` |
+
+`howells-biome` went with the Biome lane in 2.0.0. Update `package.json` scripts, `lint-staged` entries and Husky hooks that name any of these; a hook that calls a missing bin fails with `ENOENT` rather than a lint error.
 
 ## 1.0.0 breaking changes
 

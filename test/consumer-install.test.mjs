@@ -16,8 +16,6 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { verifyNativePackage } from "./native-engine-fixture.mjs";
-
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -39,7 +37,7 @@ const execPnpm = (args, options) => {
   return execFileAsync("pnpm", args, options);
 };
 
-test("packed package installs without ESLint or TypeScript and loads the Next, Playwright, shadcn, GDP and boundary presets", async (t) => {
+test("packed package installs without ESLint or TypeScript and loads the Next, Playwright, shadcn, GDP and boundary presets", async () => {
   const root = await realpath(
     await mkdtemp(path.join(tmpdir(), "howells-lint-consumer-"))
   );
@@ -48,15 +46,11 @@ test("packed package installs without ESLint or TypeScript and loads the Next, P
     // The destination is a fresh directory, so the tarball is whatever lands in
     // it. Reading the name from disk rather than from `pnpm pack --json` keeps
     // the test immune to anything a lifecycle script writes to stdout.
-    let filename = process.env.HOWELLS_LINT_TARBALL;
-    if (!filename) {
-      await execPnpm(["pack", "--pack-destination", root], { cwd: repoRoot });
-      const packed = await readdir(root);
-      const tarballs = packed.filter((entry) => entry.endsWith(".tgz"));
-      assert.equal(tarballs.length, 1, `expected one tarball, got ${tarballs}`);
-      filename = path.join(root, tarballs[0]);
-    }
-    filename = path.resolve(filename);
+    await execPnpm(["pack", "--pack-destination", root], { cwd: repoRoot });
+    const packed = await readdir(root);
+    const tarballs = packed.filter((entry) => entry.endsWith(".tgz"));
+    assert.equal(tarballs.length, 1, `expected one tarball, got ${tarballs}`);
+    const filename = path.join(root, tarballs[0]);
 
     await writeFile(
       path.join(root, "package.json"),
@@ -66,10 +60,6 @@ test("packed package installs without ESLint or TypeScript and loads the Next, P
           type: "module",
           dependencies: {
             "@howells/lint": `file:${filename}`,
-          },
-          devDependencies: {
-            "@types/node": "24.13.2",
-            "undici-types": "7.18.2",
           },
         },
         null,
@@ -284,13 +274,6 @@ test("packed package installs without ESLint or TypeScript and loads the Next, P
       `${boundaryResult.stdout}${boundaryResult.stderr}`,
       /boundaries\(dependencies\)/
     );
-
-    await verifyNativePackage({
-      t,
-      packageRoot: path.join(root, "node_modules", "@howells", "lint"),
-      fixtureRoot: root,
-      tarball: filename,
-    });
   } finally {
     await rm(root, { force: true, recursive: true });
   }

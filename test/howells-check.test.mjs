@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { realpathSync } from "node:fs";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -439,6 +446,106 @@ test("an exclude pattern passes, excludes, and still leaves a typo failing", asy
     );
     assert.notEqual(typo.status, 0);
     assert.match(typo.output, /no such path\(s\): nope\.ts/);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("the bins apply the preset's ignore patterns without a consumer spread", async () => {
+  const skipped = "export const f = () => {\n  debugger;\n  return 1;\n};\n";
+  const root = await makeConsumerFixture({
+    "src/keep.ts": "export const keep = 1;\n",
+    "src/generated/client.ts": skipped,
+    "src/types.generated.ts": skipped,
+    "src/dist/out.test.ts": skipped,
+  });
+  // The fixture's default config is the preset itself. A real consumer extends
+  // it, which is the form Oxlint drops the ignores from.
+  await writeFile(
+    path.join(root, "oxlint.config.ts"),
+    `import core from ${JSON.stringify(corePresetUrl)};\nexport default { extends: [core] };\n`
+  );
+
+  try {
+    // A directory walk, then the files named one by one, relative and
+    // absolute, which is how lint-staged passes them.
+    const named = ["src/generated/client.ts", "src/dist/out.test.ts"];
+    for (const targets of [
+      ["src"],
+      ["src/keep.ts", ...named],
+      ["src/keep.ts", ...named.map((file) => path.join(root, file))],
+    ]) {
+      for (const binName of [
+        "howells-check",
+        "howells-oxlint",
+        "howells-fix",
+      ]) {
+        const result = await runBin(binName, targets, root);
+        assert.equal(
+          result.status,
+          0,
+          `${binName} ${targets}: ${result.output}`
+        );
+        assert.doesNotMatch(result.output, /debugger/);
+      }
+    }
+    // `howells-fix` rewrote nothing it was told to ignore, test file included.
+    assert.equal(
+      await readFile(path.join(root, "src/dist/out.test.ts"), "utf8"),
+      skipped
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("a config that sets ignorePatterns keeps control of the list", async () => {
+  const source = "export const f = () => {\n  debugger;\n  return 1;\n};\n";
+  const root = await makeConsumerFixture({
+    "src/keep.ts": "export const keep = 1;\n",
+    // `**/build` is in the preset's list, and this repo's `build` is source.
+    "src/build/real.ts": source,
+  });
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.ts"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default { extends: [core], ignorePatterns: ["**/coverage/**"] };\n`
+    );
+    for (const binName of ["howells-check", "howells-oxlint", "howells-fix"]) {
+      const result = await runBin(binName, ["src"], root);
+      assert.notEqual(result.status, 0, `${binName}: ${result.output}`);
+      assert.match(
+        result.output,
+        /real\.ts[\s\S]*debugger|debugger[\s\S]*real\.ts/
+      );
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("howells-fix reports tests when the target is the test directory itself", async () => {
+  const source = "export const f = () => {\n  debugger;\n  return 1;\n};\n";
+  const root = await makeConsumerFixture({
+    "src/__tests__/helper.ts": source,
+    "test/setup.ts": source,
+  });
+
+  try {
+    for (const [target, file] of [
+      ["src/__tests__", "helper.ts"],
+      ["test", "setup.ts"],
+    ]) {
+      const result = await runBin("howells-fix", [target], root);
+      assert.notEqual(result.status, 0, `${target}: ${result.output}`);
+      assert.match(result.output, /debugger/);
+      // Reported, not fixed: only the whitespace stage may touch a test.
+      assert.match(
+        await readFile(path.join(root, target, file), "utf8"),
+        /debugger;/
+      );
+    }
   } finally {
     await rm(root, { force: true, recursive: true });
   }

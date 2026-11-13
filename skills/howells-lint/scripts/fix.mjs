@@ -1,5 +1,5 @@
-import { execSync } from "node:child_process";
-// Usage: node lintfix.mjs <repo-abs-path>. Rewrites configs/deps in place, prints touched paths. No git, no install.
+import { execFileSync } from "node:child_process";
+// Usage: node fix.mjs <repo-abs-path>. Rewrites configs/deps in place, prints touched paths. No git, no install.
 import {
   readdirSync,
   readFileSync,
@@ -10,7 +10,13 @@ import {
 } from "node:fs";
 import { join, relative } from "node:path";
 const repo = process.argv[2];
-const LATEST = "^3.3.2";
+if (!repo) throw new Error("Usage: node fix.mjs <repo-abs-path>");
+// The version on the registry, so the script never pins a stale one.
+const LATEST = `^${execFileSync("npm", ["view", "@howells/lint", "version"], { encoding: "utf8" }).trim()}`;
+// A dependency key that installs this package under another name, e.g.
+// `"@instruments/lint-policy": "npm:@howells/lint@0.5.0"`.
+const ALIAS_VALUE = /^npm:@howells\/lint@/;
+const aliases = new Set();
 const touched = new Set();
 const skip = new Set([
   "node_modules",
@@ -59,8 +65,9 @@ for (const d of pkgDirs) {
   for (const field of ["dependencies", "devDependencies"]) {
     const deps = pj[field];
     if (!deps) continue;
-    for (const k of Object.keys(deps))
-      if (/^@howells\/lint-policy-v\d$/.test(k)) {
+    for (const [k, v] of Object.entries(deps))
+      if (ALIAS_VALUE.test(v)) {
+        aliases.add(k);
         delete deps[k];
         deps["@howells/lint"] = LATEST;
         changed = true;
@@ -73,27 +80,53 @@ for (const d of pkgDirs) {
       deps["@howells/lint"] = LATEST;
       changed = true;
     }
-    if ("@howells/lint" in deps)
-      deps["@howells/lint"] === "catalog:" || (deps["@howells/lint"] = LATEST);
   }
   if (changed) {
     writeFileSync(pjPath, JSON.stringify(pj, null, 2) + "\n");
     touched.add(rel(pjPath));
   }
 }
-// 2. import specifiers for policy packages
-const files = execSync(
-  `rg -l --no-messages "@howells/lint-policy-v\\d" ${repo} -g '!node_modules' -g '!pnpm-lock.yaml' -g '!*.md' || true`,
-  { encoding: "utf8" }
-)
-  .split("\n")
-  .filter(Boolean);
-for (const f of files) {
-  const s = readFileSync(f, "utf8");
-  const n = s.replace(/@howells\/lint-policy-v\d/g, "@howells/lint");
-  if (n !== s) {
-    writeFileSync(f, n);
-    touched.add(rel(f));
+// 2. import specifiers that use an alias
+for (const alias of aliases) {
+  let listed;
+  try {
+    listed = execFileSync(
+      "rg",
+      [
+        "-l",
+        "--fixed-strings",
+        alias,
+        repo,
+        "-g",
+        "!node_modules",
+        "-g",
+        "!pnpm-lock.yaml",
+        "-g",
+        "!package.json",
+        "-g",
+        "!*.md",
+      ],
+      { encoding: "utf8" }
+    );
+  } catch (error) {
+    // rg exits 1 when nothing matches; anything else is a real failure.
+    if (error.status !== 1) throw error;
+    listed = "";
+  }
+  // Only a module specifier in an import, export-from or require: the alias
+  // itself or a subpath of it. A bare replace would rewrite `lint` inside
+  // `lintStatus`, `oxlint/core` or a `"lint"` script key.
+  const specifier = new RegExp(
+    `(\\bfrom\\s*|\\bimport\\s*\\(?\\s*|\\brequire\\(\\s*)(["'\`])${alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=["'\`/])`,
+    "g"
+  );
+  for (const f of listed.split("\n").filter(Boolean)) {
+    const src = readFileSync(f, "utf8");
+    const next = src.replace(specifier, "$1$2@howells/lint");
+    if (next !== src) {
+      writeFileSync(f, next);
+      touched.add(rel(f));
+    }
   }
 }
 // 3. configs
@@ -129,7 +162,7 @@ for (const d of pkgDirs) {
       const src = readFileSync(from, "utf8");
       const to = join(d, "oxlint.config.ts");
       if (/@howells\/lint/.test(src)) {
-        execSync(`git -C ${repo} mv "${from}" "${to}"`);
+        renameSync(from, to);
       } else {
         unlinkSync(from);
         writeFileSync(to, tpl(preset));

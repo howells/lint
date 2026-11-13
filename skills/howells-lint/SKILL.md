@@ -27,23 +27,23 @@ Before renaming or deleting any lint or format config, search the repo for its f
    - `@howells/lint/oxlint/next` when `next` is a dependency
    - `@howells/lint/oxlint/playwright` as an overlay for E2E specs
 
-   In a monorepo the root gets `core` for its scripts and each app or package gets its own. A root `next` config with `disabledReactDoctorRules` for `packages/**` is the alternative when packages have no config of their own.
+   In a monorepo the root gets `core` for its scripts and each app or package gets its own.
 
 4. `oxfmt.config.ts` that re-exports or spreads `@howells/lint/oxfmt`. Oxfmt has no `extends` key; an object it does not recognise formats to its defaults in silence.
 5. Scripts: `"lint": "howells-check ."` and `"lint:fix": "howells-fix ."`. No `--config` in a monorepo package script: it defeats nested discovery.
 6. Verify by running `pnpm lint` and reading the rule names in the output. A run that shows only `typescript(...)` and `eslint(...)` and never `anti-slop(...)` or `unicorn(...)` has not loaded the preset.
 
-Minimal config. Oxlint does not read `ignorePatterns` through `extends`, so spread them from `core`; without them, generated files are linted and `howells-fix` rewrites them:
+Minimal config:
 
 ```ts
-import { ignorePatterns } from "@howells/lint/oxlint/core";
 import next from "@howells/lint/oxlint/next";
 
 export default {
   extends: [next],
-  ignorePatterns: [...ignorePatterns],
 };
 ```
+
+The `howells-*` bins pass the preset's ignore list (build output, generated files, lockfiles) to Oxlint themselves. A config that sets `ignorePatterns` owns the whole list instead: spread `ignorePatterns` from `@howells/lint/oxlint/core` into it, and re-include source that lives in a `build/` or `out/` directory with a `!` entry.
 
 ## What a consumer may not do
 
@@ -62,6 +62,6 @@ Expect tens of thousands of findings in a repo that has never had the preset.
 ## Scripts
 
 - `scripts/sweep.mjs` walks every package under a directory (default the current directory, or pass a path) and reports configs that never load, packages that depend on `@howells/lint` with no config, missing preset imports, and `--config` in lint scripts. Read-only. Run it before trusting any repo's lint status.
-- `scripts/fix.mjs <repo>` applies the setup to one repo: bumps the dependency, replaces policy aliases, renames or creates configs by dependency, pins `.node-version`. It runs no install and no git. Review its output, run `pnpm install`, verify with `pnpm lint`, commit explicit paths.
+- `scripts/fix.mjs <repo>` applies the setup to one repo: bumps the dependency to the version on the registry, replaces `npm:@howells/lint@…` aliases, renames or creates configs by dependency, pins `.node-version`. It runs no install and no git. Review its output, run `pnpm install`, verify with `pnpm lint`, commit explicit paths.
 
-Both are plain Node with no dependencies.
+Both are plain Node. `fix.mjs` calls `npm` and `rg`.

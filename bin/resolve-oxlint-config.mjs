@@ -1,6 +1,9 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+
+import { ignorePatterns } from "../oxlint/ignore-patterns.mjs";
+import { explicitConfigPath, hasExplicitConfig } from "./target-args.mjs";
 
 // Oxlint discovers its own config, but only some spellings of it. Measured
 // against the pinned Oxlint: `oxlint.config.ts` and `oxlint.config.mts` are
@@ -9,7 +12,6 @@ import process from "node:process";
 // run is quiet and exits 0, so nothing announces that the config was never
 // read. One consumer repo had 26 such files and had been linting on Oxlint's
 // defaults throughout.
-const explicitConfigPrefixes = ["--config=", "-c="];
 
 // Spellings Oxlint finds on its own. Leave these alone: Oxlint also applies a
 // nested config to the directory it sits in, and passing `--config` pins one
@@ -28,15 +30,6 @@ const flagRequiredProjectNames = [
 ];
 
 const autoDiscoveredRcNames = [".oxlintrc.json", ".oxlintrc.jsonc"];
-
-function hasExplicitConfig(args) {
-  return args.some(
-    (arg) =>
-      arg === "--config" ||
-      arg === "-c" ||
-      explicitConfigPrefixes.some((prefix) => arg.startsWith(prefix))
-  );
-}
 
 // Walk up from the cwd and report the first config of any kind. Whichever
 // comes first wins, so a directory holding both an auto-discovered spelling
@@ -77,7 +70,36 @@ export function findOxlintConfig(cwd = process.cwd()) {
 export const noConfigWarning =
   "No oxlint.config.ts found in this directory or any parent, so this run uses Oxlint's defaults and no @howells/lint preset applies. Add an oxlint.config.ts that extends @howells/lint/oxlint/core, react or next.";
 
-export function withOxlintConfig(args, cwd = process.cwd()) {
+// Oxlint drops a preset's `ignorePatterns` when the preset arrives through
+// `extends`, so build output and generated files would be linted unless every
+// consumer copied the list into its own config. Passing it here makes the bins
+// honour it for a config that says nothing about ignores.
+//
+// Each pattern is passed twice. As a flag, `**/dist` stops a directory walk but
+// not a file inside it named on the command line, which is how lint-staged
+// calls the bins; `**/dist/**` covers that file.
+const presetIgnoreFlags = ignorePatterns.flatMap((pattern) => [
+  "--ignore-pattern",
+  pattern,
+  "--ignore-pattern",
+  `${pattern}/**`,
+]);
+
+// A config that sets `ignorePatterns` owns its list. A flag cannot be undone
+// from a config, so passing the preset's list over it would hide source the
+// repo chose to lint - a `src/build/` directory, say - with no way back.
+const ownsIgnorePatterns = (configPath) =>
+  existsSync(configPath) &&
+  /\bignorePatterns\b/u.test(readFileSync(configPath, "utf8"));
+
+export const presetIgnoreArgs = (args, cwd = process.cwd()) => {
+  const configPath = explicitConfigPath(args) ?? findOxlintConfig(cwd)?.path;
+  return configPath && ownsIgnorePatterns(path.resolve(cwd, configPath))
+    ? []
+    : presetIgnoreFlags;
+};
+
+const withProjectConfig = (args, cwd) => {
   if (hasExplicitConfig(args)) {
     return args;
   }
@@ -96,4 +118,9 @@ export function withOxlintConfig(args, cwd = process.cwd()) {
   );
 
   return ["--config", config.path, ...args];
-}
+};
+
+export const withOxlintConfig = (args, cwd = process.cwd()) => [
+  ...presetIgnoreArgs(args, cwd),
+  ...withProjectConfig(args, cwd),
+];

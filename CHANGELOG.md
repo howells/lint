@@ -1,5 +1,32 @@
 # Changelog
 
+## 4.0.0 - 2026-11-13
+
+A breaking release: it deletes rules, exports and a bin so the package sits closer to Ultracite. `MIGRATIONS.md` lists what a consumer changes.
+
+### Fixed
+
+- `howells-check`, `howells-fix` and `howells-oxlint` pass the preset's ignore patterns to Oxlint. Oxlint drops `ignorePatterns` that arrive through `extends`, so a consumer that had not spread the list into its own config was linting, and `howells-fix` was rewriting, build output and generated files. A config that sets `ignorePatterns` itself keeps control: the bins pass nothing over it, so a repo whose `build/` or `out/` directory is source can still lint it. The spread is otherwise only needed for tools that run Oxlint without the bins.
+
+### Removed
+
+- The patched tsgolint build. Type-aware rules run on the stock `oxlint-tsgolint` 7.0.2005 binary again, as they did up to 3.9.1, and the package drops from 136 MB to under 1 MB. `typescript/strict-void-return` stays at `error`; it reports `promisify(execFile)` on the stock engine, which takes a disable comment with a reason. See `docs/adr/0006` and `MIGRATIONS.md`. Releases no longer need a Go toolchain: `release.yml` runs lint and the full test suite, then publishes.
+- `howells/no-array-method-this-argument`. Core takes Ultracite's `unicorn/no-array-method-this-argument` again. The replacement existed to exempt `Readable.from(...).map(fn, { concurrency })`, which two files across the consumer repos use; those lines take a disable comment.
+- `howells/prefer-supported-import-meta-properties`. `unicorn/prefer-import-meta-properties` stays off, so nothing enforces a module-path style. Remove any config entry or disable comment that names the deleted rule.
+- The `howells-ultracite` bin. It forwarded to the Ultracite CLI, which this package only uses as a source of presets; no consumer repo called it.
+
+- `disabledReactDoctorRules`. It switched off every React Doctor rule at once. A package with no React extends `core`; a package with React takes the rules.
+- `boundarySettings`, an empty object.
+- The `@howells/lint/oxlint/neon` preset and the `@howells/neon` dependency. No consumer extended it.
+- Core's size limits: `max-lines` (600), `max-lines-per-function` (120) and `max-statements` (45). Ultracite leaves all three off.
+
+### Changed
+
+- `complexity` is at `error` with Oxlint's default threshold of 20, as Ultracite ships it. It was a warning at 15, and off in test files. Core, React and Next carry no warnings now except `shadcn/no-arbitrary-values`; the Playwright preset keeps the warnings its plugin recommends.
+- `boundaryJsPlugins` is renamed `howellsJsPlugins`. It carries the `howells` policy plugin, not the boundaries plugin.
+- `howells/no-runtime-dynamic-imports` with `allowLocalModules` allows any `import()` whose specifier is a plain `./` or `../` string literal. It no longer reads the target file or walks its dependency graph, so a missing file, an extensionless path, a relative path into another package and a cycle made of dynamic imports stop reporting. The 768-line module-graph analyser behind that proof is deleted.
+- One definition of a test file. Core's four test-file overrides, each on its own glob list, are one override on Ultracite's Vitest globs plus `vitest.setup.*` and `test/setup.*`. The exact-boolean and dynamic-import exemptions now reach `.mts`, `.cts`, `.mjs` and `.cjs` test files and the setup files. `howells-fix` treats `__tests__/` files, type tests (`*.test-d.*`) and setup files as tests: it formats them and reports lint findings without fixing them.
+
 ## 3.10.2 - 2026-11-05
 
 ### Fixed
@@ -42,6 +69,12 @@
 ### Changed
 
 - Retire `anti-slop/no-shape-in-symbol-names` in the shared core policy, inherited by React, Next and standalone Playwright. Its substring ban rejects canonical schema identifiers, geometry terms and imported contract names. Other anti-slop rules remain enabled. Real-file regression tests cover all four presets and prove that input-boundary checks still report.
+
+## 3.9.0 - 2026-10-18
+
+### Added
+
+- `howells/require-disable-reason`, on at `error` in core and inherited by every preset. An `oxlint-disable` or `eslint-disable` comment of any form must say why after `--`. Every bare disable comment in a consumer reports on first run; see `MIGRATIONS.md`. This entry was added retrospectively: 3.9.0 shipped without one.
 
 ## 3.8.0 - 2026-10-17
 
@@ -303,6 +336,12 @@
 ### Changed
 
 - `howells/no-raw-type-utilities` now gives an arbitrary size (`text-[13px]`) its own fix, separate from a named one: use the nearest step on the scale, or add a named step to `@theme`. A one-off pixel value names nothing, so the next file writes its own and the ramp grows a step nobody chose. The escape hatch stays open via `allow`.
+
+## 2.2.0 — 2026-08-27
+
+### Changed
+
+- Oxlint 1.80.0, Ultracite 7.10.6 and Oxfmt 0.65.0. `react/react-compiler` no longer exists: Oxlint split it into per-category rules and Ultracite enables 22 of them at `error`, so a config that names the old rule fails to parse. Core gains `one-var` (never) and `jsdoc/no-blank-blocks`. See "The React Compiler rule becomes twenty-two rules" in `MIGRATIONS.md`. This entry was added retrospectively: 2.2.0 shipped without one.
 
 ## 2.1.0 — 2026-08-20
 
