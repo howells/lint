@@ -6,7 +6,7 @@ A breaking release: it deletes rules, exports and a bin so the package sits clos
 
 ### Fixed
 
-- `howells-check`, `howells-fix` and `howells-oxlint` pass the preset's ignore patterns to Oxlint. Oxlint drops `ignorePatterns` that arrive through `extends`, so a consumer that had not spread the list into its own config was linting, and `howells-fix` was rewriting, build output and generated files. The spread is now only needed for tools that run Oxlint without the bins.
+- `howells-check`, `howells-fix` and `howells-oxlint` pass the preset's ignore patterns to Oxlint. Oxlint drops `ignorePatterns` that arrive through `extends`, so a consumer that had not spread the list into its own config was linting, and `howells-fix` was rewriting, build output and generated files. A config that sets `ignorePatterns` itself keeps control: the bins pass nothing over it, so a repo whose `build/` or `out/` directory is source can still lint it. The spread is otherwise only needed for tools that run Oxlint without the bins.
 
 ### Removed
 

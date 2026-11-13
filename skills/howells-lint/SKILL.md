@@ -43,7 +43,7 @@ export default {
 };
 ```
 
-The `howells-*` bins pass the preset's ignore list (build output, generated files, lockfiles) to Oxlint themselves. A repo's own `ignorePatterns` add to it.
+The `howells-*` bins pass the preset's ignore list (build output, generated files, lockfiles) to Oxlint themselves. A config that sets `ignorePatterns` owns the whole list instead: spread `ignorePatterns` from `@howells/lint/oxlint/core` into it, and re-include source that lives in a `build/` or `out/` directory with a `!` entry.
 
 ## What a consumer may not do
 

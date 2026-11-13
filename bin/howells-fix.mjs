@@ -63,13 +63,18 @@ const testFileTargets = (targets) => {
       continue;
     }
 
-    const matches = globSync(testFileGlobs, {
+    // Every file under the target, classified by its full path: a glob run
+    // from inside `__tests__` or `test` never sees that directory's own name.
+    const matches = globSync("**/*", {
       cwd: target,
       exclude: (candidate) => candidate.includes("node_modules"),
     });
 
     for (const match of matches) {
-      found.add(path.join(target, match));
+      const file = path.join(target, match);
+      if (isTestFile(file)) {
+        found.add(file);
+      }
     }
   }
 
@@ -121,7 +126,7 @@ if (testTargets.length > 0) {
       "--config",
       TEST_WHITESPACE_CONFIG,
       "--fix",
-      ...presetIgnoreArgs,
+      ...presetIgnoreArgs(oxlintOptions),
       ...oxlintExcludeArgs(resolvedTargets),
       ...testTargets,
     ])

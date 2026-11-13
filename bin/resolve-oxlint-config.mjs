@@ -1,9 +1,9 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
 import { ignorePatterns } from "../oxlint/ignore-patterns.mjs";
-import { hasExplicitConfig } from "./target-args.mjs";
+import { explicitConfigPath, hasExplicitConfig } from "./target-args.mjs";
 
 // Oxlint discovers its own config, but only some spellings of it. Measured
 // against the pinned Oxlint: `oxlint.config.ts` and `oxlint.config.mts` are
@@ -73,17 +73,31 @@ export const noConfigWarning =
 // Oxlint drops a preset's `ignorePatterns` when the preset arrives through
 // `extends`, so build output and generated files would be linted unless every
 // consumer copied the list into its own config. Passing it here makes the bins
-// honour it with no consumer config at all.
+// honour it for a config that says nothing about ignores.
 //
 // Each pattern is passed twice. As a flag, `**/dist` stops a directory walk but
 // not a file inside it named on the command line, which is how lint-staged
 // calls the bins; `**/dist/**` covers that file.
-export const presetIgnoreArgs = ignorePatterns.flatMap((pattern) => [
+const presetIgnoreFlags = ignorePatterns.flatMap((pattern) => [
   "--ignore-pattern",
   pattern,
   "--ignore-pattern",
   `${pattern}/**`,
 ]);
+
+// A config that sets `ignorePatterns` owns its list. A flag cannot be undone
+// from a config, so passing the preset's list over it would hide source the
+// repo chose to lint - a `src/build/` directory, say - with no way back.
+const ownsIgnorePatterns = (configPath) =>
+  existsSync(configPath) &&
+  /\bignorePatterns\b/u.test(readFileSync(configPath, "utf8"));
+
+export const presetIgnoreArgs = (args, cwd = process.cwd()) => {
+  const configPath = explicitConfigPath(args) ?? findOxlintConfig(cwd)?.path;
+  return configPath && ownsIgnorePatterns(path.resolve(cwd, configPath))
+    ? []
+    : presetIgnoreFlags;
+};
 
 const withProjectConfig = (args, cwd) => {
   if (hasExplicitConfig(args)) {
@@ -107,6 +121,6 @@ const withProjectConfig = (args, cwd) => {
 };
 
 export const withOxlintConfig = (args, cwd = process.cwd()) => [
-  ...presetIgnoreArgs,
+  ...presetIgnoreArgs(args, cwd),
   ...withProjectConfig(args, cwd),
 ];

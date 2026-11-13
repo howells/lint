@@ -17,7 +17,20 @@ Do not switch the rule off in config. An `OXLINT_TSGOLINT_PATH` override still w
 
 ### Ignore patterns need no spread
 
-The bins pass the preset's ignore list to Oxlint, so `ignorePatterns: [...ignorePatterns]` can come out of a config whose scripts use `howells-check` and `howells-fix`. Keep it if an editor extension or a bare `oxlint` script reads the same config. A repo's own entries still apply on top.
+When a root config has no `ignorePatterns` key, the bins pass the preset's ignore list to Oxlint. A config whose only entry was `ignorePatterns: [...ignorePatterns]` can drop it, unless an editor extension or a bare `oxlint` script reads the same config.
+
+A config that sets `ignorePatterns` owns the whole list, and the bins add nothing. Spread the preset's list into it if you want both.
+
+The preset's list is Ultracite's, and it names directories by build-output convention: `build`, `out`, `dist`, `generated`, `codegen` and others. A repo with no `ignorePatterns` and source in a directory of one of those names (`src/app/build/page.tsx`, `packages/x/src/build/`) stops linting that source on upgrade. Set `ignorePatterns` and re-include it:
+
+```ts
+import core, { ignorePatterns } from "@howells/lint/oxlint/core";
+
+export default {
+  extends: [core],
+  ignorePatterns: [...ignorePatterns, "!**/src/build/**"],
+};
+```
 
 ### Exports and presets removed
 
@@ -29,7 +42,7 @@ The bins pass the preset's ignore list to Oxlint, so `ignorePatterns: [...ignore
 
 ### Severities follow Ultracite
 
-`complexity` moves from a warning at 15 to an error at Oxlint's default of 20, and applies in test files. `max-lines`, `max-lines-per-function` and `max-statements` are off. Remove config entries that restated the old thresholds. A function over 20 fails lint: split it, or disable the line with a reason.
+`complexity` moves from a warning at 15 to an error at Oxlint's default of 20, and applies in test files. `max-lines`, `max-lines-per-function` and `max-statements` are off. Remove config entries that restated the old thresholds. A function over 20 fails lint: split it, or disable the line with a reason. A config that sets `complexity` to `off` or `allow` keeps it off; delete that entry to take the shared policy.
 
 ### More files count as tests
 

@@ -499,6 +499,58 @@ test("the bins apply the preset's ignore patterns without a consumer spread", as
   }
 });
 
+test("a config that sets ignorePatterns keeps control of the list", async () => {
+  const source = "export const f = () => {\n  debugger;\n  return 1;\n};\n";
+  const root = await makeConsumerFixture({
+    "src/keep.ts": "export const keep = 1;\n",
+    // `**/build` is in the preset's list, and this repo's `build` is source.
+    "src/build/real.ts": source,
+  });
+
+  try {
+    await writeFile(
+      path.join(root, "oxlint.config.ts"),
+      `import core from ${JSON.stringify(corePresetUrl)};\nexport default { extends: [core], ignorePatterns: ["**/coverage/**"] };\n`
+    );
+    for (const binName of ["howells-check", "howells-oxlint", "howells-fix"]) {
+      const result = await runBin(binName, ["src"], root);
+      assert.notEqual(result.status, 0, `${binName}: ${result.output}`);
+      assert.match(
+        result.output,
+        /real\.ts[\s\S]*debugger|debugger[\s\S]*real\.ts/
+      );
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("howells-fix reports tests when the target is the test directory itself", async () => {
+  const source = "export const f = () => {\n  debugger;\n  return 1;\n};\n";
+  const root = await makeConsumerFixture({
+    "src/__tests__/helper.ts": source,
+    "test/setup.ts": source,
+  });
+
+  try {
+    for (const [target, file] of [
+      ["src/__tests__", "helper.ts"],
+      ["test", "setup.ts"],
+    ]) {
+      const result = await runBin("howells-fix", [target], root);
+      assert.notEqual(result.status, 0, `${target}: ${result.output}`);
+      assert.match(result.output, /debugger/);
+      // Reported, not fixed: only the whitespace stage may touch a test.
+      assert.match(
+        await readFile(path.join(root, target, file), "utf8"),
+        /debugger;/
+      );
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("a quoted glob target does not fail as a missing path", async () => {
   const root = await makeConsumerFixture({
     "src/keep.ts": "export const keep = 1;\n",

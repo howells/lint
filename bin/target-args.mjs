@@ -1,7 +1,19 @@
 import { statSync } from "node:fs";
 
-// Whether the caller named a config, in either the space or the `=` form.
-// Oxlint and Oxfmt spell the flag the same way.
+// The config the caller named, in either the space or the `=` form. Oxlint and
+// Oxfmt spell the flag the same way.
+export const explicitConfigPath = (args) => {
+  for (const [index, arg] of args.entries()) {
+    if (arg === "--config" || arg === "-c") {
+      return args[index + 1];
+    }
+    if (arg.startsWith("--config=") || arg.startsWith("-c=")) {
+      return arg.slice(arg.indexOf("=") + 1);
+    }
+  }
+  return undefined;
+};
+
 export const hasExplicitConfig = (args) =>
   args.some(
     (arg) =>

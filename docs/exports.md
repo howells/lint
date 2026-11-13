@@ -11,7 +11,7 @@
 - `/oxlint/shadcn` - the shadcn plugin and `componentSourceOverride`.
 - `/oxlint/gdp` - Ultracite's authorization-proof rules as a standalone export for custom configs; included by core, React, Next and standalone Playwright.
 
-`@howells/lint/oxlint/core` also exports `ignorePatterns`, a `string[]` containing Ultracite's exclusions and generated-file patterns. The `howells-*` bins pass it to Oxlint on every run, so a consumer config needs no entry for it. Oxlint does not read `ignorePatterns` through `extends`, so a tool that runs Oxlint without the bins (an editor extension, bare `oxlint`) only sees the list if the root config spreads it: `ignorePatterns: [...ignorePatterns]`.
+`@howells/lint/oxlint/core` also exports `ignorePatterns`, a `string[]` containing Ultracite's exclusions and generated-file patterns. The `howells-*` bins pass it to Oxlint when the root config has no `ignorePatterns` key, so a consumer config needs no entry for it. A config that sets `ignorePatterns` owns the list and should spread this export into it. Oxlint does not read `ignorePatterns` through `extends`, so a tool that runs Oxlint without the bins (an editor extension, bare `oxlint`) only sees the list if the root config spreads it: `ignorePatterns: [...ignorePatterns]`.
 
 Every Oxlint preset enforces the Howells workspace convention: apps under `apps/*`, shared packages under `packages/*`, packages never import apps, apps never import sibling apps.
 

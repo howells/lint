@@ -163,7 +163,7 @@ test("the local allowance admits only a fixed relative string literal", async (t
   }
 });
 
-test("feature-layer, workspace, dependency and cycle checks remain enforced beside the local allowance", async (t) => {
+test("static-import boundary, workspace, dependency and cycle checks still run beside the local allowance", async (t) => {
   const root = await fixture(t);
   await writeFixture(
     root,
