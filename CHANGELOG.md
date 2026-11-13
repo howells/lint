@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- `howells-check`, `howells-fix` and `howells-oxlint` pass the preset's ignore patterns to Oxlint. Oxlint drops `ignorePatterns` that arrive through `extends`, so a consumer that had not spread the list into its own config was linting, and `howells-fix` was rewriting, build output and generated files. The spread is now only needed for tools that run Oxlint without the bins.
+
 ### Removed
 
 - The patched tsgolint build. Type-aware rules run on the stock `oxlint-tsgolint` 7.0.2005 binary again, as they did up to 3.9.1, and the package drops from 136 MB to under 1 MB. `typescript/strict-void-return` stays at `error`; it reports `promisify(execFile)` on the stock engine, which takes a disable comment with a reason. See `docs/adr/0006` and `MIGRATIONS.md`. Releases no longer need a Go toolchain: `release.yml` runs lint and the full test suite, then publishes.

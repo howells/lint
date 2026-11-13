@@ -5,14 +5,10 @@ import ultraciteVitest from "ultracite/oxlint/vitest";
 
 import { boundaryJsPlugins, boundaryRules } from "./boundaries.mjs";
 import gdp from "./gdp.mjs";
+import { ignorePatterns } from "./ignore-patterns.mjs";
 import { testFileGlobs } from "./test-files.mjs";
 
-// Oxlint only reads ignores from the consumer's root config, not `extends`.
-// Consumers spread this export into their own ignorePatterns; see MIGRATIONS.md.
-export const ignorePatterns = [
-  ...ultraciteCore.ignorePatterns,
-  "**/generated/**",
-];
+export { ignorePatterns };
 
 // Anti-slop is extended last on purpose. It disables
 // `typescript/consistent-indexed-object-style` and

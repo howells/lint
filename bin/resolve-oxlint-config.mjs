@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
+import { ignorePatterns } from "../oxlint/ignore-patterns.mjs";
 import { hasExplicitConfig } from "./target-args.mjs";
 
 // Oxlint discovers its own config, but only some spellings of it. Measured
@@ -69,7 +70,16 @@ export function findOxlintConfig(cwd = process.cwd()) {
 export const noConfigWarning =
   "No oxlint.config.ts found in this directory or any parent, so this run uses Oxlint's defaults and no @howells/lint preset applies. Add an oxlint.config.ts that extends @howells/lint/oxlint/core, react or next.";
 
-export function withOxlintConfig(args, cwd = process.cwd()) {
+// Oxlint drops a preset's `ignorePatterns` when the preset arrives through
+// `extends`, so build output and generated files would be linted unless every
+// consumer copied the list into its own config. Passing it here makes the bins
+// honour it with no consumer config at all.
+const presetIgnoreArgs = ignorePatterns.flatMap((pattern) => [
+  "--ignore-pattern",
+  pattern,
+]);
+
+const withProjectConfig = (args, cwd) => {
   if (hasExplicitConfig(args)) {
     return args;
   }
@@ -88,4 +98,9 @@ export function withOxlintConfig(args, cwd = process.cwd()) {
   );
 
   return ["--config", config.path, ...args];
-}
+};
+
+export const withOxlintConfig = (args, cwd = process.cwd()) => [
+  ...presetIgnoreArgs,
+  ...withProjectConfig(args, cwd),
+];

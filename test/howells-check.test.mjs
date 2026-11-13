@@ -444,6 +444,31 @@ test("an exclude pattern passes, excludes, and still leaves a typo failing", asy
   }
 });
 
+test("the bins apply the preset's ignore patterns without a consumer spread", async () => {
+  const skipped = "export const f = () => {\n  debugger;\n  return 1;\n};\n";
+  const root = await makeConsumerFixture({
+    "src/keep.ts": "export const keep = 1;\n",
+    "src/generated/client.ts": skipped,
+    "src/types.generated.ts": skipped,
+  });
+  // The fixture's default config is the preset itself. A real consumer extends
+  // it, which is the form Oxlint drops the ignores from.
+  await writeFile(
+    path.join(root, "oxlint.config.ts"),
+    `import core from ${JSON.stringify(corePresetUrl)};\nexport default { extends: [core] };\n`
+  );
+
+  try {
+    for (const binName of ["howells-check", "howells-oxlint", "howells-fix"]) {
+      const result = await runBin(binName, ["src"], root);
+      assert.equal(result.status, 0, `${binName}: ${result.output}`);
+      assert.doesNotMatch(result.output, /debugger/);
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("a quoted glob target does not fail as a missing path", async () => {
   const root = await makeConsumerFixture({
     "src/keep.ts": "export const keep = 1;\n",

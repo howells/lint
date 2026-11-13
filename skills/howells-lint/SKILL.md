@@ -33,17 +33,17 @@ Before renaming or deleting any lint or format config, search the repo for its f
 5. Scripts: `"lint": "howells-check ."` and `"lint:fix": "howells-fix ."`. No `--config` in a monorepo package script: it defeats nested discovery.
 6. Verify by running `pnpm lint` and reading the rule names in the output. A run that shows only `typescript(...)` and `eslint(...)` and never `anti-slop(...)` or `unicorn(...)` has not loaded the preset.
 
-Minimal config. Oxlint does not read `ignorePatterns` through `extends`, so spread them from `core`; without them, generated files are linted and `howells-fix` rewrites them:
+Minimal config:
 
 ```ts
-import { ignorePatterns } from "@howells/lint/oxlint/core";
 import next from "@howells/lint/oxlint/next";
 
 export default {
   extends: [next],
-  ignorePatterns: [...ignorePatterns],
 };
 ```
+
+The `howells-*` bins pass the preset's ignore list (build output, generated files, lockfiles) to Oxlint themselves. A repo's own `ignorePatterns` add to it.
 
 ## What a consumer may not do
 

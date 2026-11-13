@@ -15,6 +15,10 @@ const run = promisify(execFile);
 
 Do not switch the rule off in config. An `OXLINT_TSGOLINT_PATH` override still wins.
 
+### Ignore patterns need no spread
+
+The bins pass the preset's ignore list to Oxlint, so `ignorePatterns: [...ignorePatterns]` can come out of a config whose scripts use `howells-check` and `howells-fix`. Keep it if an editor extension or a bare `oxlint` script reads the same config. A repo's own entries still apply on top.
+
 ### Three bespoke rules give way
 
 - `howells/no-array-method-this-argument` is deleted and `unicorn/no-array-method-this-argument` is back on. Remove config entries for either. A Node stream operator that takes options reports; disable that line with a reason:
