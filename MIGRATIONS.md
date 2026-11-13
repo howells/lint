@@ -31,6 +31,10 @@ The bins pass the preset's ignore list to Oxlint, so `ignorePatterns: [...ignore
 
 `complexity` moves from a warning at 15 to an error at Oxlint's default of 20, and applies in test files. `max-lines`, `max-lines-per-function` and `max-statements` are off. Remove config entries that restated the old thresholds. A function over 20 fails lint: split it, or disable the line with a reason.
 
+### More files count as tests
+
+`howells-fix` formats test files but does not apply lint fixes to them. That now covers `__tests__/` directories, type tests (`*.test-d.*`, `*.spec-d.*`) and `vitest.setup.*` / `test/setup.*`, as well as `*.test.*` and `*.spec.*`. Findings in those files still report; fix them by hand.
+
 ### Three bespoke rules give way
 
 - `howells/no-array-method-this-argument` is deleted and `unicorn/no-array-method-this-argument` is back on. Remove config entries for either. A Node stream operator that takes options reports; disable that line with a reason:

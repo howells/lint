@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { realpathSync } from "node:fs";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -450,6 +457,7 @@ test("the bins apply the preset's ignore patterns without a consumer spread", as
     "src/keep.ts": "export const keep = 1;\n",
     "src/generated/client.ts": skipped,
     "src/types.generated.ts": skipped,
+    "src/dist/out.test.ts": skipped,
   });
   // The fixture's default config is the preset itself. A real consumer extends
   // it, which is the form Oxlint drops the ignores from.
@@ -459,11 +467,33 @@ test("the bins apply the preset's ignore patterns without a consumer spread", as
   );
 
   try {
-    for (const binName of ["howells-check", "howells-oxlint", "howells-fix"]) {
-      const result = await runBin(binName, ["src"], root);
-      assert.equal(result.status, 0, `${binName}: ${result.output}`);
-      assert.doesNotMatch(result.output, /debugger/);
+    // A directory walk, then the files named one by one, relative and
+    // absolute, which is how lint-staged passes them.
+    const named = ["src/generated/client.ts", "src/dist/out.test.ts"];
+    for (const targets of [
+      ["src"],
+      ["src/keep.ts", ...named],
+      ["src/keep.ts", ...named.map((file) => path.join(root, file))],
+    ]) {
+      for (const binName of [
+        "howells-check",
+        "howells-oxlint",
+        "howells-fix",
+      ]) {
+        const result = await runBin(binName, targets, root);
+        assert.equal(
+          result.status,
+          0,
+          `${binName} ${targets}: ${result.output}`
+        );
+        assert.doesNotMatch(result.output, /debugger/);
+      }
     }
+    // `howells-fix` rewrote nothing it was told to ignore, test file included.
+    assert.equal(
+      await readFile(path.join(root, "src/dist/out.test.ts"), "utf8"),
+      skipped
+    );
   } finally {
     await rm(root, { force: true, recursive: true });
   }

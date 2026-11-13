@@ -74,9 +74,15 @@ export const noConfigWarning =
 // `extends`, so build output and generated files would be linted unless every
 // consumer copied the list into its own config. Passing it here makes the bins
 // honour it with no consumer config at all.
-const presetIgnoreArgs = ignorePatterns.flatMap((pattern) => [
+//
+// Each pattern is passed twice. As a flag, `**/dist` stops a directory walk but
+// not a file inside it named on the command line, which is how lint-staged
+// calls the bins; `**/dist/**` covers that file.
+export const presetIgnoreArgs = ignorePatterns.flatMap((pattern) => [
   "--ignore-pattern",
   pattern,
+  "--ignore-pattern",
+  `${pattern}/**`,
 ]);
 
 const withProjectConfig = (args, cwd) => {

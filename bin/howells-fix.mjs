@@ -17,7 +17,10 @@ import {
   warnOnShadowedOxfmtConfigs,
   withOxfmtConfig,
 } from "./resolve-oxfmt-config.mjs";
-import { withOxlintConfig } from "./resolve-oxlint-config.mjs";
+import {
+  presetIgnoreArgs,
+  withOxlintConfig,
+} from "./resolve-oxlint-config.mjs";
 import { hasStdinFlag, refuseStdin } from "./stdin-mode.mjs";
 import { isDirectory } from "./target-args.mjs";
 
@@ -118,6 +121,7 @@ if (testTargets.length > 0) {
       "--config",
       TEST_WHITESPACE_CONFIG,
       "--fix",
+      ...presetIgnoreArgs,
       ...oxlintExcludeArgs(resolvedTargets),
       ...testTargets,
     ])

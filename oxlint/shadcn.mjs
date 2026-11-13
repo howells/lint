@@ -68,8 +68,8 @@ export const shadcnJsPlugins = [
 // move to, and `transition-[outline-color]` names a CSS property rather than a
 // design value at all. A repo cannot reach zero without either a judgement call
 // or a suppression, so at error severity the rule gates every upgrade behind
-// unrelated work. It is the only warning in any preset: every other rule is
-// at error or off, as Ultracite ships them.
+// unrelated work. It is the only warning in core, React and Next: every other
+// rule there is at error or off, as Ultracite ships them.
 //
 // Consumers run `howells-check`, which does not pass `--deny-warnings`, so a
 // warning prints with its suggested replacement and exits 0. Add

@@ -22,10 +22,10 @@ A breaking release: it deletes rules, exports and a bin so the package sits clos
 
 ### Changed
 
-- `complexity` is at `error` with Oxlint's default threshold of 20, as Ultracite ships it. It was a warning at 15, and off in test files. No preset rule is a warning now except `shadcn/no-arbitrary-values`.
+- `complexity` is at `error` with Oxlint's default threshold of 20, as Ultracite ships it. It was a warning at 15, and off in test files. Core, React and Next carry no warnings now except `shadcn/no-arbitrary-values`; the Playwright preset keeps the warnings its plugin recommends.
 - `boundaryJsPlugins` is renamed `howellsJsPlugins`. It carries the `howells` policy plugin, not the boundaries plugin.
 - `howells/no-runtime-dynamic-imports` with `allowLocalModules` allows any `import()` whose specifier is a plain `./` or `../` string literal. It no longer reads the target file or walks its dependency graph, so a missing file, an extensionless path, a relative path into another package and a cycle made of dynamic imports stop reporting. The 768-line module-graph analyser behind that proof is deleted.
-- One definition of a test file. Core's four test-file overrides, each on its own glob list, are one override on Ultracite's Vitest globs plus `vitest.setup.*` and `test/setup.*`. `__tests__/` files, type tests (`*.test-d.*`) and setup files now get the size-limit exemptions that `*.test.*` and `*.spec.*` had, and `howells-fix` leaves lint fixes in them report-only as it does for other tests.
+- One definition of a test file. Core's four test-file overrides, each on its own glob list, are one override on Ultracite's Vitest globs plus `vitest.setup.*` and `test/setup.*`. The exact-boolean and dynamic-import exemptions now reach `.mts`, `.cts`, `.mjs` and `.cjs` test files and the setup files. `howells-fix` treats `__tests__/` files, type tests (`*.test-d.*`) and setup files as tests: it formats them and reports lint findings without fixing them.
 
 ## 3.10.2 - 2026-11-05
 

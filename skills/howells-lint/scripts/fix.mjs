@@ -111,10 +111,19 @@ for (const alias of aliases) {
     if (error.status !== 1) throw error;
     listed = "";
   }
+  // Only a quoted module specifier: the alias itself or a subpath of it. A
+  // bare replace would rewrite `lint` inside `lintStatus` or `oxlint/core`.
+  const specifier = new RegExp(
+    `(["'\`])${alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=["'\`/])`,
+    "g"
+  );
   for (const f of listed.split("\n").filter(Boolean)) {
     const src = readFileSync(f, "utf8");
-    writeFileSync(f, src.replaceAll(alias, "@howells/lint"));
-    touched.add(rel(f));
+    const next = src.replace(specifier, "$1@howells/lint");
+    if (next !== src) {
+      writeFileSync(f, next);
+      touched.add(rel(f));
+    }
   }
 }
 // 3. configs
@@ -150,7 +159,7 @@ for (const d of pkgDirs) {
       const src = readFileSync(from, "utf8");
       const to = join(d, "oxlint.config.ts");
       if (/@howells\/lint/.test(src)) {
-        execFileSync("git", ["-C", repo, "mv", from, to]);
+        renameSync(from, to);
       } else {
         unlinkSync(from);
         writeFileSync(to, tpl(preset));
