@@ -102,6 +102,8 @@ for (const alias of aliases) {
         "-g",
         "!pnpm-lock.yaml",
         "-g",
+        "!package.json",
+        "-g",
         "!*.md",
       ],
       { encoding: "utf8" }
@@ -111,15 +113,16 @@ for (const alias of aliases) {
     if (error.status !== 1) throw error;
     listed = "";
   }
-  // Only a quoted module specifier: the alias itself or a subpath of it. A
-  // bare replace would rewrite `lint` inside `lintStatus` or `oxlint/core`.
+  // Only a module specifier in an import, export-from or require: the alias
+  // itself or a subpath of it. A bare replace would rewrite `lint` inside
+  // `lintStatus`, `oxlint/core` or a `"lint"` script key.
   const specifier = new RegExp(
-    `(["'\`])${alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=["'\`/])`,
+    `(\\bfrom\\s*|\\bimport\\s*\\(?\\s*|\\brequire\\(\\s*)(["'\`])${alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=["'\`/])`,
     "g"
   );
   for (const f of listed.split("\n").filter(Boolean)) {
     const src = readFileSync(f, "utf8");
-    const next = src.replace(specifier, "$1@howells/lint");
+    const next = src.replace(specifier, "$1$2@howells/lint");
     if (next !== src) {
       writeFileSync(f, next);
       touched.add(rel(f));
