@@ -4,6 +4,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { normalizeFilename } from "./howells-policy-paths.mjs";
+
 /** A plain string literal that names a file relative to the importer. */
 const isFixedRelativeSpecifier = (source) =>
   source?.type === "Literal" &&
@@ -30,10 +32,6 @@ export const createNoRuntimeDynamicImportsRule = (context) => {
     },
   };
 };
-
-function normalizeFilename(filename) {
-  return filename.replaceAll("\\", "/");
-}
 
 /** The package name a bare specifier belongs to, scope included. */
 function packageNameOf(specifier) {
@@ -249,6 +247,80 @@ export function createNoOutOfBoundsPackageImportsRule(context) {
       message: `"${specifier}" may only be imported inside ${owners}. Reach it through that package's own exports instead.`,
       node,
     });
+  }
+
+  return {
+    ExportAllDeclaration: checkSource,
+    ExportNamedDeclaration: checkSource,
+    ImportDeclaration: checkSource,
+  };
+}
+
+const RELATIVE_IMPORT_PATTERN = /^\.{1,2}(?:\/|$)/u;
+const WORKSPACE_ROOT_SEGMENTS = new Set(["apps", "packages"]);
+
+function findWorkspaceElement(filename) {
+  const segments = normalizeFilename(filename).split("/");
+
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const rootSegment = segments[index];
+
+    if (WORKSPACE_ROOT_SEGMENTS.has(rootSegment) && segments[index + 1]) {
+      return {
+        name: segments[index + 1],
+        type: rootSegment === "apps" ? "app" : "package",
+      };
+    }
+  }
+
+  return null;
+}
+
+function resolveImportPath(filename, specifier) {
+  if (RELATIVE_IMPORT_PATTERN.test(specifier)) {
+    return path.resolve(path.dirname(filename), specifier);
+  }
+
+  return specifier;
+}
+
+export function createNoCrossWorkspaceAppImportsRule(context) {
+  const filename = normalizeFilename(context.filename ?? "");
+  const fromElement = findWorkspaceElement(filename);
+
+  function checkSource(node) {
+    const specifier = node.source?.value;
+
+    if (!fromElement || typeof specifier !== "string") {
+      return;
+    }
+
+    const toElement = findWorkspaceElement(
+      resolveImportPath(filename, specifier)
+    );
+
+    if (!toElement || toElement.type !== "app") {
+      return;
+    }
+
+    if (fromElement.type === "package") {
+      context.report({
+        node,
+        message: `Packages must not import from apps. Move shared code out of "apps/${toElement.name}" before importing it from "packages/${fromElement.name}".`,
+      });
+      return;
+    }
+
+    if (fromElement.type === "app" && fromElement.name !== toElement.name) {
+      context.report({
+        node,
+        message: `Apps must not import from other apps. Move shared code out of "apps/${toElement.name}" before importing it from "apps/${fromElement.name}".`,
+      });
+    }
+  }
+
+  if (!fromElement) {
+    return {};
   }
 
   return {
