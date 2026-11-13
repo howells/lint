@@ -83,7 +83,7 @@
     "lint": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin test oxlint oxfmt oxfmt.config.mjs",
     "lint:fix": "node bin/howells-oxfmt.mjs --write . && oxlint --fix bin scripts test oxlint oxfmt oxfmt.config.mjs",
     "prepare": "howells-husky",
-    "test": "node --test"
+    "test": "node --test \"test/**/*.test.mjs\""
   },
   "dependencies": {
     "@boundaries/config": "1.0.0",
