@@ -7,9 +7,8 @@
 - `/oxlint/next`
 - `/oxlint/playwright` - an overlay for app end-to-end tests, or a standalone preset for a dedicated E2E package.
 - `/oxlint/boundaries` - the workspace boundary rule alone, for configs that can't extend a standard preset.
-- `/oxlint/react-doctor-rules` - compose or disable React Doctor rules in mixed workspaces.
+- `/oxlint/react-doctor-rules` - the React Doctor rule sets, for composing a config by hand.
 - `/oxlint/shadcn` - the shadcn plugin and `componentSourceOverride`.
-- `/oxlint/neon`
 - `/oxlint/gdp` - Ultracite's authorization-proof rules as a standalone export for custom configs; included by core, React, Next and standalone Playwright.
 
 `@howells/lint/oxlint/core` also exports `ignorePatterns`, a `string[]` containing Ultracite's exclusions and generated-file patterns. The `howells-*` bins pass it to Oxlint on every run, so a consumer config needs no entry for it. Oxlint does not read `ignorePatterns` through `extends`, so a tool that runs Oxlint without the bins (an editor extension, bare `oxlint`) only sees the list if the root config spreads it: `ignorePatterns: [...ignorePatterns]`.
@@ -49,5 +48,5 @@ Every Oxlint preset enforces the Howells workspace convention: apps under `apps/
 - `howells/no-deep-package-imports` keeps consumers on a package's published shim. `prefixes` is a list of `{ prefix, depth, allow }`; a subpath the target package declares literally in its own `exports` map is never reported, so `allow` is only for a package the lint run cannot resolve.
 - `howells/no-out-of-bounds-package-imports` confines a dependency namespace to the directory that owns it. `packages` takes exact names or `*`-suffixed prefixes, `within` the owning directories; with either list empty the rule is inert.
 - `howells/no-raw-colour-in-class-strings` bans a raw colour value inside a bracketed arbitrary class value, because it cannot answer a mode switch or be retuned centrally. `functions` names the merge helpers whose arguments are class strings, `allowFunctions` the CSS functions permitted inside the brackets (default `["var"]`), `allowIn` the paths exempt from it.
-- The `howells` plugin is already loaded by every preset through `jsPlugins`, so a consumer only adds the rule entry. That holds for `shadcn` and `neon` too, which extend no other preset: a config extending a preset that lacked the entry was refused with "Plugin 'howells' not found" and linted nothing at all.
+- The `howells` plugin is already loaded by every preset through `jsPlugins`, so a consumer only adds the rule entry. That holds for `shadcn` too, which extends no other preset: a config extending a preset that lacked the entry was refused with "Plugin 'howells' not found" and linted nothing at all.
 - The four shadcn design-system rules are the other opt-in set. The plugin is loaded by the React and Next presets, so a consumer on either only adds the rule entry. A repo whose components resolve through a workspace alias also needs `settings.shadcn.ui` in its own root config: Oxlint reads `settings` from the root config only and doesn't merge it through `extends`.

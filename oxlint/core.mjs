@@ -3,7 +3,7 @@ import ultraciteAntiSlop from "ultracite/oxlint/anti-slop";
 import ultraciteCore from "ultracite/oxlint/core";
 import ultraciteVitest from "ultracite/oxlint/vitest";
 
-import { boundaryJsPlugins, boundaryRules } from "./boundaries.mjs";
+import { howellsJsPlugins, boundaryRules } from "./boundaries.mjs";
 import gdp from "./gdp.mjs";
 import { ignorePatterns } from "./ignore-patterns.mjs";
 import { testFileGlobs } from "./test-files.mjs";
@@ -19,7 +19,7 @@ export { ignorePatterns };
 export default defineConfig({
   extends: [ultraciteCore, ultraciteVitest, gdp, ultraciteAntiSlop],
   ignorePatterns,
-  jsPlugins: boundaryJsPlugins,
+  jsPlugins: howellsJsPlugins,
   options: {
     typeAware: true,
   },
@@ -31,10 +31,6 @@ export default defineConfig({
       files: testFileGlobs,
       plugins: ["vitest"],
       rules: {
-        // A suite is one long callback; size limits measure nothing there.
-        complexity: "off",
-        "max-lines-per-function": "off",
-        "max-statements": "off",
         // `vitest/prefer-import-in-mock` requires `vi.mock(import("./dep"))`,
         // which the dynamic-import ban rejects for a package. The ban exists
         // to keep runtime loading traceable, so it yields in tests.
@@ -70,38 +66,9 @@ export default defineConfig({
       "error",
       { ignoreClassesWithImplements: "all", ignoreOverrideMethods: true },
     ],
-    complexity: [
-      "warn",
-      {
-        max: 15,
-      },
-    ],
     // Follow xo: typed exhaustiveness handles unions and open types together.
     // https://github.com/xojs/eslint-config-xo-typescript/blob/main/index.js
     "default-case": "off",
-    "max-lines": [
-      "error",
-      {
-        max: 600,
-        skipBlankLines: true,
-        skipComments: true,
-      },
-    ],
-    "max-lines-per-function": [
-      "warn",
-      {
-        IIFEs: true,
-        max: 120,
-        skipBlankLines: true,
-        skipComments: true,
-      },
-    ],
-    "max-statements": [
-      "warn",
-      {
-        max: 45,
-      },
-    ],
     // The native fix rewrites `fileURLToPath(import.meta.url)` to
     // `import.meta.filename`, which bundlers leave undefined.
     "unicorn/prefer-import-meta-properties": "off",

@@ -2,7 +2,7 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
-## Unreleased: back toward Ultracite
+## 4.0.0: back toward Ultracite
 
 ### The stock type-aware engine
 
@@ -18,6 +18,18 @@ Do not switch the rule off in config. An `OXLINT_TSGOLINT_PATH` override still w
 ### Ignore patterns need no spread
 
 The bins pass the preset's ignore list to Oxlint, so `ignorePatterns: [...ignorePatterns]` can come out of a config whose scripts use `howells-check` and `howells-fix`. Keep it if an editor extension or a bare `oxlint` script reads the same config. A repo's own entries still apply on top.
+
+### Exports and presets removed
+
+- `disabledReactDoctorRules` is gone. Give a package with no React its own `oxlint.config.ts` extending `core` rather than switching the React rules off under a root `next` config.
+- `boundarySettings` is gone; delete the import and the `settings: boundarySettings` line.
+- `boundaryJsPlugins` is now `howellsJsPlugins`.
+- `@howells/lint/oxlint/neon` is gone. A repo that wants the Neon import restrictions takes `createOxlintConfig()` from `@howells/neon/lint` directly.
+- The `howells-ultracite` bin is gone.
+
+### Severities follow Ultracite
+
+`complexity` moves from a warning at 15 to an error at Oxlint's default of 20, and applies in test files. `max-lines`, `max-lines-per-function` and `max-statements` are off. Remove config entries that restated the old thresholds. A function over 20 fails lint: split it, or disable the line with a reason.
 
 ### Three bespoke rules give way
 

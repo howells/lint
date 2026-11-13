@@ -5,7 +5,6 @@ import { test } from "node:test";
 
 import core from "../oxlint/core.mjs";
 import next from "../oxlint/next.mjs";
-import { disabledReactDoctorRules } from "../oxlint/react-doctor-rules.mjs";
 import react from "../oxlint/react.mjs";
 import {
   corePresetUrl,
@@ -88,19 +87,6 @@ test("only the Next preset admits the function-declaration component form", () =
     "arrow-function",
     "function-declaration",
   ]);
-});
-
-test("the React Doctor escape hatch covers every rule the presets enable", () => {
-  const enabled = [
-    ...ruleNamesWithPrefix(react, "react-doctor/"),
-    ...ruleNamesWithPrefix(next, "react-doctor/"),
-  ];
-  const uncovered = enabled.filter(
-    (ruleName) => !(ruleName in disabledReactDoctorRules)
-  );
-
-  assert.ok(enabled.length > 0);
-  assert.deepEqual(uncovered, []);
 });
 
 test("React preset rejects generic component suffixes", async () => {

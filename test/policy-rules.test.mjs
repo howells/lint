@@ -6,7 +6,6 @@ import { test } from "node:test";
 import boundaries from "../oxlint/boundaries.mjs";
 import core from "../oxlint/core.mjs";
 import gdp from "../oxlint/gdp.mjs";
-import neon from "../oxlint/neon.mjs";
 import next from "../oxlint/next.mjs";
 import playwright from "../oxlint/playwright.mjs";
 import react from "../oxlint/react.mjs";
@@ -207,7 +206,6 @@ test("every Oxlint preset puts the policy plugin in scope", () => {
     ["boundaries", boundaries],
     ["core", core],
     ["gdp", gdp],
-    ["neon", neon],
     ["next", next],
     ["playwright", playwright],
     ["react", react],

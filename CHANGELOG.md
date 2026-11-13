@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 4.0.0 - 2026-11-13
+
+A breaking release: it deletes rules, exports and a bin so the package sits closer to Ultracite. `MIGRATIONS.md` lists what a consumer changes.
 
 ### Fixed
 
@@ -13,8 +15,15 @@
 - `howells/prefer-supported-import-meta-properties`. `unicorn/prefer-import-meta-properties` stays off, so nothing enforces a module-path style. Remove any config entry or disable comment that names the deleted rule.
 - The `howells-ultracite` bin. It forwarded to the Ultracite CLI, which this package only uses as a source of presets; no consumer repo called it.
 
+- `disabledReactDoctorRules`. It switched off every React Doctor rule at once. A package with no React extends `core`; a package with React takes the rules.
+- `boundarySettings`, an empty object.
+- The `@howells/lint/oxlint/neon` preset and the `@howells/neon` dependency. No consumer extended it.
+- Core's size limits: `max-lines` (600), `max-lines-per-function` (120) and `max-statements` (45). Ultracite leaves all three off.
+
 ### Changed
 
+- `complexity` is at `error` with Oxlint's default threshold of 20, as Ultracite ships it. It was a warning at 15, and off in test files. No preset rule is a warning now except `shadcn/no-arbitrary-values`.
+- `boundaryJsPlugins` is renamed `howellsJsPlugins`. It carries the `howells` policy plugin, not the boundaries plugin.
 - `howells/no-runtime-dynamic-imports` with `allowLocalModules` allows any `import()` whose specifier is a plain `./` or `../` string literal. It no longer reads the target file or walks its dependency graph, so a missing file, an extensionless path, a relative path into another package and a cycle made of dynamic imports stop reporting. The 768-line module-graph analyser behind that proof is deleted.
 - One definition of a test file. Core's four test-file overrides, each on its own glob list, are one override on Ultracite's Vitest globs plus `vitest.setup.*` and `test/setup.*`. `__tests__/` files, type tests (`*.test-d.*`) and setup files now get the size-limit exemptions that `*.test.*` and `*.spec.*` had, and `howells-fix` leaves lint fixes in them report-only as it does for other tests.
 

@@ -20,9 +20,6 @@ importers:
       '@gdp-ts/core':
         specifier: 0.1.0
         version: 0.1.0(oxlint@1.91.0(oxlint-tsgolint@7.0.2005))
-      '@howells/neon':
-        specifier: ^0.2.0
-        version: 0.2.0
       '@manypkg/cli':
         specifier: 0.25.1
         version: 0.25.1
@@ -139,24 +136,6 @@ packages:
     resolution: {integrity: sha512-p8TmJQ6oIRSYbm3HS3xNjN2cnD287jkeuUz62vSwyjtgMeqQAsVuTuFziEgb1Usq992FFiiDKe2rPTfKAM75ow==}
     engines: {node: '>=24.15.0'}
     hasBin: true
-
-  '@howells/neon@0.2.0':
-    resolution: {integrity: sha512-+ZHBWnYb/WFtypKapfYZCZBYz/3mlSa9DQjK4Z3782slzXExtLs7TC5j71BohW/CcQqpDU0VkwbDCQcM4Kq0Gw==}
-    engines: {node: '>=20'}
-    peerDependencies:
-      '@neondatabase/serverless': ^1.1.0
-      drizzle-kit: ^0.31.0
-      drizzle-orm: ^0.45.0
-      pg: ^8.11.0
-    peerDependenciesMeta:
-      '@neondatabase/serverless':
-        optional: true
-      drizzle-kit:
-        optional: true
-      drizzle-orm:
-        optional: true
-      pg:
-        optional: true
 
   '@manypkg/cli@0.25.1':
     resolution: {integrity: sha512-lag906FyiNxzZjsRErkUD5/to174I2JzPk5bZubuJp6loMKKJn73zrtqeU7nHlVkHBg3tgXDTJj22HxUDxLRXw==}
@@ -1615,8 +1594,6 @@ snapshots:
   '@howells/husky@0.3.0':
     dependencies:
       husky: 9.1.7
-
-  '@howells/neon@0.2.0': {}
 
   '@manypkg/cli@0.25.1':
     dependencies:
