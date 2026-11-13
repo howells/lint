@@ -1,9 +1,10 @@
-import { existsSync, globSync, statSync } from "node:fs";
+import { existsSync, globSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-const explicitConfigPrefixes = ["--config=", "-c="];
+import { hasExplicitConfig, isDirectory } from "./target-args.mjs";
+
 const projectConfigNames = [
   "oxfmt.config.ts",
   "oxfmt.config.mts",
@@ -16,15 +17,6 @@ const autoDiscoveredConfigNames = [".oxfmtrc.json", ".oxfmtrc.jsonc"];
 const packagedConfigPath = fileURLToPath(
   new URL("../oxfmt/index.mjs", import.meta.url)
 );
-
-function hasExplicitConfig(args) {
-  return args.some(
-    (arg) =>
-      arg === "--config" ||
-      arg === "-c" ||
-      explicitConfigPrefixes.some((prefix) => arg.startsWith(prefix))
-  );
-}
 
 function findProjectConfig(cwd) {
   let directory = path.resolve(cwd);
@@ -59,14 +51,6 @@ function findProjectConfig(cwd) {
 const configGlobs = [...projectConfigNames, ...autoDiscoveredConfigNames].map(
   (name) => `**/${name}`
 );
-
-const isDirectory = (target) => {
-  try {
-    return statSync(target).isDirectory();
-  } catch {
-    return false;
-  }
-};
 
 // A pinned `--config` applies to every file in the run, so a write across a
 // directory that holds its own configs deeper down formats them to the pinned

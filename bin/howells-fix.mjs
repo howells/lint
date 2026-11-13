@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { globSync, statSync } from "node:fs";
+import { globSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -19,6 +19,7 @@ import {
 } from "./resolve-oxfmt-config.mjs";
 import { withOxlintConfig } from "./resolve-oxlint-config.mjs";
 import { hasStdinFlag, refuseStdin } from "./stdin-mode.mjs";
+import { isDirectory } from "./target-args.mjs";
 
 // A lint autofix is never applied to a test file. Oxlint calls a fix safe when
 // it preserves the behaviour of the code it rewrites, but in a test the code is
@@ -40,14 +41,6 @@ const isTestFile = (target) =>
 const TEST_WHITESPACE_CONFIG = fileURLToPath(
   new URL("../oxlint/test-whitespace.mjs", import.meta.url)
 );
-
-const isDirectory = (target) => {
-  try {
-    return statSync(target).isDirectory();
-  } catch {
-    return false;
-  }
-};
 
 // The report-only stage needs the test files named explicitly, because there is
 // no inverse of `--ignore-pattern` to say "these and nothing else".

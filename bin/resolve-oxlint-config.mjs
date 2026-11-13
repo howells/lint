@@ -2,6 +2,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
+import { hasExplicitConfig } from "./target-args.mjs";
+
 // Oxlint discovers its own config, but only some spellings of it. Measured
 // against the pinned Oxlint: `oxlint.config.ts` and `oxlint.config.mts` are
 // found; `oxlint.config.cts`, `.js`, `.mjs` and `.cjs` are not. A project
@@ -9,7 +11,6 @@ import process from "node:process";
 // run is quiet and exits 0, so nothing announces that the config was never
 // read. One consumer repo had 26 such files and had been linting on Oxlint's
 // defaults throughout.
-const explicitConfigPrefixes = ["--config=", "-c="];
 
 // Spellings Oxlint finds on its own. Leave these alone: Oxlint also applies a
 // nested config to the directory it sits in, and passing `--config` pins one
@@ -28,15 +29,6 @@ const flagRequiredProjectNames = [
 ];
 
 const autoDiscoveredRcNames = [".oxlintrc.json", ".oxlintrc.jsonc"];
-
-function hasExplicitConfig(args) {
-  return args.some(
-    (arg) =>
-      arg === "--config" ||
-      arg === "-c" ||
-      explicitConfigPrefixes.some((prefix) => arg.startsWith(prefix))
-  );
-}
 
 // Walk up from the cwd and report the first config of any kind. Whichever
 // comes first wins, so a directory holding both an auto-discovered spelling
