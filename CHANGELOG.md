@@ -11,6 +11,7 @@
 ### Changed
 
 - `howells/no-runtime-dynamic-imports` with `allowLocalModules` allows any `import()` whose specifier is a plain `./` or `../` string literal. It no longer reads the target file or walks its dependency graph, so a missing file, an extensionless path, a relative path into another package and a cycle made of dynamic imports stop reporting. The 768-line module-graph analyser behind that proof is deleted.
+- One definition of a test file. Core's four test-file overrides, each on its own glob list, are one override on Ultracite's Vitest globs plus `vitest.setup.*` and `test/setup.*`. `__tests__/` files, type tests (`*.test-d.*`) and setup files now get the size-limit exemptions that `*.test.*` and `*.spec.*` had, and `howells-fix` leaves lint fixes in them report-only as it does for other tests.
 
 ## 3.10.2 - 2026-11-05
 

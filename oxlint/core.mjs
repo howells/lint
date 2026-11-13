@@ -5,6 +5,7 @@ import ultraciteVitest from "ultracite/oxlint/vitest";
 
 import { boundaryJsPlugins, boundaryRules } from "./boundaries.mjs";
 import gdp from "./gdp.mjs";
+import { testFileGlobs } from "./test-files.mjs";
 
 // Oxlint only reads ignores from the consumer's root config, not `extends`.
 // Consumers spread this export into their own ignorePatterns; see MIGRATIONS.md.
@@ -26,91 +27,36 @@ export default defineConfig({
   options: {
     typeAware: true,
   },
+  // One override for test files, on the globs in `test-files.mjs`. `vitest` is
+  // named in `plugins` because Oxlint drops a rule entry whose plugin is not in
+  // scope at that point.
   overrides: [
     {
-      files: [
-        "**/*.{test,spec,test-d,spec-d}.*",
-        "**/__tests__/**",
-        "**/vitest.setup.{ts,tsx,js,jsx,mts,mjs}",
-        "**/test/setup.{ts,tsx,js,jsx,mts,mjs}",
-      ],
+      files: testFileGlobs,
       plugins: ["vitest"],
       rules: {
+        // A suite is one long callback; size limits measure nothing there.
+        complexity: "off",
+        "max-lines-per-function": "off",
+        "max-statements": "off",
+        // `vitest/prefer-import-in-mock` requires `vi.mock(import("./dep"))`,
+        // which the dynamic-import ban rejects for a package. The ban exists
+        // to keep runtime loading traceable, so it yields in tests.
+        "howells/no-runtime-dynamic-imports": "off",
         // Vitest deliberately returns `any` from asymmetric matchers:
         // https://github.com/vitest-dev/vitest/pull/8129
         "typescript/no-unsafe-argument": "off",
         "typescript/no-unsafe-assignment": "off",
         "typescript/no-unsafe-member-access": "off",
-        // Native support covers literal messages; variables need maxArgs: 2.
-        "vitest/valid-expect": ["error", { maxArgs: 2 }],
-      },
-    },
-    {
-      files: ["**/*.test.{js,jsx,ts,tsx}", "**/*.spec.{js,jsx,ts,tsx}"],
-      rules: {
-        complexity: "off",
-        "max-lines-per-function": "off",
-        "max-statements": "off",
-      },
-    },
-    // `vitest/prefer-to-be-truthy` and `vitest/prefer-to-be-falsy` autofix
-    // `toBe(true)` to `toBeTruthy()` and `toBe(false)` to `toBeFalsy()`. Those
-    // are not the same assertion: `toBe(true)` fails on the string "yes" and on
-    // 1, and `toBeTruthy()` passes both. A test that pinned an exact boolean
-    // comes out of the fixer accepting anything truthy, and because the rewrite
-    // happens inside `howells-fix` it usually happens during a pre-commit hook,
-    // where nobody reads the diff. Measured: 276 assertions rewritten in
-    // colorscope, 121 in motif, one of which broke an env test.
-    //
-    // There is no way to keep the rule and drop its fix - Oxlint classes both
-    // fixes as safe, so `--fix` applies them and only `--fix-dangerously` is
-    // gated. Severity does not help either: motif had them at "warn" and the
-    // fixer still rewrote its tests. So the rules are off, and `toBe(true)`
-    // stays the assertion the author wrote.
-    //
-    // The file globs match Ultracite's own Vitest override, so the `__tests__`
-    // and type-test spellings are covered too. `vitest` is named in `plugins`
-    // because Oxlint resolves a rule entry against the plugin set in scope at
-    // that point.
-    {
-      files: [
-        "**/*.{test,spec,test-d,spec-d}.{ts,tsx,js,jsx}",
-        "**/__tests__/**/*.{ts,tsx,js,jsx}",
-      ],
-      plugins: ["vitest"],
-      rules: {
+        // The autofix turns `toBe(true)` into `toBeTruthy()`, which also
+        // passes "yes" and 1. Oxlint classes the fix as safe, so `--fix`
+        // applies it at any severity; off is the only way to keep the exact
+        // assertion. Measured: 276 assertions rewritten in colorscope, 121 in
+        // motif, one of which broke an env test.
         "vitest/prefer-to-be-falsy": "off",
         "vitest/prefer-to-be-truthy": "off",
-      },
-    },
-    // `howells/no-runtime-dynamic-imports` and `vitest/prefer-import-in-mock`
-    // contradict each other inside a test file. `prefer-import-in-mock` demands
-    // that the module named in `vi.mock` be written as a dynamic import  -
-    // "Substitute `./dep` with `import('./dep')`" - because that is what gives
-    // the factory's `importOriginal()` its types. `no-runtime-dynamic-imports`
-    // rejects package and computed imports. So a package `vi.mock` call reports
-    // under one rule or the other whichever way it is written, and neither
-    // report is clearable. Measured on the 3.3.4 preset: the string form draws
-    // `vitest(prefer-import-in-mock)`, and `vi.mock(import("./dep"), …)` draws
-    // `howells(no-runtime-dynamic-imports)`.
-    //
-    // The dynamic-import ban exists to keep package loading traceable at
-    // runtime, and a test file has no runtime to trace, so that rule is the one
-    // that yields - and only here. Outside these globs it still holds, and
-    // `prefer-import-in-mock` has nothing to say there because `vi.mock` is a
-    // test-file construct. Both rules stay on and both are satisfiable.
-    //
-    // The globs match the Vitest override above, plus the setup files Vitest
-    // loads before a suite, which may mock in the same way.
-    {
-      files: [
-        "**/*.{test,spec,test-d,spec-d}.{ts,tsx,js,jsx}",
-        "**/__tests__/**/*.{ts,tsx,js,jsx}",
-        "**/vitest.setup.{ts,tsx,js,jsx,mts,mjs}",
-        "**/test/setup.{ts,tsx,js,jsx,mts,mjs}",
-      ],
-      rules: {
-        "howells/no-runtime-dynamic-imports": "off",
+        // Native support covers literal messages; variables need maxArgs: 2.
+        "vitest/valid-expect": ["error", { maxArgs: 2 }],
       },
     },
   ],

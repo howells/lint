@@ -5,6 +5,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { testFileGlobs } from "../oxlint/test-files.mjs";
 import { exitFromStages, runStage } from "./empty-target-set.mjs";
 import {
   isPatternTarget,
@@ -34,8 +35,8 @@ import { hasStdinFlag, refuseStdin } from "./stdin-mode.mjs";
 // still formats them, because formatting moves whitespace and cannot change
 // what an assertion asserts. For the same reason, rules whose fixes are
 // whitespace alone (`oxlint/test-whitespace.mjs`) are fixed in test files.
-const TEST_FILE_GLOBS = ["**/*.test.*", "**/*.spec.*"];
-const TEST_FILE_PATTERN = /\.(?:test|spec)\.[^./\\]+$/u;
+const isTestFile = (target) =>
+  testFileGlobs.some((glob) => path.matchesGlob(path.resolve(target), glob));
 const TEST_WHITESPACE_CONFIG = fileURLToPath(
   new URL("../oxlint/test-whitespace.mjs", import.meta.url)
 );
@@ -60,13 +61,13 @@ const testFileTargets = (targets) => {
     }
 
     if (!isDirectory(target)) {
-      if (TEST_FILE_PATTERN.test(target)) {
+      if (isTestFile(target)) {
         found.add(target);
       }
       continue;
     }
 
-    const matches = globSync(TEST_FILE_GLOBS, {
+    const matches = globSync(testFileGlobs, {
       cwd: target,
       exclude: (candidate) => candidate.includes("node_modules"),
     });
@@ -109,7 +110,7 @@ const lintFixStage = runStage(
   "oxlint",
   withOxlintConfig([
     useDangerousFixes ? "--fix-dangerously" : "--fix",
-    ...TEST_FILE_GLOBS.flatMap((glob) => ["--ignore-pattern", glob]),
+    ...testFileGlobs.flatMap((glob) => ["--ignore-pattern", glob]),
     ...oxlintExcludeArgs(resolvedTargets),
     ...oxlintOptions,
     ...pathTargets(resolvedTargets),
