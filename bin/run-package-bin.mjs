@@ -73,10 +73,7 @@ export const resolvePackageBin = (packageName, binName) => {
 const spawnEnv = (packageName) => {
   const env = inheritedEnv();
 
-  if (
-    (packageName !== "oxlint" && packageName !== "ultracite") ||
-    env.OXLINT_TSGOLINT_PATH
-  ) {
+  if (packageName !== "oxlint" || env.OXLINT_TSGOLINT_PATH) {
     return env;
   }
 

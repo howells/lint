@@ -7,6 +7,7 @@
 - The patched tsgolint build. Type-aware rules run on the stock `oxlint-tsgolint` 7.0.2005 binary again, as they did up to 3.9.1, and the package drops from 136 MB to under 1 MB. `typescript/strict-void-return` stays at `error`; it reports `promisify(execFile)` on the stock engine, which takes a disable comment with a reason. See `docs/adr/0006` and `MIGRATIONS.md`. Releases no longer need a Go toolchain: `release.yml` runs lint and the full test suite, then publishes.
 - `howells/no-array-method-this-argument`. Core takes Ultracite's `unicorn/no-array-method-this-argument` again. The replacement existed to exempt `Readable.from(...).map(fn, { concurrency })`, which two files across the consumer repos use; those lines take a disable comment.
 - `howells/prefer-supported-import-meta-properties`. `unicorn/prefer-import-meta-properties` stays off, so nothing enforces a module-path style. Remove any config entry or disable comment that names the deleted rule.
+- The `howells-ultracite` bin. It forwarded to the Ultracite CLI, which this package only uses as a source of presets; no consumer repo called it.
 
 ### Changed
 

@@ -18,7 +18,6 @@
     "howells-fix": "bin/howells-fix.mjs",
     "howells-oxfmt": "bin/howells-oxfmt.mjs",
     "howells-oxlint": "bin/howells-oxlint.mjs",
-    "howells-ultracite": "bin/howells-ultracite.mjs",
     "howells-workspace-check": "bin/howells-workspace-check.mjs",
     "howells-workspace-fix": "bin/howells-workspace-fix.mjs"
   },
