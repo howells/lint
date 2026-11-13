@@ -61,6 +61,12 @@
 
 - Retire `anti-slop/no-shape-in-symbol-names` in the shared core policy, inherited by React, Next and standalone Playwright. Its substring ban rejects canonical schema identifiers, geometry terms and imported contract names. Other anti-slop rules remain enabled. Real-file regression tests cover all four presets and prove that input-boundary checks still report.
 
+## 3.9.0 - 2026-10-18
+
+### Added
+
+- `howells/require-disable-reason`, on at `error` in core and inherited by every preset. An `oxlint-disable` or `eslint-disable` comment of any form must say why after `--`. Every bare disable comment in a consumer reports on first run; see `MIGRATIONS.md`. This entry was added retrospectively: 3.9.0 shipped without one.
+
 ## 3.8.0 - 2026-10-17
 
 ### Fixed
@@ -321,6 +327,12 @@
 ### Changed
 
 - `howells/no-raw-type-utilities` now gives an arbitrary size (`text-[13px]`) its own fix, separate from a named one: use the nearest step on the scale, or add a named step to `@theme`. A one-off pixel value names nothing, so the next file writes its own and the ramp grows a step nobody chose. The escape hatch stays open via `allow`.
+
+## 2.2.0 — 2026-08-27
+
+### Changed
+
+- Oxlint 1.80.0, Ultracite 7.10.6 and Oxfmt 0.65.0. `react/react-compiler` no longer exists: Oxlint split it into per-category rules and Ultracite enables 22 of them at `error`, so a config that names the old rule fails to parse. Core gains `one-var` (never) and `jsdoc/no-blank-blocks`. See "The React Compiler rule becomes twenty-two rules" in `MIGRATIONS.md`. This entry was added retrospectively: 2.2.0 shipped without one.
 
 ## 2.1.0 — 2026-08-20
 

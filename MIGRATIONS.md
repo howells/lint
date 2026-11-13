@@ -146,6 +146,16 @@ Core, React, Next and standalone Playwright no longer reject an identifier merel
 
 The shared policy retires only `anti-slop/no-shape-in-symbol-names`. Other anti-slop checks remain enabled, including input-boundary validation and type-assertion requirements. Keep canonical domain names; no consumer rule override or alias is needed. Remove any consumer exception for this rule after upgrading.
 
+## 3.9.0: every disable comment says why
+
+`howells/require-disable-reason` is on at `error` in every preset. A disable comment, in any of the `oxlint-disable`, `eslint-disable`, `-next-line` and `-line` forms, must end with `--` and a reason:
+
+```ts
+// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- an SVG <g> cannot be a <button>
+```
+
+A repo arriving from 3.8 or earlier reports once per bare disable comment. There is no autofix, because the reason has to be written by someone who knows it. Delete the comments that no longer suppress anything first, then add reasons to the rest.
+
 ## 3.8.0: correct switches, test matchers and class contracts
 
 Core, React, Next and standalone Playwright inherit the rule changes. No tool versions change: Oxlint stays pinned to 1.86.0.
@@ -341,6 +351,20 @@ Version 1.1.1 changes two consumer-visible behaviors:
 Version 1.1.0 corrects the runtime dependency graph used by Ultracite's Oxlint JS plugins. It keeps ESLint on the newest release supported by the complete GitHub plugin tree and pins a compatible TypeScript runtime for Ultracite and SonarJS. Consumers do not need peer overrides or direct lint-tool dependencies; remove any temporary ESLint or TypeScript override added for 1.0.0, update `@howells/lint`, and reinstall.
 
 The 1.1.0 binaries also pass the nearest `oxfmt.config.*` file to Oxfmt explicitly and fall back to the packaged Howells preset when no project config exists. This repairs 1.0.0's silent use of Oxfmt defaults. Run the project's `lint:fix` once after updating and review the resulting formatting changes.
+
+## Bins removed during 0.x
+
+A repo on 0.3.x or earlier may call bins that no longer exist. They were removed in 0.4.0:
+
+| Removed bin | What it ran | Use now |
+| --- | --- | --- |
+| `howells-lint` | Biome check | `howells-check` |
+| `howells-lint-strict` | Biome with a security and correctness subset | `howells-check` |
+| `howells-format` | Biome check with `--write` | `howells-fix` |
+| `howells-ox-check` | Oxfmt check then Oxlint | `howells-check` |
+| `howells-ox-fix` | Oxfmt write then Oxlint fix | `howells-fix` |
+
+`howells-biome` went with the Biome lane in 2.0.0. Update `package.json` scripts, `lint-staged` entries and Husky hooks that name any of these; a hook that calls a missing bin fails with `ENOENT` rather than a lint error.
 
 ## 1.0.0 breaking changes
 
