@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- The patched tsgolint build. Type-aware rules run on the stock `oxlint-tsgolint` 7.0.2005 binary again, as they did up to 3.9.1, and the package drops from 136 MB to under 1 MB. `typescript/strict-void-return` stays at `error`; it reports `promisify(execFile)` on the stock engine, which takes a disable comment with a reason. See `docs/adr/0006` and `MIGRATIONS.md`. Releases no longer need a Go toolchain: `release.yml` runs lint and the full test suite, then publishes.
+
 ## 3.10.2 - 2026-11-05
 
 ### Fixed

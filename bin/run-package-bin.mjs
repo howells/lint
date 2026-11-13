@@ -7,7 +7,6 @@ import { dirname, join } from "node:path";
 import process from "node:process";
 
 import { inheritedEnv } from "./env.mjs";
-import { resolveBundledTsgolint } from "./resolve-bundled-tsgolint.mjs";
 
 const require = createRequire(import.meta.url);
 const currentDir = import.meta.dirname;
@@ -66,8 +65,11 @@ export const resolvePackageBin = (packageName, binName) => {
   );
 };
 
-// The bundled backend contains the pinned native strict-void-return correction.
-// Preserve an explicit upstream override, including executable and JS launchers.
+// Oxlint's type-aware mode discovers the tsgolint executable by walking up from
+// the working directory for `node_modules/.bin/tsgolint`. Consumers who install
+// only `@howells/lint` keep tsgolint inside this package's dependency tree, out
+// of that search path, so point Oxlint straight at the pinned launcher. An
+// explicit OXLINT_TSGOLINT_PATH wins.
 const spawnEnv = (packageName) => {
   const env = inheritedEnv();
 
@@ -80,7 +82,7 @@ const spawnEnv = (packageName) => {
 
   return {
     ...env,
-    OXLINT_TSGOLINT_PATH: resolveBundledTsgolint(),
+    OXLINT_TSGOLINT_PATH: resolvePackageBin("oxlint-tsgolint", "tsgolint"),
   };
 };
 

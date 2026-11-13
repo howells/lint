@@ -31,9 +31,7 @@
     "vendor/**",
     "docs/**/*.md",
     "README.md",
-    "MIGRATIONS.md",
-    "scripts/build-native.mjs",
-    "scripts/check-native.mjs"
+    "MIGRATIONS.md"
   ],
   "type": "commonjs",
   "exports": {
@@ -80,24 +78,13 @@
     }
   },
   "publishConfig": {
-    "access": "public",
-    "executableFiles": [
-      "vendor/tsgolint/bin/darwin-arm64/tsgolint",
-      "vendor/tsgolint/bin/darwin-x64/tsgolint",
-      "vendor/tsgolint/bin/linux-arm64/tsgolint",
-      "vendor/tsgolint/bin/linux-x64/tsgolint",
-      "vendor/tsgolint/bin/win32-arm64/tsgolint.exe",
-      "vendor/tsgolint/bin/win32-x64/tsgolint.exe"
-    ]
+    "access": "public"
   },
   "scripts": {
     "lint": "node bin/howells-oxfmt.mjs --check . && oxlint --deny-warnings bin scripts test oxlint oxfmt oxfmt.config.mjs",
     "lint:fix": "node bin/howells-oxfmt.mjs --write . && oxlint --fix bin scripts test oxlint oxfmt oxfmt.config.mjs",
     "prepare": "howells-husky",
-    "test": "node --test",
-    "native:build": "node scripts/build-native.mjs",
-    "native:check": "node scripts/check-native.mjs",
-    "prepack": "node scripts/check-native.mjs"
+    "test": "node --test"
   },
   "dependencies": {
     "@boundaries/config": "1.0.0",

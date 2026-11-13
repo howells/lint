@@ -2,6 +2,19 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## Unreleased: back toward Ultracite
+
+### The stock type-aware engine
+
+The patched tsgolint build shipped in 3.10.0 to 3.10.2 is gone. Nothing changes in a consumer's config. `typescript/strict-void-return` again reports `promisify(execFile)`, which is a false positive in the upstream engine. Add a disable comment with a reason at each site:
+
+```ts
+// oxlint-disable-next-line typescript/strict-void-return -- promisify(execFile) picks an overload the rule misreads
+const run = promisify(execFile);
+```
+
+Do not switch the rule off in config. An `OXLINT_TSGOLINT_PATH` override still wins.
+
 ## 3.10.0: applicability corrections and browser compatibility
 
 These notes describe version 3.10.0 and the 3.9.2 corrections it carries (3.9.2 was never published). The changes are not certification that any consumer has reached zero findings or preserved its complete behavior.
