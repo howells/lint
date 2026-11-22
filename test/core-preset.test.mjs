@@ -833,6 +833,40 @@ export default { extends: [core], rules: { "typescript/switch-exhaustiveness-che
   }
 });
 
+test("core preset accepts a union switch that returns from every case", async () => {
+  const root = await makeFixtureRoot();
+  try {
+    await writeTypedFixtureConfig(
+      root,
+      `import core from "${corePresetUrl}"; export default { extends: [core] };`
+    );
+    // With no `default` allowed, the switch is the end of the function. Only
+    // the untyped `consistent-return` would read a path past it.
+    await writeFixture(
+      root,
+      "src/returns.ts",
+      [
+        'export const choose = (value: "a" | "b"): number => {',
+        "  switch (value) {",
+        '    case "a": {',
+        "      return 1;",
+        "    }",
+        "",
+        '    case "b": {',
+        "      return 2;",
+        "    }",
+        "  }",
+        "};",
+        "",
+      ].join("\n")
+    );
+    const result = await runOxlint(root);
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("class method options exempt implements and override independently while ordinary methods still report", async () => {
   const root = await makeFixtureRoot();
   try {

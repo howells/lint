@@ -2,6 +2,10 @@
 
 Use these notes when replacing an existing ESLint, Prettier, Biome, or ad hoc Oxlint/Oxfmt setup with `@howells/lint`.
 
+## 4.0.1: exhaustive switches return from their cases
+
+Core turns `typescript/consistent-return` off. A function over a closed union can return from every case of a switch with no `default`. Delete disable comments and dead `default` branches added to satisfy both rules.
+
 ## 4.0.0: back toward Ultracite
 
 ### The stock type-aware engine

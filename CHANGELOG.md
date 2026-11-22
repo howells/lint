@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.1 - 2026-11-22
+
+### Fixed
+
+- A switch over a closed union that returns from every case lints clean. `typescript/switch-exhaustiveness-check` rejects a `default` there, and Ultracite's `typescript/consistent-return`, which reads control flow without types, then reported the function for a path past the switch. Core turns `typescript/consistent-return` off; TypeScript still rejects a missed path against an annotated return type. Delete `consistent-return` disable comments added for these switches.
+
 ## 4.0.0 - 2026-11-13
 
 A breaking release: it deletes rules, exports and a bin so the package sits closer to Ultracite. `MIGRATIONS.md` lists what a consumer changes.
