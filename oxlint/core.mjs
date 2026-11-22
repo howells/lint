@@ -123,6 +123,15 @@ export default defineConfig({
         requireDefaultForNonUnion: true,
       },
     ],
+    // `typescript/switch-exhaustiveness-check` rejects a `default` in a switch
+    // over a closed union, so a function that returns from every case ends at
+    // the switch. Ultracite's `typescript/consistent-return` reads control flow
+    // without types, sees a path past the switch and reports it, so the
+    // function is unwritable without a dead `default` or a mutable result.
+    // TypeScript already rejects a missed path against an annotated return
+    // type and knows the switch is exhaustive; the typed check carries the
+    // intent and the untyped one yields.
+    "typescript/consistent-return": "off",
     "unicorn/filename-case": [
       "error",
       {
